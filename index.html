@@ -36,7 +36,7 @@
 
     .container { max-width: 600px; margin: 0 auto; padding: 12px; }
 
-    .status-bar { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 500; margin-bottom: 12px; padding: 6px 10px; border-radius: 6px; background: #fff; border: 1px solid var(--border); }
+    .status-bar { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 500; margin-bottom: 12px; padding: 8px 12px; border-radius: 6px; background: #fff; border: 1px solid var(--border); }
     .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
     .dot.online { background: var(--success); }
     .dot.offline { background: var(--warning); }
@@ -134,7 +134,7 @@
       </div>
     </div>
 
-    <!-- لوحة أدوات المسؤول -->
+    <!-- أدوات المسؤول -->
     <div class="admin-panel" id="adminControls">
       <h3>لوحة تحكم المسؤول</h3>
       <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -230,24 +230,23 @@
   </div>
 
   <script>
-    // 1. تسجيل Service Worker للعمل أوفلاين
+    // تسجيل ملف Service Worker للتشغيل دون اتصال
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function() {
-        navigator.serviceWorker.register('./sw.js').then(function() {
-          console.log('SW Registered');
-        }).catch(function(err) {
-          console.warn('SW Failed:', err);
+        navigator.serviceWorker.register('./sw.js').catch(function(err) {
+          console.warn('SW Register:', err);
         });
       });
     }
 
     let isAdmin = false;
-    let isCloudConnected = false;
-    let hasPendingSync = false;
+    let isSyncing = false;
     const MASTER_RECOVERY_KEY = "000999";
-    const STORAGE_KEY = 'camp_water_pwa_data_v1';
+    const STORAGE_KEY = 'camp_water_pwa_v2';
+    const PENDING_SYNC_KEY = 'camp_pending_sync_flag';
 
     const defaultData = {
+      updatedAt: 1,
       settings: {
         totalWater: 4000,
         reserveLiters: 500,
@@ -272,7 +271,6 @@
       ]
     };
 
-    // استرجاع البيانات من الذاكرة المحلية أولاً
     function loadLocalState() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
@@ -289,7 +287,7 @@
     let state = loadLocalState();
     renderAll();
 
-    // 2. ربط Firebase السحابي
+    // إعدادات اتصال Firebase
     let db = null;
     try {
       const firebaseConfig = {
@@ -305,47 +303,64 @@
       firebase.initializeApp(firebaseConfig);
       db = firebase.database();
 
-      // مراقبة حالة الاتصال بالإنترنت
+      // مراقبة اتصال الشبكة السحابية
       db.ref('.info/connected').on('value', function(snap) {
         if (snap.val() === true) {
-          isCloudConnected = true;
-          if (hasPendingSync) {
+          const hasPending = localStorage.getItem(PENDING_SYNC_KEY) === 'true';
+          if (hasPending) {
             syncToCloud();
           } else {
-            updateStatusUI('online', 'متصل بالشبكة اللحظية (سحابي)');
+            updateStatusUI('online', 'متصل بالشبكة اللحظية');
           }
         } else {
-          isCloudConnected = false;
-          updateStatusUI('offline', 'وضع عدم الاتصال (حفظ محلي بالجهاز)');
+          checkOfflineStatus();
         }
       });
 
-      // استقبال تحديثات السحابة إن لم تكن هناك تعديلات محلية معلقة
+      // استقبال تحديثات السحابة وحماية التعديلات المحلية بالأختام الزمنية
       db.ref('camp_data').on('value', function(snapshot) {
-        const val = snapshot.val();
-        if (val && val.families && val.families.length > 0) {
-          if (!hasPendingSync) {
-            state = val;
-            saveLocalState();
-            renderAll();
+        const remoteData = snapshot.val();
+        const hasPending = localStorage.getItem(PENDING_SYNC_KEY) === 'true';
+
+        if (remoteData) {
+          const remoteTime = remoteData.updatedAt || 0;
+          const localTime = state.updatedAt || 0;
+
+          // إذا كانت النسخة المحلية أحدث أو يوجد تعديل معلق، نفرض نسختنا على السحابة
+          if (hasPending || localTime > remoteTime) {
+            syncToCloud();
+            return;
           }
+
+          // إذا كانت السحابة أحدث بوضوح، نعتمد بياناتها
+          state = remoteData;
+          saveLocalState();
+          renderAll();
+          updateStatusUI('online', 'متصل بالشبكة اللحظية (محدث)');
         } else {
           syncToCloud();
         }
       });
     } catch (e) {
-      isCloudConnected = false;
-      updateStatusUI('offline', 'وضع عدم الاتصال (حفظ محلي بالجهاز)');
+      checkOfflineStatus();
     }
 
-    // استماع لعودة شبكة المتصفح
     window.addEventListener('online', function() {
-      if (hasPendingSync) syncToCloud();
+      syncToCloud();
     });
+
     window.addEventListener('offline', function() {
-      isCloudConnected = false;
-      updateStatusUI('offline', 'وضع عدم الاتصال (حفظ محلي بالجهاز)');
+      checkOfflineStatus();
     });
+
+    function checkOfflineStatus() {
+      const hasPending = localStorage.getItem(PENDING_SYNC_KEY) === 'true';
+      if (hasPending) {
+        updateStatusUI('offline', 'وضع عدم الاتصال (تعديلات محفوظة ستُرفع تلقائياً)');
+      } else {
+        updateStatusUI('offline', 'وضع عدم الاتصال (حفظ محلي)');
+      }
+    }
 
     function updateStatusUI(type, text) {
       const dot = document.getElementById('statusDot');
@@ -359,29 +374,36 @@
     }
 
     function syncToCloud() {
+      if (isSyncing) return;
       if (!db || !navigator.onLine) {
-        hasPendingSync = true;
-        updateStatusUI('offline', 'وضع عدم الاتصال (تعديلات محفوظة محلياً)');
+        checkOfflineStatus();
         return;
       }
-      updateStatusUI('syncing', 'جاري المزامنة مع السحابة...');
+
+      isSyncing = true;
+      updateStatusUI('syncing', 'جاري رفع التعديلات ومزامنتها...');
+
       db.ref('camp_data').set(state).then(function() {
-        hasPendingSync = false;
-        isCloudConnected = true;
-        updateStatusUI('online', 'متصل بالشبكة اللحظية (تمت المزامنة)');
+        localStorage.removeItem(PENDING_SYNC_KEY);
+        isSyncing = false;
+        updateStatusUI('online', 'متصل بالشبكة اللحظية (تمت المزامنة بنجاح)');
       }).catch(function() {
-        hasPendingSync = true;
-        updateStatusUI('offline', 'تعذرت المزامنة (محفوظ محلياً)');
+        isSyncing = false;
+        localStorage.setItem(PENDING_SYNC_KEY, 'true');
+        checkOfflineStatus();
       });
     }
 
+    // حفظ محلي فوري + وسم الختم الزمني + محاولة مزامنة
     function pushState() {
+      state.updatedAt = Date.now();
       saveLocalState();
+      localStorage.setItem(PENDING_SYNC_KEY, 'true');
       renderAll();
       syncToCloud();
     }
 
-    // 3. إدارة جلسة المسؤول
+    // إدارة الجلسة والمسؤول
     function openAdminModal() {
       if (isAdmin) {
         isAdmin = false;
@@ -448,7 +470,7 @@
       return parseFloat(val.toFixed(1));
     }
 
-    // 4. العمليات الحسابية ورسم الشاشة
+    // الحسابات وتحديث الواجهة
     function renderAll() {
       const s = state.settings || defaultData.settings;
       const totalWater = parseFloat(s.totalWater) || 4000;
