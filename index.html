@@ -6,6 +6,14 @@
   <meta name="theme-color" content="#0284c7">
   <title>نظام مياه المخيم</title>
 
+  <!-- إعدادات تطبيق الويب (PWA) والأيقونة -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="apple-touch-icon" href="icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="مياه المخيم">
+
   <!-- مكتبات Firebase السحابية اللحظية -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -236,7 +244,7 @@
   </div>
 
   <script>
-    // 1. تسجيل Service Worker
+    // تسجيل Service Worker
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function() {
         navigator.serviceWorker.register('./sw.js').then(function(reg) {
@@ -295,7 +303,7 @@
     renderAll();
     checkSyncStatusUI();
 
-    // 2. إعداد اتصال Firebase
+    // ربط Firebase
     let db = null;
     try {
       const firebaseConfig = {
@@ -311,7 +319,6 @@
       firebase.initializeApp(firebaseConfig);
       db = firebase.database();
 
-      // مراقبة الاتصال بالسحابة
       db.ref('.info/connected').on('value', function(snap) {
         if (snap.val() === true) {
           const hasPending = localStorage.getItem(PENDING_SYNC_KEY) === 'true';
@@ -325,12 +332,10 @@
         }
       });
 
-      // استقبال بيانات السحابة (مع حظرها تماماً إذا كان هناك تعديل محلي معلق)
       db.ref('camp_data').on('value', function(snapshot) {
         const remoteData = snapshot.val();
         const hasPending = localStorage.getItem(PENDING_SYNC_KEY) === 'true';
 
-        // الحماية الصارمة: إذا كانت هناك تعديلات محلية لم تُرفع بعد، ارفض بيانات السحابة وارفع بياناتك
         if (hasPending) {
           attemptSync();
           return;
@@ -397,7 +402,6 @@
       });
     }
 
-    // حفظ محلي فوري دائماً ثم محاولة الرفع
     function pushState() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       localStorage.setItem(PENDING_SYNC_KEY, 'true');
@@ -405,7 +409,6 @@
       attemptSync();
     }
 
-    // 3. إدارة جلسة المسؤول
     function openAdminModal() {
       if (isAdmin) {
         isAdmin = false;
@@ -472,7 +475,6 @@
       return parseFloat(val.toFixed(1));
     }
 
-    // 4. العمليات الحسابية ورسم الواجهة
     function renderAll() {
       const s = state.settings || defaultData.settings;
       const totalWater = parseFloat(s.totalWater) || 4000;
@@ -674,3 +676,4 @@
   </script>
 </body>
 </html>
+
