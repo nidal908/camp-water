@@ -92,13 +92,13 @@
     .stat-item strong { font-size: 1rem; }
 
     .card-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-    .consumed-group { display: flex; align-items: center; gap: 6px; }
-    .consumed-group label { font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
-    .consumed-group input { padding: 6px; font-weight: bold; text-align: center; }
+    
+    /* مجموعة السحب الحرة (تدعم المسافات والأرقام المتعددة) */
+    .withdraw-group { display: flex; align-items: center; gap: 6px; }
+    .withdraw-input { width: 85px !important; padding: 6px !important; font-size: 0.9rem !important; text-align: center; border-radius: 6px !important; border: 1px solid var(--border); background: #fff; }
+    .btn-add-w { background: var(--primary); color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer; }
+    .btn-add-w:active { background: var(--primary-dark); }
 
-    .quick-btns { display: flex; gap: 4px; }
-    .btn-step { background: #e2e8f0; border: none; padding: 7px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; cursor: pointer; }
-    .btn-step:active { background: #cbd5e1; }
     .btn-del { background: transparent; border: none; font-size: 1.1rem; cursor: pointer; padding: 4px; }
 
     .btn-log { background: #f1f5f9; border: 1px solid var(--border); color: var(--primary-dark); padding: 5px 9px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
@@ -121,10 +121,9 @@
 
     .log-list { overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
     .log-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 8px; background: #f8fafc; border: 1px solid var(--border); font-size: 0.85rem; }
-    .log-time { color: var(--muted); font-size: 0.75rem; display: block; }
-    .log-val { font-weight: bold; font-size: 0.95rem; }
-    .log-val.pos { color: var(--primary); }
-    .log-val.neg { color: var(--danger); }
+    .log-time { color: var(--muted); font-size: 0.75rem; display: block; margin-top: 2px; }
+    .log-detail { font-size: 0.75rem; color: #0369a1; display: block; margin-top: 1px; font-weight: 500; }
+    .log-val { font-weight: bold; font-size: 0.95rem; color: var(--primary); }
     .btn-undo { background: var(--danger-bg); border: 1px solid #fca5a5; color: var(--danger); border-radius: 4px; padding: 3px 6px; font-size: 0.75rem; font-weight: bold; cursor: pointer; margin-right: 6px; }
 
     .empty-state { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 24px 0; }
@@ -523,7 +522,7 @@
       return parseFloat(val.toFixed(1));
     }
 
-    // إدارة سجل السحوبات الزمني
+    // إدارة السجل الزمني
     function openFamilyLog(idx) {
       activeLogFamilyIdx = idx;
       currentLogTab = 'current';
@@ -574,17 +573,17 @@
           const row = document.createElement('div');
           row.className = 'log-row';
 
-          const valClass = item.amount >= 0 ? 'pos' : 'neg';
-          const sign = item.amount >= 0 ? '+' : '';
-
           let undoBtn = '';
           if (isAdmin) {
             undoBtn = '<button class="btn-undo" onclick="undoLogEntry(' + item.id + ')">✕ تراجع</button>';
           }
 
+          let detailText = item.detail ? ('<span class="log-detail">(' + item.detail + ')</span>') : '';
+
           row.innerHTML = 
             '<div>' +
-              '<span class="log-val ' + valClass + '">' + sign + item.amount + ' لتر</span>' +
+              '<span class="log-val">+' + item.amount + ' لتر</span>' +
+              detailText +
               '<span class="log-time">' + formatTimeLabel(item.timestamp) + '</span>' +
             '</div>' +
             '<div>' + undoBtn + '</div>';
@@ -606,12 +605,12 @@
         prev.logs.forEach(function(item) {
           const row = document.createElement('div');
           row.className = 'log-row';
-          const valClass = item.amount >= 0 ? 'pos' : 'neg';
-          const sign = item.amount >= 0 ? '+' : '';
+          let detailText = item.detail ? ('<span class="log-detail">(' + item.detail + ')</span>') : '';
 
           row.innerHTML = 
             '<div>' +
-              '<span class="log-val ' + valClass + '">' + sign + item.amount + ' لتر</span>' +
+              '<span class="log-val">+' + item.amount + ' لتر</span>' +
+              detailText +
               '<span class="log-time">' + formatTimeLabel(item.timestamp) + '</span>' +
             '</div>' +
             '<div><span style="font-size:0.75rem; color:var(--muted);">مؤرشف</span></div>';
@@ -621,6 +620,48 @@
       }
     }
 
+    // معالجة الإدخال الحر (مصفوفة أرقام تجمع آلياً مهما كانت الفواصل)
+    function addWithdrawal(idx) {
+      if (!isAdmin) return;
+      const inputEl = document.getElementById('withInput_' + idx);
+      if (!inputEl) return;
+
+      const rawVal = inputEl.value.trim();
+      if (!rawVal) {
+        inputEl.focus();
+        return;
+      }
+
+      // استخراج كافة الأرقام من النص وتجاهل أي رموز أخرى
+      const matches = rawVal.match(/\d+(\.\d+)?/g);
+      if (!matches || matches.length === 0) {
+        inputEl.focus();
+        return;
+      }
+
+      const numbers = matches.map(function(n) { return parseFloat(n); }).filter(function(n) { return n > 0; });
+      if (numbers.length === 0) {
+        inputEl.focus();
+        return;
+      }
+
+      const totalAmount = numbers.reduce(function(sum, cur) { return sum + cur; }, 0);
+      const detailStr = numbers.length > 1 ? numbers.join(' + ') : '';
+
+      state.families[idx].consumed = (state.families[idx].consumed || 0) + totalAmount;
+      state.families[idx].currentLogs = state.families[idx].currentLogs || [];
+      state.families[idx].currentLogs.unshift({
+        id: Date.now(),
+        amount: totalAmount,
+        detail: detailStr,
+        timestamp: Date.now()
+      });
+
+      inputEl.value = '';
+      pushState();
+    }
+
+    // التراجع عن سحب من السجل وإلغاؤه من المستهلك
     function undoLogEntry(logId) {
       if (!isAdmin || activeLogFamilyIdx === null) return;
       const fam = state.families[activeLogFamilyIdx];
@@ -634,7 +675,7 @@
       }
     }
 
-    // الحسابات ورسم الواجهة
+    // العمليات الحسابية ورسم الواجهة
     function renderAll() {
       const s = state.settings || defaultData.settings;
       const totalWater = parseFloat(s.totalWater) || 4000;
@@ -714,14 +755,11 @@
 
         let adminActions = '';
         if (isAdmin) {
-          adminActions = '<div class="consumed-group">' +
-            '<label>سحب:</label>' +
-            '<input type="number" value="' + cons + '" style="width:70px;" onchange="updateFamilyData(' + idx + ', \'consumed\', this.value)">' +
-          '</div>' +
-          '<div class="quick-btns">' +
-            '<button class="btn-step" onclick="stepFamilyConsumed(' + idx + ', 20)">+20</button>' +
-            '<button class="btn-step" onclick="stepFamilyConsumed(' + idx + ', -20)">-20</button>' +
-          '</div>';
+          adminActions = 
+            '<div class="withdraw-group">' +
+              '<input type="text" id="withInput_' + idx + '" class="withdraw-input" placeholder="مثال: 15 12" onkeydown="if(event.key===\'Enter\') addWithdrawal(' + idx + ')">' +
+              '<button class="btn-add-w" onclick="addWithdrawal(' + idx + ')">➕ إضافة</button>' +
+            '</div>';
         }
 
         let delBtn = isAdmin ? ('<button class="btn-del" onclick="deleteFamily(' + idx + ')">🗑️</button>') : '';
@@ -747,7 +785,7 @@
             '</div>' +
           '</div>' +
           '<div class="card-actions">' +
-            (adminActions ? '<div style="display:flex; align-items:center; gap:6px;">' + adminActions + '</div>' : '') +
+            (adminActions ? adminActions : '') +
             '<div style="display:flex; align-items:center; gap:6px; margin-right:auto;">' +
               '<button class="btn-log" onclick="openFamilyLog(' + idx + ')">📋 السجل</button>' +
               '<span class="rem-tag ' + remClass + '">' + remText + '</span>' +
@@ -799,34 +837,9 @@
       if (!isAdmin) return;
       if (field === 'members') {
         state.families[idx].members = Math.max(0, parseInt(value) || 0);
-      } else if (field === 'consumed') {
-        const newCons = Math.max(0, parseFloat(value) || 0);
-        const oldCons = state.families[idx].consumed || 0;
-        const diff = newCons - oldCons;
-        if (diff !== 0) {
-          state.families[idx].currentLogs = state.families[idx].currentLogs || [];
-          state.families[idx].currentLogs.unshift({
-            id: Date.now(),
-            amount: diff,
-            timestamp: Date.now()
-          });
-        }
-        state.families[idx].consumed = newCons;
       } else {
         state.families[idx].name = value.trim() || ('عائلة ' + (idx + 1));
       }
-      pushState();
-    }
-
-    function stepFamilyConsumed(idx, step) {
-      if (!isAdmin) return;
-      state.families[idx].consumed = Math.max(0, (state.families[idx].consumed || 0) + step);
-      state.families[idx].currentLogs = state.families[idx].currentLogs || [];
-      state.families[idx].currentLogs.unshift({
-        id: Date.now(),
-        amount: step,
-        timestamp: Date.now()
-      });
       pushState();
     }
 
@@ -851,7 +864,7 @@
       }
     }
 
-    // تدوير الدورة: نقل الحالية إلى السابقة وتصفير الحالية
+    // تدوير الدورة: أرشفة الدورة الحالية وتصفير العدادات
     function resetAllConsumption() {
       if (!isAdmin) return;
       if (confirm('هل تريد تصفير استهلاك جميع العائلات لبدء دورة تعبئة جديدة؟ (سيتم حفظ الدورة الحالية كأرشيف سابق)')) {
