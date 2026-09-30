@@ -91,8 +91,8 @@
     .stat-item span { color: var(--muted); display: block; font-size: 0.75rem; }
     .stat-item strong { font-size: 1rem; }
 
-    .card-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-    .consumed-group { display: flex; align-items: center; gap: 6px; flex: 1; }
+    .card-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+    .consumed-group { display: flex; align-items: center; gap: 6px; }
     .consumed-group label { font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
     .consumed-group input { padding: 6px; font-weight: bold; text-align: center; }
 
@@ -101,15 +101,33 @@
     .btn-step:active { background: #cbd5e1; }
     .btn-del { background: transparent; border: none; font-size: 1.1rem; cursor: pointer; padding: 4px; }
 
+    .btn-log { background: #f1f5f9; border: 1px solid var(--border); color: var(--primary-dark); padding: 5px 9px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+    .btn-log:hover { background: #e2e8f0; }
+
     .rem-tag { padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; text-align: center; }
     .rem-positive { background: var(--success-bg); color: var(--success); }
     .rem-zero { background: #f1f5f9; color: var(--muted); }
     .rem-negative { background: var(--danger-bg); color: var(--danger); }
 
-    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; }
+    /* النوافذ المنبثقة والسجل */
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 12px; }
     .modal-overlay.active { display: flex; }
-    .modal-box { background: #fff; width: 90%; max-width: 340px; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-    .modal-box h3 { font-size: 1rem; margin-bottom: 12px; color: var(--primary-dark); }
+    .modal-box { background: #fff; width: 100%; max-width: 380px; border-radius: 12px; padding: 18px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); max-height: 85vh; display: flex; flex-direction: column; }
+    .modal-box h3 { font-size: 1.05rem; margin-bottom: 10px; color: var(--primary-dark); }
+
+    .tab-header { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 12px; }
+    .tab-btn { flex: 1; padding: 8px; text-align: center; background: none; border: none; font-weight: bold; font-size: 0.85rem; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    .log-list { overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
+    .log-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 8px; background: #f8fafc; border: 1px solid var(--border); font-size: 0.85rem; }
+    .log-time { color: var(--muted); font-size: 0.75rem; display: block; }
+    .log-val { font-weight: bold; font-size: 0.95rem; }
+    .log-val.pos { color: var(--primary); }
+    .log-val.neg { color: var(--danger); }
+    .btn-undo { background: var(--danger-bg); border: 1px solid #fca5a5; color: var(--danger); border-radius: 4px; padding: 3px 6px; font-size: 0.75rem; font-weight: bold; cursor: pointer; margin-right: 6px; }
+
+    .empty-state { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 24px 0; }
   </style>
 </head>
 <body>
@@ -210,6 +228,29 @@
     <div class="tents-list" id="familiesList"></div>
   </div>
 
+  <!-- نافذة سجل السحوبات الزمني -->
+  <div class="modal-overlay" id="logModal">
+    <div class="modal-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 id="logModalTitle" style="margin:0;">سجل السحوبات</h3>
+        <button onclick="closeModal('logModal')" style="background:none; border:none; font-size:1.2rem; cursor:pointer;">✖</button>
+      </div>
+      
+      <div class="tab-header">
+        <button class="tab-btn active" id="tabCurrentBtn" onclick="switchLogTab('current')">الدورة الحالية</button>
+        <button class="tab-btn" id="tabPrevBtn" onclick="switchLogTab('previous')">الدورة السابقة</button>
+      </div>
+
+      <div id="logSummaryBanner" style="font-size:0.8rem; background:#f0f9ff; padding:6px 10px; border-radius:6px; margin-bottom:8px; color:var(--primary-dark); display:none;"></div>
+
+      <div class="log-list" id="logItemsContainer"></div>
+
+      <div style="margin-top: 12px; text-align: left;">
+        <button class="btn-act" style="background:#94a3b8; width:100%;" onclick="closeModal('logModal')">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
   <!-- نافذة تسجيل دخول المسؤول -->
   <div class="modal-overlay" id="loginModal">
     <div class="modal-box">
@@ -257,9 +298,12 @@
 
     let isAdmin = false;
     let isPushing = false;
+    let activeLogFamilyIdx = null;
+    let currentLogTab = 'current';
+
     const MASTER_RECOVERY_KEY = "000999";
-    const STORAGE_KEY = 'camp_water_master_data_v3';
-    const PENDING_SYNC_KEY = 'camp_water_has_unsaved_changes_v3';
+    const STORAGE_KEY = 'camp_water_master_data_v4';
+    const PENDING_SYNC_KEY = 'camp_water_has_unsaved_changes_v4';
 
     const defaultData = {
       settings: {
@@ -271,18 +315,18 @@
       },
       pin: "399411",
       families: [
-        { id: 1, name: "عائلة 1", members: 5, consumed: 0 },
-        { id: 2, name: "عائلة 2", members: 6, consumed: 0 },
-        { id: 3, name: "عائلة 3", members: 3, consumed: 0 },
-        { id: 4, name: "عائلة 4", members: 4, consumed: 0 },
-        { id: 5, name: "عائلة 5", members: 4, consumed: 0 },
-        { id: 6, name: "عائلة 6", members: 7, consumed: 0 },
-        { id: 7, name: "عائلة 7", members: 2, consumed: 0 },
-        { id: 8, name: "عائلة 8", members: 3, consumed: 0 },
-        { id: 9, name: "عائلة 9", members: 7, consumed: 0 },
-        { id: 10, name: "عائلة 10", members: 3, consumed: 0 },
-        { id: 11, name: "عائلة 11", members: 2, consumed: 0 },
-        { id: 12, name: "عائلة 12", members: 3, consumed: 0 }
+        { id: 1, name: "عائلة 1", members: 5, consumed: 0, currentLogs: [] },
+        { id: 2, name: "عائلة 2", members: 6, consumed: 0, currentLogs: [] },
+        { id: 3, name: "عائلة 3", members: 3, consumed: 0, currentLogs: [] },
+        { id: 4, name: "عائلة 4", members: 4, consumed: 0, currentLogs: [] },
+        { id: 5, name: "عائلة 5", members: 4, consumed: 0, currentLogs: [] },
+        { id: 6, name: "عائلة 6", members: 7, consumed: 0, currentLogs: [] },
+        { id: 7, name: "عائلة 7", members: 2, consumed: 0, currentLogs: [] },
+        { id: 8, name: "عائلة 8", members: 3, consumed: 0, currentLogs: [] },
+        { id: 9, name: "عائلة 9", members: 7, consumed: 0, currentLogs: [] },
+        { id: 10, name: "عائلة 10", members: 3, consumed: 0, currentLogs: [] },
+        { id: 11, name: "عائلة 11", members: 2, consumed: 0, currentLogs: [] },
+        { id: 12, name: "عائلة 12", members: 3, consumed: 0, currentLogs: [] }
       ]
     };
 
@@ -345,6 +389,7 @@
           state = remoteData;
           localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
           renderAll();
+          if (activeLogFamilyIdx !== null) renderLogModalContent();
           updateStatusUI('online', 'متصل بالشبكة اللحظية (محدث)');
         } else if (!remoteData) {
           attemptSync();
@@ -406,9 +451,11 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       localStorage.setItem(PENDING_SYNC_KEY, 'true');
       renderAll();
+      if (activeLogFamilyIdx !== null) renderLogModalContent();
       attemptSync();
     }
 
+    // إدارة جلسة المسؤول
     function openAdminModal() {
       if (isAdmin) {
         isAdmin = false;
@@ -467,6 +514,7 @@
 
     function closeModal(id) {
       document.getElementById(id).classList.remove('active');
+      if (id === 'logModal') activeLogFamilyIdx = null;
     }
 
     function applyRounding(val, mode) {
@@ -475,6 +523,118 @@
       return parseFloat(val.toFixed(1));
     }
 
+    // إدارة سجل السحوبات الزمني
+    function openFamilyLog(idx) {
+      activeLogFamilyIdx = idx;
+      currentLogTab = 'current';
+      document.getElementById('tabCurrentBtn').className = 'tab-btn active';
+      document.getElementById('tabPrevBtn').className = 'tab-btn';
+      renderLogModalContent();
+      document.getElementById('logModal').classList.add('active');
+    }
+
+    function switchLogTab(tab) {
+      currentLogTab = tab;
+      document.getElementById('tabCurrentBtn').className = 'tab-btn ' + (tab === 'current' ? 'active' : '');
+      document.getElementById('tabPrevBtn').className = 'tab-btn ' + (tab === 'previous' ? 'active' : '');
+      renderLogModalContent();
+    }
+
+    function formatTimeLabel(ts) {
+      const d = new Date(ts);
+      const hours = d.getHours();
+      const minutes = d.getMinutes().toString().padStart(2, '0');
+      const ampm = hours >= 12 ? 'م' : 'ص';
+      const h12 = hours % 12 || 12;
+      const day = d.getDate();
+      const month = d.getMonth() + 1;
+      return day + '/' + month + ' — ' + h12 + ':' + minutes + ' ' + ampm;
+    }
+
+    function renderLogModalContent() {
+      if (activeLogFamilyIdx === null || !state.families[activeLogFamilyIdx]) return;
+      const fam = state.families[activeLogFamilyIdx];
+      document.getElementById('logModalTitle').textContent = 'سجل: ' + fam.name;
+
+      const container = document.getElementById('logItemsContainer');
+      const banner = document.getElementById('logSummaryBanner');
+      container.innerHTML = '';
+
+      if (currentLogTab === 'current') {
+        const logs = fam.currentLogs || [];
+        banner.style.display = 'block';
+        banner.textContent = 'إجمالي المستهلك بالدورة الحالية: ' + (fam.consumed || 0) + ' لتر';
+
+        if (logs.length === 0) {
+          container.innerHTML = '<div class="empty-state">لا توجد سحوبات مسجلة في هذه الدورة حتى الآن.</div>';
+          return;
+        }
+
+        logs.forEach(function(item) {
+          const row = document.createElement('div');
+          row.className = 'log-row';
+
+          const valClass = item.amount >= 0 ? 'pos' : 'neg';
+          const sign = item.amount >= 0 ? '+' : '';
+
+          let undoBtn = '';
+          if (isAdmin) {
+            undoBtn = '<button class="btn-undo" onclick="undoLogEntry(' + item.id + ')">✕ تراجع</button>';
+          }
+
+          row.innerHTML = 
+            '<div>' +
+              '<span class="log-val ' + valClass + '">' + sign + item.amount + ' لتر</span>' +
+              '<span class="log-time">' + formatTimeLabel(item.timestamp) + '</span>' +
+            '</div>' +
+            '<div>' + undoBtn + '</div>';
+
+          container.appendChild(row);
+        });
+
+      } else {
+        const prev = fam.previousCycle;
+        if (!prev || !prev.logs || prev.logs.length === 0) {
+          banner.style.display = 'none';
+          container.innerHTML = '<div class="empty-state">لا يوجد أرشيف مسجل للدورة السابقة.</div>';
+          return;
+        }
+
+        banner.style.display = 'block';
+        banner.textContent = 'الدورة السابقة (أُغلقت بتاريخ ' + (prev.closedAt || '—') + ') — الاستهلاك الكلي: ' + (prev.totalConsumed || 0) + ' لتر';
+
+        prev.logs.forEach(function(item) {
+          const row = document.createElement('div');
+          row.className = 'log-row';
+          const valClass = item.amount >= 0 ? 'pos' : 'neg';
+          const sign = item.amount >= 0 ? '+' : '';
+
+          row.innerHTML = 
+            '<div>' +
+              '<span class="log-val ' + valClass + '">' + sign + item.amount + ' لتر</span>' +
+              '<span class="log-time">' + formatTimeLabel(item.timestamp) + '</span>' +
+            '</div>' +
+            '<div><span style="font-size:0.75rem; color:var(--muted);">مؤرشف</span></div>';
+
+          container.appendChild(row);
+        });
+      }
+    }
+
+    function undoLogEntry(logId) {
+      if (!isAdmin || activeLogFamilyIdx === null) return;
+      const fam = state.families[activeLogFamilyIdx];
+      if (!fam.currentLogs) return;
+
+      const idx = fam.currentLogs.findIndex(function(l) { return l.id === logId; });
+      if (idx !== -1) {
+        const removed = fam.currentLogs.splice(idx, 1)[0];
+        fam.consumed = Math.max(0, (fam.consumed || 0) - removed.amount);
+        pushState();
+      }
+    }
+
+    // الحسابات ورسم الواجهة
     function renderAll() {
       const s = state.settings || defaultData.settings;
       const totalWater = parseFloat(s.totalWater) || 4000;
@@ -556,7 +716,7 @@
         if (isAdmin) {
           adminActions = '<div class="consumed-group">' +
             '<label>سحب:</label>' +
-            '<input type="number" value="' + cons + '" style="width:75px;" onchange="updateFamilyData(' + idx + ', \'consumed\', this.value)">' +
+            '<input type="number" value="' + cons + '" style="width:70px;" onchange="updateFamilyData(' + idx + ', \'consumed\', this.value)">' +
           '</div>' +
           '<div class="quick-btns">' +
             '<button class="btn-step" onclick="stepFamilyConsumed(' + idx + ', 20)">+20</button>' +
@@ -587,8 +747,11 @@
             '</div>' +
           '</div>' +
           '<div class="card-actions">' +
-            adminActions +
-            '<span class="rem-tag ' + remClass + '">' + remText + '</span>' +
+            (adminActions ? '<div style="display:flex; align-items:center; gap:6px;">' + adminActions + '</div>' : '') +
+            '<div style="display:flex; align-items:center; gap:6px; margin-right:auto;">' +
+              '<button class="btn-log" onclick="openFamilyLog(' + idx + ')">📋 السجل</button>' +
+              '<span class="rem-tag ' + remClass + '">' + remText + '</span>' +
+            '</div>' +
           '</div>';
 
         container.appendChild(card);
@@ -634,15 +797,36 @@
 
     function updateFamilyData(idx, field, value) {
       if (!isAdmin) return;
-      if (field === 'members') state.families[idx].members = Math.max(0, parseInt(value) || 0);
-      else if (field === 'consumed') state.families[idx].consumed = Math.max(0, parseFloat(value) || 0);
-      else state.families[idx].name = value.trim() || ('عائلة ' + (idx + 1));
+      if (field === 'members') {
+        state.families[idx].members = Math.max(0, parseInt(value) || 0);
+      } else if (field === 'consumed') {
+        const newCons = Math.max(0, parseFloat(value) || 0);
+        const oldCons = state.families[idx].consumed || 0;
+        const diff = newCons - oldCons;
+        if (diff !== 0) {
+          state.families[idx].currentLogs = state.families[idx].currentLogs || [];
+          state.families[idx].currentLogs.unshift({
+            id: Date.now(),
+            amount: diff,
+            timestamp: Date.now()
+          });
+        }
+        state.families[idx].consumed = newCons;
+      } else {
+        state.families[idx].name = value.trim() || ('عائلة ' + (idx + 1));
+      }
       pushState();
     }
 
     function stepFamilyConsumed(idx, step) {
       if (!isAdmin) return;
       state.families[idx].consumed = Math.max(0, (state.families[idx].consumed || 0) + step);
+      state.families[idx].currentLogs = state.families[idx].currentLogs || [];
+      state.families[idx].currentLogs.unshift({
+        id: Date.now(),
+        amount: step,
+        timestamp: Date.now()
+      });
       pushState();
     }
 
@@ -653,7 +837,8 @@
         id: newId,
         name: 'عائلة ' + newId,
         members: 4,
-        consumed: 0
+        consumed: 0,
+        currentLogs: []
       });
       pushState();
     }
@@ -666,14 +851,23 @@
       }
     }
 
+    // تدوير الدورة: نقل الحالية إلى السابقة وتصفير الحالية
     function resetAllConsumption() {
       if (!isAdmin) return;
-      if (confirm('هل تريد تصفير استهلاك جميع العائلات لبدء دورة تعبئة جديدة؟')) {
-        state.families.forEach(function(f) { f.consumed = 0; });
+      if (confirm('هل تريد تصفير استهلاك جميع العائلات لبدء دورة تعبئة جديدة؟ (سيتم حفظ الدورة الحالية كأرشيف سابق)')) {
+        const todayStr = new Date().toLocaleDateString('ar-EG', { day: 'numeric', month: 'short', year: 'numeric' });
+        state.families.forEach(function(f) {
+          f.previousCycle = {
+            totalConsumed: f.consumed || 0,
+            closedAt: todayStr,
+            logs: f.currentLogs || []
+          };
+          f.consumed = 0;
+          f.currentLogs = [];
+        });
         pushState();
       }
     }
   </script>
 </body>
 </html>
-
