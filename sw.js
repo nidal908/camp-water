@@ -1,4 +1,4 @@
-const CACHE_NAME = 'camp-water-cache-v1';
+const CACHE_NAME = 'camp-water-cache-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -6,43 +6,53 @@ const ASSETS_TO_CACHE = [
   'https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js'
 ];
 
-// تثبيت ملف التشغيل وتخزين الصفحة ومكتبات Firebase
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
-  );
   self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
+  );
 });
 
-// تفعيل وتحديث الذاكرة المؤقتة
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
+          if (key !== CACHE_NAME) return caches.delete(key);
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// جلب الملفات من ذاكرة الهاتف عند انقطاع الإنترنت
 self.addEventListener('fetch', (event) => {
-  if (event.request.url.includes('firebasedatabase.app')) {
+  if (event.request.url.includes('firebaseio.com') || event.request.url.includes('firebasedatabase.app')) {
     return;
   }
+
+  // إذا كان الطلب للصفحة الرئيسية: جلب من النت أولاً لتحديث الكاش، وإذا كان النت مقطوعاً جلب من الذاكرة
+  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          return caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, networkResponse.clone());
+            return networkResponse;
+          });
+        })
+        .catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
+
+  // للمكتبات الثابتة
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      return cachedResponse || fetch(event.request).catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
-        }
+    caches.match(event.request).then((cached) => {
+      return cached || fetch(event.request).then((resp) => {
+        return caches.open(CACHE_NAME).then((cache) => {
+          cache.put(event.request, resp.clone());
+          return resp;
+        });
       });
     })
   );
