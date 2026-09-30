@@ -23,6 +23,8 @@
       --success-bg: #dcfce7;
       --danger: #dc2626;
       --danger-bg: #fee2e2;
+      --warning: #f59e0b;
+      --warning-bg: #fef3c7;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
     body { background-color: var(--bg); color: var(--text); padding-bottom: 80px; }
@@ -34,8 +36,11 @@
 
     .container { max-width: 600px; margin: 0 auto; padding: 12px; }
 
-    .status-bar { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--muted); margin-bottom: 10px; }
-    .dot { width: 8px; height: 8px; background: #16a34a; border-radius: 50%; display: inline-block; }
+    .status-bar { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 500; margin-bottom: 12px; padding: 6px 10px; border-radius: 6px; background: #fff; border: 1px solid var(--border); }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .dot.online { background: var(--success); }
+    .dot.offline { background: var(--warning); }
+    .dot.syncing { background: var(--primary); }
 
     .summary-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
     .s-card { background: var(--card); border-radius: 10px; padding: 12px; text-align: center; border: 1px solid var(--border); }
@@ -47,7 +52,7 @@
     .s-card.danger { background: var(--danger-bg); border-color: #fecaca; }
     .s-card.danger strong { color: var(--danger); }
 
-    .admin-panel { background: #fffbeb; border: 1px solid #fef3c7; border-radius: 10px; padding: 12px; margin-bottom: 12px; display: none; }
+    .admin-panel { background: var(--warning-bg); border: 1px solid #fde68a; border-radius: 10px; padding: 12px; margin-bottom: 12px; display: none; }
     .admin-panel.show { display: block; }
     .admin-panel h3 { font-size: 0.85rem; color: #92400e; margin-bottom: 8px; }
     .btn-act { background: var(--primary); color: #fff; border: none; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
@@ -105,8 +110,8 @@
 
   <div class="container">
     <div class="status-bar">
-      <span class="dot"></span>
-      <span id="connStatus">متصل بالشبكة اللحظية</span>
+      <span class="dot online" id="statusDot"></span>
+      <span id="connStatus">جاري فحص الاتصال...</span>
     </div>
 
     <!-- كروت الملخص المباشر -->
@@ -129,7 +134,7 @@
       </div>
     </div>
 
-    <!-- أدوات المسؤول -->
+    <!-- لوحة أدوات المسؤول -->
     <div class="admin-panel" id="adminControls">
       <h3>لوحة تحكم المسؤول</h3>
       <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -139,9 +144,9 @@
       </div>
     </div>
 
-    <!-- إعدادات التوزيع (المسؤول فقط) -->
+    <!-- إعدادات التوزيع والاحتياطي -->
     <details>
-      <summary>⚙️ إعدادات التوزيع والاحتياطي</summary>
+      <summary>⚙️ إعدادات التوزيع والاحتياطي (المسؤول فقط)</summary>
       <div class="settings-content">
         <div class="form-row">
           <label>طريقة التوزيع</label>
@@ -187,11 +192,11 @@
       </div>
     </details>
 
-    <!-- قائمة العائلات -->
+    <!-- بطاقات العائلات -->
     <div class="tents-list" id="familiesList"></div>
   </div>
 
-  <!-- نافذة تسجيل الدخول للمسؤول -->
+  <!-- نافذة تسجيل دخول المسؤول -->
   <div class="modal-overlay" id="loginModal">
     <div class="modal-box">
       <h3>تسجيل دخول المسؤول</h3>
@@ -225,8 +230,22 @@
   </div>
 
   <script>
+    // 1. تسجيل Service Worker للعمل أوفلاين
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('./sw.js').then(function() {
+          console.log('SW Registered');
+        }).catch(function(err) {
+          console.warn('SW Failed:', err);
+        });
+      });
+    }
+
     let isAdmin = false;
+    let isCloudConnected = false;
+    let hasPendingSync = false;
     const MASTER_RECOVERY_KEY = "000999";
+    const STORAGE_KEY = 'camp_water_pwa_data_v1';
 
     const defaultData = {
       settings: {
@@ -253,12 +272,24 @@
       ]
     };
 
-    let state = JSON.parse(JSON.stringify(defaultData));
+    // استرجاع البيانات من الذاكرة المحلية أولاً
+    function loadLocalState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.families && parsed.families.length > 0) {
+            return parsed;
+          }
+        }
+      } catch (e) {}
+      return JSON.parse(JSON.stringify(defaultData));
+    }
 
-    // رسم فوري مباشر للواجهة عند التحميل
+    let state = loadLocalState();
     renderAll();
 
-    // ربط Firebase السحابي
+    // 2. ربط Firebase السحابي
     let db = null;
     try {
       const firebaseConfig = {
@@ -274,19 +305,83 @@
       firebase.initializeApp(firebaseConfig);
       db = firebase.database();
 
+      // مراقبة حالة الاتصال بالإنترنت
+      db.ref('.info/connected').on('value', function(snap) {
+        if (snap.val() === true) {
+          isCloudConnected = true;
+          if (hasPendingSync) {
+            syncToCloud();
+          } else {
+            updateStatusUI('online', 'متصل بالشبكة اللحظية (سحابي)');
+          }
+        } else {
+          isCloudConnected = false;
+          updateStatusUI('offline', 'وضع عدم الاتصال (حفظ محلي بالجهاز)');
+        }
+      });
+
+      // استقبال تحديثات السحابة إن لم تكن هناك تعديلات محلية معلقة
       db.ref('camp_data').on('value', function(snapshot) {
         const val = snapshot.val();
         if (val && val.families && val.families.length > 0) {
-          state = val;
-          renderAll();
+          if (!hasPendingSync) {
+            state = val;
+            saveLocalState();
+            renderAll();
+          }
         } else {
-          db.ref('camp_data').set(state);
+          syncToCloud();
         }
       });
     } catch (e) {
-      console.warn("Firebase not reachable:", e);
+      isCloudConnected = false;
+      updateStatusUI('offline', 'وضع عدم الاتصال (حفظ محلي بالجهاز)');
     }
 
+    // استماع لعودة شبكة المتصفح
+    window.addEventListener('online', function() {
+      if (hasPendingSync) syncToCloud();
+    });
+    window.addEventListener('offline', function() {
+      isCloudConnected = false;
+      updateStatusUI('offline', 'وضع عدم الاتصال (حفظ محلي بالجهاز)');
+    });
+
+    function updateStatusUI(type, text) {
+      const dot = document.getElementById('statusDot');
+      const label = document.getElementById('connStatus');
+      dot.className = 'dot ' + type;
+      label.textContent = text;
+    }
+
+    function saveLocalState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function syncToCloud() {
+      if (!db || !navigator.onLine) {
+        hasPendingSync = true;
+        updateStatusUI('offline', 'وضع عدم الاتصال (تعديلات محفوظة محلياً)');
+        return;
+      }
+      updateStatusUI('syncing', 'جاري المزامنة مع السحابة...');
+      db.ref('camp_data').set(state).then(function() {
+        hasPendingSync = false;
+        isCloudConnected = true;
+        updateStatusUI('online', 'متصل بالشبكة اللحظية (تمت المزامنة)');
+      }).catch(function() {
+        hasPendingSync = true;
+        updateStatusUI('offline', 'تعذرت المزامنة (محفوظ محلياً)');
+      });
+    }
+
+    function pushState() {
+      saveLocalState();
+      renderAll();
+      syncToCloud();
+    }
+
+    // 3. إدارة جلسة المسؤول
     function openAdminModal() {
       if (isAdmin) {
         isAdmin = false;
@@ -353,32 +448,43 @@
       return parseFloat(val.toFixed(1));
     }
 
+    // 4. العمليات الحسابية ورسم الشاشة
     function renderAll() {
       const s = state.settings || defaultData.settings;
       const totalWater = parseFloat(s.totalWater) || 4000;
       const reserve = parseFloat(s.reserveLiters) || 500;
       const netWater = Math.max(0, totalWater - reserve);
 
-      document.getElementById('totalWater').value = totalWater;
-      document.getElementById('reserveLiters').value = reserve;
-      document.getElementById('reservePercent').value = totalWater > 0 ? ((reserve / totalWater) * 100).toFixed(1) : 0;
-      document.getElementById('distMode').value = s.distMode;
-      document.getElementById('roundingMode').value = s.roundingMode;
-      document.getElementById('alphaSlider').value = s.alpha;
-      document.getElementById('alphaNumber').value = s.alpha;
-      document.getElementById('alphaValDisplay').textContent = s.alpha;
+      const tw = document.getElementById('totalWater');
+      const rl = document.getElementById('reserveLiters');
+      const rp = document.getElementById('reservePercent');
+      const dm = document.getElementById('distMode');
+      const rm = document.getElementById('roundingMode');
+      const as = document.getElementById('alphaSlider');
+      const an = document.getElementById('alphaNumber');
+      const ad = document.getElementById('alphaValDisplay');
 
-      document.getElementById('alphaGroup').style.display = (s.distMode === 'elasticity') ? 'flex' : 'none';
+      if (tw) tw.value = totalWater;
+      if (rl) rl.value = reserve;
+      if (rp) rp.value = totalWater > 0 ? ((reserve / totalWater) * 100).toFixed(1) : 0;
+      if (dm) dm.value = s.distMode;
+      if (rm) rm.value = s.roundingMode;
+      if (as) as.value = s.alpha;
+      if (an) an.value = s.alpha;
+      if (ad) ad.textContent = s.alpha;
+
+      const ag = document.getElementById('alphaGroup');
+      if (ag) ag.style.display = (s.distMode === 'elasticity') ? 'flex' : 'none';
 
       const inputs = document.querySelectorAll('.settings-content input, .settings-content select');
-      inputs.forEach(el => el.disabled = !isAdmin);
+      inputs.forEach(function(el) { el.disabled = !isAdmin; });
 
       const fams = state.families || defaultData.families;
       let totalPop = 0;
       let weights = [];
       let sumWeights = 0;
 
-      fams.forEach(f => {
+      fams.forEach(function(f) {
         const m = parseInt(f.members) || 0;
         totalPop += m;
         if (s.distMode === 'elasticity') {
@@ -397,9 +503,10 @@
 
       let totalConsumed = 0;
       const container = document.getElementById('familiesList');
+      if (!container) return;
       container.innerHTML = '';
 
-      fams.forEach((f, idx) => {
+      fams.forEach(function(f, idx) {
         const m = parseInt(f.members) || 0;
         let share = 0;
         if (m > 0 && sumWeights > 0) {
@@ -469,13 +576,6 @@
       const remBox = document.getElementById('remBox');
       document.getElementById('dispTotalRemaining').textContent = Math.round(campRemaining) + ' لتر';
       remBox.className = 's-card ' + (campRemaining < 0 ? 'danger' : 'success');
-    }
-
-    function pushState() {
-      if (db) {
-        db.ref('camp_data').set(state);
-      }
-      renderAll();
     }
 
     function updateSettingsFromUI() {
