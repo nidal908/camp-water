@@ -14,9 +14,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="مياه المخيم">
 
-  <!-- مكتبات Firebase السحابية اللحظية -->
+  <!-- مكتبات Firebase ومولد QR Code -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
   <style>
     :root {
@@ -39,7 +40,10 @@
 
     .top-bar { background: var(--primary); color: #fff; padding: 14px 16px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
     .top-bar h1 { font-size: 1.15rem; font-weight: bold; }
-    .admin-btn { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
+    
+    .top-actions { display: flex; align-items: center; gap: 8px; }
+    .btn-top { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); color: #fff; padding: 6px 11px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+    .btn-top:active { background: rgba(255,255,255,0.35); }
     .admin-btn.active { background: #ef4444; border-color: #ef4444; font-weight: bold; }
 
     .container { max-width: 600px; margin: 0 auto; padding: 12px; }
@@ -93,7 +97,6 @@
 
     .card-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
     
-    /* مجموعة السحب الحرة (تدعم المسافات والأرقام المتعددة) */
     .withdraw-group { display: flex; align-items: center; gap: 6px; }
     .withdraw-input { width: 85px !important; padding: 6px !important; font-size: 0.9rem !important; text-align: center; border-radius: 6px !important; border: 1px solid var(--border); background: #fff; }
     .btn-add-w { background: var(--primary); color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer; }
@@ -133,7 +136,10 @@
 
   <div class="top-bar">
     <h1>مياه المخيم</h1>
-    <button id="adminToggleBtn" class="admin-btn" onclick="openAdminModal()">🔒 دخول مسؤول</button>
+    <div class="top-actions">
+      <button class="btn-top" onclick="openQrModal()">📲 مشاركة</button>
+      <button id="adminToggleBtn" class="btn-top admin-btn" onclick="openAdminModal()">🔒 دخول مسؤول</button>
+    </div>
   </div>
 
   <div class="container">
@@ -225,6 +231,28 @@
 
     <!-- بطاقات العائلات -->
     <div class="tents-list" id="familiesList"></div>
+  </div>
+
+  <!-- نافذة رمز الاستجابة السريع (QR Code) للمشاركة والتثبيت -->
+  <div class="modal-overlay" id="qrModal">
+    <div class="modal-box" style="text-align: center;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="margin:0;">📲 مشاركة وتثبيت التطبيق</h3>
+        <button onclick="closeModal('qrModal')" style="background:none; border:none; font-size:1.2rem; cursor:pointer;">✖</button>
+      </div>
+      <p style="font-size: 0.82rem; color: var(--muted); margin-bottom: 14px;">
+        امسح الرمز بكاميرا الجوال لفتح التطبيق وتثبيته على شاشتك فوراً
+      </p>
+      
+      <div id="qrcode-container" style="display: flex; justify-content: center; align-items: center; padding: 12px; background: #fff; border-radius: 12px; border: 1px solid var(--border); margin: 0 auto 14px; width: fit-content;">
+        <div id="qrcode"></div>
+      </div>
+
+      <div style="display:flex; gap:8px;">
+        <button class="btn-act" style="flex:1;" onclick="copyAppUrl()">📋 نسخ الرابط</button>
+        <button class="btn-act" style="background:#94a3b8;" onclick="closeModal('qrModal')">إغلاق</button>
+      </div>
+    </div>
   </div>
 
   <!-- نافذة سجل السحوبات الزمني -->
@@ -522,6 +550,41 @@
       return parseFloat(val.toFixed(1));
     }
 
+    // إدارة رمز QR
+    function openQrModal() {
+      const appUrl = window.location.href.split('#')[0];
+      const container = document.getElementById('qrcode');
+      container.innerHTML = '';
+
+      if (typeof QRCode !== 'undefined') {
+        new QRCode(container, {
+          text: appUrl,
+          width: 190,
+          height: 190,
+          colorDark: "#0284c7",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      } else {
+        container.innerHTML = '<p style="font-size:0.8rem; color:var(--muted); padding:10px;">' + appUrl + '</p>';
+      }
+
+      document.getElementById('qrModal').classList.add('active');
+    }
+
+    function copyAppUrl() {
+      const appUrl = window.location.href.split('#')[0];
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(appUrl).then(function() {
+          alert("تم نسخ رابط التطبيق بنجاح!");
+        }).catch(function() {
+          prompt("انسخ الرابط التالي:", appUrl);
+        });
+      } else {
+        prompt("انسخ الرابط التالي:", appUrl);
+      }
+    }
+
     // إدارة السجل الزمني
     function openFamilyLog(idx) {
       activeLogFamilyIdx = idx;
@@ -580,9 +643,10 @@
 
           let detailText = item.detail ? ('<span class="log-detail">(' + item.detail + ')</span>') : '';
 
+          // الأرقام بدون إشارة +
           row.innerHTML = 
             '<div>' +
-              '<span class="log-val">+' + item.amount + ' لتر</span>' +
+              '<span class="log-val">' + item.amount + ' لتر</span>' +
               detailText +
               '<span class="log-time">' + formatTimeLabel(item.timestamp) + '</span>' +
             '</div>' +
@@ -609,7 +673,7 @@
 
           row.innerHTML = 
             '<div>' +
-              '<span class="log-val">+' + item.amount + ' لتر</span>' +
+              '<span class="log-val">' + item.amount + ' لتر</span>' +
               detailText +
               '<span class="log-time">' + formatTimeLabel(item.timestamp) + '</span>' +
             '</div>' +
@@ -620,7 +684,6 @@
       }
     }
 
-    // معالجة الإدخال الحر (مصفوفة أرقام تجمع آلياً مهما كانت الفواصل)
     function addWithdrawal(idx) {
       if (!isAdmin) return;
       const inputEl = document.getElementById('withInput_' + idx);
@@ -632,7 +695,6 @@
         return;
       }
 
-      // استخراج كافة الأرقام من النص وتجاهل أي رموز أخرى
       const matches = rawVal.match(/\d+(\.\d+)?/g);
       if (!matches || matches.length === 0) {
         inputEl.focus();
@@ -661,7 +723,6 @@
       pushState();
     }
 
-    // التراجع عن سحب من السجل وإلغاؤه من المستهلك
     function undoLogEntry(logId) {
       if (!isAdmin || activeLogFamilyIdx === null) return;
       const fam = state.families[activeLogFamilyIdx];
@@ -675,7 +736,6 @@
       }
     }
 
-    // العمليات الحسابية ورسم الواجهة
     function renderAll() {
       const s = state.settings || defaultData.settings;
       const totalWater = parseFloat(s.totalWater) || 4000;
@@ -864,7 +924,6 @@
       }
     }
 
-    // تدوير الدورة: أرشفة الدورة الحالية وتصفير العدادات
     function resetAllConsumption() {
       if (!isAdmin) return;
       if (confirm('هل تريد تصفير استهلاك جميع العائلات لبدء دورة تعبئة جديدة؟ (سيتم حفظ الدورة الحالية كأرشيف سابق)')) {
