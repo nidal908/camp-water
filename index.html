@@ -36,11 +36,14 @@
 
     .container { max-width: 600px; margin: 0 auto; padding: 12px; }
 
-    .status-bar { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 500; margin-bottom: 12px; padding: 8px 12px; border-radius: 6px; background: #fff; border: 1px solid var(--border); }
+    .status-bar { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; font-weight: 500; margin-bottom: 12px; padding: 8px 12px; border-radius: 6px; background: #fff; border: 1px solid var(--border); }
+    .status-info { display: flex; align-items: center; gap: 8px; }
     .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
     .dot.online { background: var(--success); }
     .dot.offline { background: var(--warning); }
     .dot.syncing { background: var(--primary); }
+
+    .btn-force-sync { background: var(--warning); color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; cursor: pointer; display: none; }
 
     .summary-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
     .s-card { background: var(--card); border-radius: 10px; padding: 12px; text-align: center; border: 1px solid var(--border); }
@@ -110,8 +113,11 @@
 
   <div class="container">
     <div class="status-bar">
-      <span class="dot online" id="statusDot"></span>
-      <span id="connStatus">جاري فحص الاتصال...</span>
+      <div class="status-info">
+        <span class="dot online" id="statusDot"></span>
+        <span id="connStatus">جاري فحص الاتصال...</span>
+      </div>
+      <button id="forceSyncBtn" class="btn-force-sync" onclick="attemptSync()">🔄 رفع التعديلات الآن</button>
     </div>
 
     <!-- كروت الملخص المباشر -->
@@ -230,23 +236,24 @@
   </div>
 
   <script>
-    // تسجيل ملف Service Worker للتشغيل دون اتصال
+    // 1. تسجيل Service Worker
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function() {
-        navigator.serviceWorker.register('./sw.js').catch(function(err) {
+        navigator.serviceWorker.register('./sw.js').then(function(reg) {
+          reg.update();
+        }).catch(function(err) {
           console.warn('SW Register:', err);
         });
       });
     }
 
     let isAdmin = false;
-    let isSyncing = false;
+    let isPushing = false;
     const MASTER_RECOVERY_KEY = "000999";
-    const STORAGE_KEY = 'camp_water_pwa_v2';
-    const PENDING_SYNC_KEY = 'camp_pending_sync_flag';
+    const STORAGE_KEY = 'camp_water_master_data_v3';
+    const PENDING_SYNC_KEY = 'camp_water_has_unsaved_changes_v3';
 
     const defaultData = {
-      updatedAt: 1,
       settings: {
         totalWater: 4000,
         reserveLiters: 500,
@@ -286,8 +293,9 @@
 
     let state = loadLocalState();
     renderAll();
+    checkSyncStatusUI();
 
-    // إعدادات اتصال Firebase
+    // 2. إعداد اتصال Firebase
     let db = null;
     try {
       const firebaseConfig = {
@@ -303,107 +311,101 @@
       firebase.initializeApp(firebaseConfig);
       db = firebase.database();
 
-      // مراقبة اتصال الشبكة السحابية
+      // مراقبة الاتصال بالسحابة
       db.ref('.info/connected').on('value', function(snap) {
         if (snap.val() === true) {
           const hasPending = localStorage.getItem(PENDING_SYNC_KEY) === 'true';
           if (hasPending) {
-            syncToCloud();
+            attemptSync();
           } else {
             updateStatusUI('online', 'متصل بالشبكة اللحظية');
           }
         } else {
-          checkOfflineStatus();
+          checkSyncStatusUI();
         }
       });
 
-      // استقبال تحديثات السحابة وحماية التعديلات المحلية بالأختام الزمنية
+      // استقبال بيانات السحابة (مع حظرها تماماً إذا كان هناك تعديل محلي معلق)
       db.ref('camp_data').on('value', function(snapshot) {
         const remoteData = snapshot.val();
         const hasPending = localStorage.getItem(PENDING_SYNC_KEY) === 'true';
 
-        if (remoteData) {
-          const remoteTime = remoteData.updatedAt || 0;
-          const localTime = state.updatedAt || 0;
+        // الحماية الصارمة: إذا كانت هناك تعديلات محلية لم تُرفع بعد، ارفض بيانات السحابة وارفع بياناتك
+        if (hasPending) {
+          attemptSync();
+          return;
+        }
 
-          // إذا كانت النسخة المحلية أحدث أو يوجد تعديل معلق، نفرض نسختنا على السحابة
-          if (hasPending || localTime > remoteTime) {
-            syncToCloud();
-            return;
-          }
-
-          // إذا كانت السحابة أحدث بوضوح، نعتمد بياناتها
+        if (remoteData && remoteData.families && remoteData.families.length > 0) {
           state = remoteData;
-          saveLocalState();
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
           renderAll();
           updateStatusUI('online', 'متصل بالشبكة اللحظية (محدث)');
-        } else {
-          syncToCloud();
+        } else if (!remoteData) {
+          attemptSync();
         }
       });
     } catch (e) {
-      checkOfflineStatus();
+      checkSyncStatusUI();
     }
 
-    window.addEventListener('online', function() {
-      syncToCloud();
-    });
+    window.addEventListener('online', attemptSync);
+    window.addEventListener('offline', checkSyncStatusUI);
 
-    window.addEventListener('offline', function() {
-      checkOfflineStatus();
-    });
-
-    function checkOfflineStatus() {
+    function checkSyncStatusUI() {
       const hasPending = localStorage.getItem(PENDING_SYNC_KEY) === 'true';
+      const btn = document.getElementById('forceSyncBtn');
       if (hasPending) {
-        updateStatusUI('offline', 'وضع عدم الاتصال (تعديلات محفوظة ستُرفع تلقائياً)');
+        updateStatusUI('offline', 'وضع أوفلاين (تعديلات غير مرفوعة محفوظة بالجهاز)');
+        if (btn) btn.style.display = 'block';
       } else {
         updateStatusUI('offline', 'وضع عدم الاتصال (حفظ محلي)');
+        if (btn) btn.style.display = 'none';
       }
     }
 
     function updateStatusUI(type, text) {
       const dot = document.getElementById('statusDot');
       const label = document.getElementById('connStatus');
-      dot.className = 'dot ' + type;
-      label.textContent = text;
+      if (dot) dot.className = 'dot ' + type;
+      if (label) label.textContent = text;
     }
 
-    function saveLocalState() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }
+    function attemptSync() {
+      const hasPending = localStorage.getItem(PENDING_SYNC_KEY) === 'true';
+      if (!hasPending) return;
 
-    function syncToCloud() {
-      if (isSyncing) return;
-      if (!db || !navigator.onLine) {
-        checkOfflineStatus();
+      if (!navigator.onLine || !db) {
+        checkSyncStatusUI();
         return;
       }
 
-      isSyncing = true;
+      if (isPushing) return;
+      isPushing = true;
       updateStatusUI('syncing', 'جاري رفع التعديلات ومزامنتها...');
 
       db.ref('camp_data').set(state).then(function() {
-        localStorage.removeItem(PENDING_SYNC_KEY);
-        isSyncing = false;
+        localStorage.setItem(PENDING_SYNC_KEY, 'false');
+        isPushing = false;
+        const btn = document.getElementById('forceSyncBtn');
+        if (btn) btn.style.display = 'none';
         updateStatusUI('online', 'متصل بالشبكة اللحظية (تمت المزامنة بنجاح)');
-      }).catch(function() {
-        isSyncing = false;
-        localStorage.setItem(PENDING_SYNC_KEY, 'true');
-        checkOfflineStatus();
+      }).catch(function(err) {
+        console.warn('Sync failed:', err);
+        isPushing = false;
+        checkSyncStatusUI();
       });
     }
 
-    // حفظ محلي فوري + وسم الختم الزمني + محاولة مزامنة
+    // حفظ محلي فوري دائماً ثم محاولة الرفع
     function pushState() {
-      state.updatedAt = Date.now();
-      saveLocalState();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       localStorage.setItem(PENDING_SYNC_KEY, 'true');
       renderAll();
-      syncToCloud();
+      attemptSync();
     }
 
-    // إدارة الجلسة والمسؤول
+    // 3. إدارة جلسة المسؤول
     function openAdminModal() {
       if (isAdmin) {
         isAdmin = false;
@@ -470,7 +472,7 @@
       return parseFloat(val.toFixed(1));
     }
 
-    // الحسابات وتحديث الواجهة
+    // 4. العمليات الحسابية ورسم الواجهة
     function renderAll() {
       const s = state.settings || defaultData.settings;
       const totalWater = parseFloat(s.totalWater) || 4000;
