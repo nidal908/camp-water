@@ -467,6 +467,18 @@
         const btn = document.getElementById('forceSyncBtn');
         if (btn) btn.style.display = 'none';
         updateStatusUI('online', 'متصل بالشبكة اللحظية (تمت المزامنة بنجاح)');
+
+        // رفع أي سجلات تاريخية معلقة من وضع الأوفلاين إن وُجدت
+        try {
+          const pendingHistory = JSON.parse(localStorage.getItem('camp_pending_history_v1') || '[]');
+          if (pendingHistory.length > 0) {
+            pendingHistory.forEach(function(hist) {
+              db.ref('camp_history').push(hist);
+            });
+            localStorage.removeItem('camp_pending_history_v1');
+          }
+        } catch(e) {}
+
       }).catch(function(err) {
         console.warn('Sync failed:', err);
         isPushing = false;
@@ -923,11 +935,58 @@
         pushState();
       }
     }
-
+    // تدوير الدورة: أرشفة تراكمية دائمة في camp_history ثم تصفير العدادات الحالية
     function resetAllConsumption() {
       if (!isAdmin) return;
-      if (confirm('هل تريد تصفير استهلاك جميع العائلات لبدء دورة تعبئة جديدة؟ (سيتم حفظ الدورة الحالية كأرشيف سابق)')) {
+      if (confirm('هل تريد تصفير استهلاك جميع العائلات لبدء دورة تعبئة جديدة؟')) {
+        const now = Date.now();
         const todayStr = new Date().toLocaleDateString('ar-EG', { day: 'numeric', month: 'short', year: 'numeric' });
+        
+        // 1. حساب إحصائيات الدورة المغلقة
+        let totalConsumed = 0;
+        let totalPop = 0;
+        const archivedFamilies = state.families.map(function(f) {
+          const m = parseInt(f.members) || 0;
+          const c = parseFloat(f.consumed) || 0;
+          totalPop += m;
+          totalConsumed += c;
+          return {
+            id: f.id,
+            name: f.name,
+            members: m,
+            consumed: c,
+            logs: f.currentLogs || []
+          };
+        });
+
+        // 2. تجهيز سجل الأرشفة التاريخي الشامل
+        const archivePayload = {
+          cycleTimestamp: now,
+          closedAtStr: todayStr,
+          settings: JSON.parse(JSON.stringify(state.settings || defaultData.settings)),
+          summary: {
+            totalPop: totalPop,
+            totalConsumed: totalConsumed,
+            totalWater: state.settings.totalWater,
+            reserveLiters: state.settings.reserveLiters,
+            familiesCount: state.families.length
+          },
+          families: archivedFamilies
+        };
+
+        // 3. رفع الأرشيف إلى مسار التاريخ في السحابة
+        if (db && navigator.onLine) {
+          db.ref('camp_history').push(archivePayload);
+        } else {
+          // في حال كان الأوفلاين نشطاً، يُحفظ في قائمة انتظار محلية للأرشفة
+          try {
+            const pendingHistory = JSON.parse(localStorage.getItem('camp_pending_history_v1') || '[]');
+            pendingHistory.push(archivePayload);
+            localStorage.setItem('camp_pending_history_v1', JSON.stringify(pendingHistory));
+          } catch(e) {}
+        }
+
+        // 4. تدوير السجلات محلياً كالمعتاد
         state.families.forEach(function(f) {
           f.previousCycle = {
             totalConsumed: f.consumed || 0,
@@ -937,6 +996,7 @@
           f.consumed = 0;
           f.currentLogs = [];
         });
+
         pushState();
       }
     }
