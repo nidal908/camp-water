@@ -27,10 +27,10 @@
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background-color: var(--bg); color: var(--text); padding-bottom: 70px; }
 
-    /* شريط الحالة والاتصال */
-    .sync-bar { padding: 6px 12px; font-size: 0.8rem; text-align: center; font-weight: 600; display: flex; justify-content: center; align-items: center; gap: 8px; }
+    /* شريط الحالة والاتصال اللحظي */
+    .sync-bar { padding: 6px 12px; font-size: 0.8rem; text-align: center; font-weight: 600; display: flex; justify-content: center; align-items: center; gap: 8px; transition: background 0.3s; }
     .sync-online { background: #dcfce7; color: #166534; }
-    .sync-offline { background: #fef3c7; color: #854d0e; }
+    .sync-offline { background: #fee2e2; color: #991b1b; }
     .sync-syncing { background: #e0f2fe; color: #075985; }
 
     .header { background: var(--primary); color: #fff; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
@@ -110,8 +110,8 @@
 </head>
 <body>
 
-  <!-- شريط الحالة (متصل) -->
-  <div id="syncStatus" class="sync-bar sync-online">متصل</div>
+  <!-- شريط الحالة (يُهيأ تلقائياً بحسب اتصال الجهاز الحقيقي) -->
+  <div id="syncStatus" class="sync-bar sync-offline">جاري فحص الاتصال...</div>
 
   <div class="header">
     <h1>🚰 سِجِلّ مياه المخيم</h1>
@@ -140,7 +140,7 @@
       </div>
     </div>
 
-    <!-- لوحة "تسجيل سحب" (للمسؤول فقط) -->
+    <!-- لوحة "تسجيل سحب" (تظهر للمسؤول فقط) -->
     <div id="dispensingPanel" class="dispense-panel" style="display: none;">
       <div class="dispense-title">
         <span>تسجيل سحب</span>
@@ -164,14 +164,14 @@
         </div>
       </div>
 
-      <!-- خانة الأوعية: نص مثال باهت يختفي عند النقر -->
+      <!-- خانة الأوعية -->
       <input type="text" id="dispenseAmountInput" class="amount-input-box" placeholder="مثال: 18 16 12" oninput="handleLiveAmountPreview(this.value)" onkeydown="if(event.key==='Enter') submitDispense()">
       <div id="livePreviewBox" class="live-preview">المجموع: 0 لتر</div>
 
       <button class="btn-dispense-submit" onclick="submitDispense()">➕ إضافة السحب</button>
     </div>
 
-    <!-- قائمة بطاقات العائلات بالأسفل -->
+    <!-- قائمة بطاقات العائلات -->
     <div id="familiesList"></div>
 
     <!-- لوحة تحكم المسؤول -->
@@ -258,6 +258,7 @@
 
     const STATE_KEY = 'camp_data_state_v1';
     const PENDING_SYNC_KEY = 'camp_pending_sync_v1';
+    const ADMIN_SESSION_KEY = 'camp_admin_session_v1';
 
     let state = {
       pin: "399411",
@@ -266,8 +267,10 @@
       updatedAt: 0
     };
 
-    let isAdmin = false;
+    // استعادة حالة المسؤول من ذاكرة الجلسة حتى لا تضيع عند التحديث
+    let isAdmin = (sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true');
     let isPushing = false;
+    let isFirebaseConnected = false;
     let selectedDispenseFamId = null;
     let activeLogFamilyId = null;
     let activeLogTab = 'current';
@@ -285,48 +288,133 @@
       } catch(e) {}
     }
 
-    function pushState() {
-      state.updatedAt = Date.now();
-      saveLocal();
-      render();
-
-      if (navigator.onLine && db) {
-        setSyncUI('syncing', 'جاري المزامنة...');
-        isPushing = true;
-        db.ref('camp_data').set(state).then(function() {
-          isPushing = false;
-          setSyncUI('online', 'متصل');
-        }).catch(function() {
-          isPushing = false;
-          localStorage.setItem(PENDING_SYNC_KEY, 'true');
-          setSyncUI('offline', 'تم الحفظ محلياً (أوفلاين)');
-        });
-      } else {
-        localStorage.setItem(PENDING_SYNC_KEY, 'true');
-        setSyncUI('offline', 'تم الحفظ محلياً (أوفلاين)');
-      }
-    }
-
     function setSyncUI(status, text) {
       const el = document.getElementById('syncStatus');
       el.className = 'sync-bar sync-' + status;
       el.textContent = text;
     }
 
-    function initFirebase() {
-      db.ref('camp_data').on('value', function(snapshot) {
-        if (isPushing) return;
-        const val = snapshot.val();
-        if (val && val.families) {
-          state = val;
-          saveLocal();
-          render();
-          setSyncUI('online', 'متصل');
-        }
-      }, function() {
+    // تحديث أزرار وقوائم المسؤول وفق حالته المحفوظة
+    function updateAdminUI() {
+      const adminBtn = document.getElementById('adminBtn');
+      const dispPanel = document.getElementById('dispensingPanel');
+      const adminControls = document.getElementById('adminControls');
+
+      if (isAdmin) {
+        adminBtn.textContent = '🔓 خروج مسؤول';
+        dispPanel.style.display = 'block';
+        adminControls.style.display = 'block';
+      } else {
+        adminBtn.textContent = '🔒 دخول مسؤول';
+        dispPanel.style.display = 'none';
+        adminControls.style.display = 'none';
+      }
+    }
+
+    // المزامنة والحفظ اللحظي
+    function pushState() {
+      state.updatedAt = Date.now();
+      saveLocal();
+      render();
+
+      // تحديد وجود تعديل محلي معلق للرفع
+      localStorage.setItem(PENDING_SYNC_KEY, 'true');
+
+      if (navigator.onLine && isFirebaseConnected && db) {
+        syncPendingToServer();
+      } else {
+        setSyncUI('offline', 'تم الحفظ محلياً (أوفلاين)');
+      }
+    }
+
+    // رفع التعديلات المعلقة للسيرفر
+    function syncPendingToServer() {
+      if (!navigator.onLine || !db || isPushing) return;
+
+      const hasPending = localStorage.getItem(PENDING_SYNC_KEY) === 'true';
+      if (!hasPending) {
+        setSyncUI('online', 'متصل');
+        return;
+      }
+
+      isPushing = true;
+      setSyncUI('syncing', 'جاري المزامنة...');
+
+      db.ref('camp_data').set(state).then(function() {
+        localStorage.setItem(PENDING_SYNC_KEY, 'false');
+        isPushing = false;
+
+        // رفع أي أرشيف تاريخي معلق من الأوفلاين
+        try {
+          const pendingHist = JSON.parse(localStorage.getItem('camp_pending_history_v1') || '[]');
+          if (pendingHist.length > 0) {
+            pendingHist.forEach(function(item) {
+              db.ref('camp_history').push(item);
+            });
+            localStorage.removeItem('camp_pending_history_v1');
+          }
+        } catch(e) {}
+
+        setSyncUI('online', 'متصل');
+      }).catch(function(err) {
+        isPushing = false;
         setSyncUI('offline', 'تم الحفظ محلياً (أوفلاين)');
       });
     }
+
+    // مراقبة قاعدة البيانات وحالة الشبكة
+    function initFirebase() {
+      // 1. مراقبة حالة اتصال Firebase الحقيقية بالسيرفر
+      db.ref('.info/connected').on('value', function(snap) {
+        isFirebaseConnected = (snap.val() === true);
+        if (isFirebaseConnected && navigator.onLine) {
+          syncPendingToServer();
+        } else {
+          setSyncUI('offline', 'وضع عدم الاتصال (أوفلاين)');
+        }
+      });
+
+      // 2. استقبال التحديثات من السحابة مع حماية التعديلات المحلية
+      db.ref('camp_data').on('value', function(snapshot) {
+        if (isPushing) return;
+
+        const val = snapshot.val();
+        if (!val || !val.families) return;
+
+        const hasPending = localStorage.getItem(PENDING_SYNC_KEY) === 'true';
+        
+        // إذا كان هناك تعديل محلي تم أوفلاين ولم يُرفع بعد: نرفعه للسيرفر بدلاً من مسحه
+        if (hasPending) {
+          syncPendingToServer();
+          return;
+        }
+
+        // إذا كان التعديل المحلي أحدث زمنياً: نفرض التعديل المحلي
+        if (state.updatedAt && val.updatedAt && state.updatedAt > val.updatedAt) {
+          syncPendingToServer();
+          return;
+        }
+
+        // إذا كانت السحابة هي الأحدث: نعتمد بيانات السحابة
+        state = val;
+        saveLocal();
+        render();
+        if (isFirebaseConnected && navigator.onLine) {
+          setSyncUI('online', 'متصل');
+        }
+      });
+    }
+
+    // مراقبة أحداث الاتصال في المتصفح
+    window.addEventListener('online', function() {
+      if (isFirebaseConnected) syncPendingToServer();
+      else setSyncUI('syncing', 'جاري استعادة الاتصال...');
+    });
+
+    window.addEventListener('offline', function() {
+      isFirebaseConnected = false;
+      setSyncUI('offline', 'وضع عدم الاتصال (أوفلاين)');
+    });
 
     function computeAllotments() {
       const netWater = Math.max(0, (state.settings.totalWater || 0) - (state.settings.reserveLiters || 0));
@@ -381,6 +469,8 @@
     }
 
     function render() {
+      updateAdminUI();
+
       const calc = computeAllotments();
       const allotments = calc.allotments;
       const netWater = calc.netWater;
@@ -392,7 +482,6 @@
       document.getElementById('statTotalConsumed').textContent = Math.round(totalConsumed) + ' لتر';
       document.getElementById('statRemainingWater').textContent = Math.max(0, Math.round(netWater - totalConsumed)) + ' لتر';
 
-      // تحديث قائمة البحث
       const datalist = document.getElementById('familiesDatalist');
       datalist.innerHTML = '';
       state.families.forEach(function(f) {
@@ -401,7 +490,6 @@
         datalist.appendChild(opt);
       });
 
-      // عرض البطاقات بالتمييز الذكي
       const famContainer = document.getElementById('familiesList');
       famContainer.innerHTML = '';
 
@@ -665,7 +753,7 @@
       state.families.push({
         id: Date.now(),
         name: name.trim(),
-        members: 0, // تبدأ افتراضياً بـ 0 أفراد
+        members: 0,
         consumed: 0,
         currentLogs: []
       });
@@ -719,7 +807,7 @@
           families: archivedFamilies
         };
 
-        if (db && navigator.onLine) {
+        if (db && navigator.onLine && isFirebaseConnected) {
           db.ref('camp_history').push(archivePayload);
         } else {
           try {
@@ -739,12 +827,12 @@
       }
     }
 
+    // إدارة الجلسة والدخول
     function toggleAdminModal() {
       if (isAdmin) {
         isAdmin = false;
-        document.getElementById('adminBtn').textContent = '🔒 دخول مسؤول';
-        document.getElementById('dispensingPanel').style.display = 'none';
-        document.getElementById('adminControls').style.display = 'none';
+        sessionStorage.removeItem(ADMIN_SESSION_KEY);
+        updateAdminUI();
         render();
       } else {
         document.getElementById('adminPinInput').value = '';
@@ -758,10 +846,9 @@
       const currentPin = state.pin || "399411";
       if (pin === currentPin) {
         isAdmin = true;
+        sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
         closeModal('loginModal');
-        document.getElementById('adminBtn').textContent = '🔓 خروج مسؤول';
-        document.getElementById('dispensingPanel').style.display = 'block';
-        document.getElementById('adminControls').style.display = 'block';
+        updateAdminUI();
         render();
       } else {
         alert('رمز PIN غير صحيح');
@@ -807,8 +894,17 @@
       document.getElementById(id).style.display = 'none';
     }
 
+    // بدء التشغيل
     window.onload = function() {
       loadLocal();
+
+      // فحص أولي لحالة الاتصال الحقيقية بالهاتف
+      if (!navigator.onLine) {
+        setSyncUI('offline', 'وضع عدم الاتصال (أوفلاين)');
+      } else {
+        setSyncUI('syncing', 'جاري فحص الاتصال...');
+      }
+
       render();
       initFirebase();
     };
