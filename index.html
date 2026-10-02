@@ -45,21 +45,28 @@
     .stats-item span { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 2px; }
     .stats-item strong { font-size: 1.1rem; color: var(--primary-dark); }
 
-    /* لوحة "تسجيل سحب" (للمسؤول فقط) */
+    /* لوحة "تسجيل سحب" */
     .dispense-panel { background: #eff6ff; border: 2px solid #bfdbfe; border-radius: 14px; padding: 14px; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(2,132,199,0.1); }
     .dispense-title { font-size: 1rem; font-weight: bold; color: #1e40af; margin-bottom: 10px; }
-    .dispense-input { width: 100%; padding: 10px; border: 1px solid #93c5fd; border-radius: 8px; font-size: 0.95rem; outline: none; background: #fff; margin-bottom: 10px; }
-    .dispense-input:focus { border-color: var(--primary); }
     
+    .search-wrapper { position: relative; margin-bottom: 10px; }
+    .dispense-input { width: 100%; padding: 10px 38px 10px 10px; border: 1px solid #93c5fd; border-radius: 8px; font-size: 0.95rem; outline: none; background: #fff; }
+    .dispense-input:focus { border-color: var(--primary); }
+    .clear-search-btn { display: none; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 1.15rem; color: #94a3b8; cursor: pointer; padding: 4px; line-height: 1; }
+    .clear-search-btn:hover { color: var(--danger); }
+
     .live-family-card { background: #fff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; display: none; }
     .live-family-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px dashed var(--border); padding-bottom: 6px; }
     .live-family-header strong { font-size: 1.05rem; color: #0f172a; }
     .live-stats { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted); }
     .live-stats span b { color: var(--text); }
 
-    /* مربع إدخال الأوعية: خط مكبر واختفاء النص الباهت عند التركيز */
+    /* تطابق مظهر النصوص التوضيحية (Placeholders) */
+    .dispense-input::placeholder { color: #94a3b8; opacity: 1; font-weight: normal; }
     .amount-input-box { width: 100%; padding: 12px; font-size: 1.25rem; font-weight: bold; border: 2px solid #0284c7; border-radius: 8px; text-align: center; outline: none; background: #fff; margin-bottom: 6px; letter-spacing: 1px; }
+    .amount-input-box::placeholder { color: #94a3b8; opacity: 1; font-weight: normal; }
     .amount-input-box:focus::placeholder { color: transparent; }
+
     .live-preview { font-size: 0.85rem; font-weight: bold; color: #0369a1; text-align: center; margin-bottom: 10px; min-height: 18px; }
     .btn-dispense-submit { width: 100%; background: #0284c7; color: #fff; border: none; padding: 12px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.15s; }
     .btn-dispense-submit:active { transform: scale(0.98); }
@@ -110,7 +117,7 @@
 </head>
 <body>
 
-  <!-- شريط الحالة (يُهيأ تلقائياً بحسب اتصال الجهاز الحقيقي) -->
+  <!-- شريط الحالة اللحظي -->
   <div id="syncStatus" class="sync-bar sync-offline">جاري فحص الاتصال...</div>
 
   <div class="header">
@@ -140,14 +147,17 @@
       </div>
     </div>
 
-    <!-- لوحة "تسجيل سحب" (تظهر للمسؤول فقط) -->
+    <!-- لوحة "تسجيل سحب" (للمسؤول فقط) -->
     <div id="dispensingPanel" class="dispense-panel" style="display: none;">
       <div class="dispense-title">
         <span>تسجيل سحب</span>
       </div>
 
-      <!-- قائمة البحث بالاسم -->
-      <input type="text" id="dispenseSearchInput" class="dispense-input" placeholder="🔍 ابحث بالاسم (مثال: سا أو أبو سائد)..." list="familiesDatalist" oninput="handleFamilySearch(this.value)">
+      <!-- قائمة البحث بالاسم مع زر الحذف ✕ السريع -->
+      <div class="search-wrapper">
+        <input type="text" id="dispenseSearchInput" class="dispense-input" placeholder="🔍 ابحث بالاسم (مثال: سا أو أبو سائد)..." list="familiesDatalist" oninput="handleFamilySearch(this.value)">
+        <button id="clearSearchBtn" class="clear-search-btn" type="button" onclick="clearDispenseSearch()">✕</button>
+      </div>
       <datalist id="familiesDatalist"></datalist>
 
       <!-- بطاقة العائلة اللحظية -->
@@ -164,14 +174,14 @@
         </div>
       </div>
 
-      <!-- خانة الأوعية -->
+      <!-- خانة الأوعية: نص متناسق يختفي عند النقر -->
       <input type="text" id="dispenseAmountInput" class="amount-input-box" placeholder="مثال: 18 16 12" oninput="handleLiveAmountPreview(this.value)" onkeydown="if(event.key==='Enter') submitDispense()">
       <div id="livePreviewBox" class="live-preview">المجموع: 0 لتر</div>
 
       <button class="btn-dispense-submit" onclick="submitDispense()">➕ إضافة السحب</button>
     </div>
 
-    <!-- قائمة بطاقات العائلات -->
+    <!-- قائمة بطاقات العائلات بالأسفل -->
     <div id="familiesList"></div>
 
     <!-- لوحة تحكم المسؤول -->
@@ -267,7 +277,6 @@
       updatedAt: 0
     };
 
-    // استعادة حالة المسؤول من ذاكرة الجلسة حتى لا تضيع عند التحديث
     let isAdmin = (sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true');
     let isPushing = false;
     let isFirebaseConnected = false;
@@ -294,7 +303,6 @@
       el.textContent = text;
     }
 
-    // تحديث أزرار وقوائم المسؤول وفق حالته المحفوظة
     function updateAdminUI() {
       const adminBtn = document.getElementById('adminBtn');
       const dispPanel = document.getElementById('dispensingPanel');
@@ -311,13 +319,11 @@
       }
     }
 
-    // المزامنة والحفظ اللحظي
     function pushState() {
       state.updatedAt = Date.now();
       saveLocal();
       render();
 
-      // تحديد وجود تعديل محلي معلق للرفع
       localStorage.setItem(PENDING_SYNC_KEY, 'true');
 
       if (navigator.onLine && isFirebaseConnected && db) {
@@ -327,7 +333,6 @@
       }
     }
 
-    // رفع التعديلات المعلقة للسيرفر
     function syncPendingToServer() {
       if (!navigator.onLine || !db || isPushing) return;
 
@@ -344,7 +349,6 @@
         localStorage.setItem(PENDING_SYNC_KEY, 'false');
         isPushing = false;
 
-        // رفع أي أرشيف تاريخي معلق من الأوفلاين
         try {
           const pendingHist = JSON.parse(localStorage.getItem('camp_pending_history_v1') || '[]');
           if (pendingHist.length > 0) {
@@ -356,15 +360,13 @@
         } catch(e) {}
 
         setSyncUI('online', 'متصل');
-      }).catch(function(err) {
+      }).catch(function() {
         isPushing = false;
         setSyncUI('offline', 'تم الحفظ محلياً (أوفلاين)');
       });
     }
 
-    // مراقبة قاعدة البيانات وحالة الشبكة
     function initFirebase() {
-      // 1. مراقبة حالة اتصال Firebase الحقيقية بالسيرفر
       db.ref('.info/connected').on('value', function(snap) {
         isFirebaseConnected = (snap.val() === true);
         if (isFirebaseConnected && navigator.onLine) {
@@ -374,7 +376,6 @@
         }
       });
 
-      // 2. استقبال التحديثات من السحابة مع حماية التعديلات المحلية
       db.ref('camp_data').on('value', function(snapshot) {
         if (isPushing) return;
 
@@ -382,20 +383,16 @@
         if (!val || !val.families) return;
 
         const hasPending = localStorage.getItem(PENDING_SYNC_KEY) === 'true';
-        
-        // إذا كان هناك تعديل محلي تم أوفلاين ولم يُرفع بعد: نرفعه للسيرفر بدلاً من مسحه
         if (hasPending) {
           syncPendingToServer();
           return;
         }
 
-        // إذا كان التعديل المحلي أحدث زمنياً: نفرض التعديل المحلي
         if (state.updatedAt && val.updatedAt && state.updatedAt > val.updatedAt) {
           syncPendingToServer();
           return;
         }
 
-        // إذا كانت السحابة هي الأحدث: نعتمد بيانات السحابة
         state = val;
         saveLocal();
         render();
@@ -405,7 +402,6 @@
       });
     }
 
-    // مراقبة أحداث الاتصال في المتصفح
     window.addEventListener('online', function() {
       if (isFirebaseConnected) syncPendingToServer();
       else setSyncUI('syncing', 'جاري استعادة الاتصال...');
@@ -466,6 +462,23 @@
       const items = clean.trim().split(/\s+/).map(Number).filter(n => !isNaN(n) && n > 0);
       const total = items.reduce((a, b) => a + b, 0);
       return { total: total, detail: items.join(' + '), items: items };
+    }
+
+    // تنسيق التاريخ والوقت بالساعة والدقيقة واليوم بدقة
+    function formatLogTimestamp(ts) {
+      const d = new Date(ts);
+      const days = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+      const dayName = days[d.getDay()];
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const date = String(d.getDate()).padStart(2, '0');
+      let hours = d.getHours();
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'م' : 'ص';
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      const hoursStr = String(hours).padStart(2, '0');
+      return `${dayName} ${year}/${month}/${date} - ${hoursStr}:${minutes} ${ampm}`;
     }
 
     function render() {
@@ -543,6 +556,13 @@
     }
 
     function handleFamilySearch(query) {
+      const clearBtn = document.getElementById('clearSearchBtn');
+      if (query && query.trim().length > 0) {
+        clearBtn.style.display = 'block';
+      } else {
+        clearBtn.style.display = 'none';
+      }
+
       if (!query || !query.trim()) {
         selectedDispenseFamId = null;
         document.getElementById('liveFamilyCard').style.display = 'none';
@@ -558,6 +578,13 @@
         selectedDispenseFamId = null;
         document.getElementById('liveFamilyCard').style.display = 'none';
       }
+    }
+
+    function clearDispenseSearch() {
+      const input = document.getElementById('dispenseSearchInput');
+      input.value = '';
+      handleFamilySearch('');
+      input.focus();
     }
 
     function updateLiveFamilyUI(famId, allotments) {
@@ -638,15 +665,16 @@
 
       pushState();
 
+      // إبقاء اسم العائلة في البطاقة وتفريغ الأوعية فقط
       inputEl.value = '';
-      document.getElementById('livePreviewBox').textContent = 'تم تسجيل السحب بنجاح ✓';
+      const calc = computeAllotments();
+      updateLiveFamilyUI(selectedDispenseFamId, calc.allotments);
+
+      document.getElementById('livePreviewBox').innerHTML = '<span style="color:var(--success);">تم تسجيل السحب بنجاح ✓</span>';
       setTimeout(function() {
-        document.getElementById('dispenseSearchInput').value = '';
-        document.getElementById('liveFamilyCard').style.display = 'none';
-        selectedDispenseFamId = null;
         document.getElementById('livePreviewBox').textContent = 'المجموع: 0 لتر';
-        document.getElementById('dispenseSearchInput').focus();
-      }, 1200);
+        inputEl.focus();
+      }, 1500);
     }
 
     function openLiveFamilyLog() {
@@ -685,14 +713,14 @@
       }
 
       logs.slice().reverse().forEach(function(l) {
-        const timeStr = new Date(l.timestamp).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+        const timeStr = formatLogTimestamp(l.timestamp);
         const item = document.createElement('div');
         item.className = 'log-item';
         item.innerHTML = `
           <div>
             <strong>${l.amount} لتر</strong>
             ${l.detail ? `<span style="font-size:0.75rem; color:var(--muted); margin-right:4px;">(${l.detail})</span>` : ''}
-            <div style="font-size:0.7rem; color:var(--muted);">${timeStr}</div>
+            <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${timeStr}</div>
           </div>
           ${(isAdmin && activeLogTab === 'current') ? `
             <div class="log-tools">
@@ -827,7 +855,6 @@
       }
     }
 
-    // إدارة الجلسة والدخول
     function toggleAdminModal() {
       if (isAdmin) {
         isAdmin = false;
@@ -894,11 +921,9 @@
       document.getElementById(id).style.display = 'none';
     }
 
-    // بدء التشغيل
     window.onload = function() {
       loadLocal();
 
-      // فحص أولي لحالة الاتصال الحقيقية بالهاتف
       if (!navigator.onLine) {
         setSyncUI('offline', 'وضع عدم الاتصال (أوفلاين)');
       } else {
