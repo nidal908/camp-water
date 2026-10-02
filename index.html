@@ -712,7 +712,7 @@
         return;
       }
 
-      logs.slice().reverse().forEach(function(l) {
+      logs.slice().sort((a, b) => b.timestamp - a.timestamp).forEach(function(l) {
         const timeStr = formatLogTimestamp(l.timestamp);
         const item = document.createElement('div');
         item.className = 'log-item';
