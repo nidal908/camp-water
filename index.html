@@ -3,946 +3,683 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#0284c7">
-  <title>نظام مياه المخيم</title>
-
-  <!-- إعدادات تطبيق الويب (PWA) والأيقونة -->
+  <title>نظام توزيع المياه الميداني</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/png" href="icon.png">
-  <link rel="apple-touch-icon" href="icon.png">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="مياه المخيم">
+  <meta name="theme-color" content="#0284c7">
 
-  <!-- مكتبات Firebase ومولد QR Code -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- مكتبات Firebase الأساسية -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
   <style>
     :root {
       --primary: #0284c7;
       --primary-dark: #0369a1;
-      --bg: #f1f5f9;
-      --card: #ffffff;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
       --text: #0f172a;
       --muted: #64748b;
       --border: #e2e8f0;
       --success: #16a34a;
-      --success-bg: #dcfce7;
+      --warning: #ca8a04;
       --danger: #dc2626;
-      --danger-bg: #fee2e2;
-      --warning: #f59e0b;
-      --warning-bg: #fef3c7;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
-    body { background-color: var(--bg); color: var(--text); padding-bottom: 80px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding-bottom: 70px; }
 
-    .top-bar { background: var(--primary); color: #fff; padding: 14px 16px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
-    .top-bar h1 { font-size: 1.15rem; font-weight: bold; }
+    /* شريط المزامنة */
+    .sync-bar { padding: 6px 12px; font-size: 0.8rem; text-align: center; font-weight: 600; display: flex; justify-content: center; align-items: center; gap: 8px; }
+    .sync-online { background: #dcfce7; color: #166534; }
+    .sync-offline { background: #fef3c7; color: #854d0e; }
+    .sync-syncing { background: #e0f2fe; color: #075985; }
+
+    .header { background: var(--primary); color: #fff; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .header h1 { font-size: 1.15rem; font-weight: 700; }
+    .btn-header { background: rgba(255,255,255,0.2); border: none; color: #fff; padding: 6px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.82rem; }
+
+    .container { max-width: 650px; margin: 0 auto; padding: 12px; }
+
+    /* لوحة الإحصائيات العلوية */
+    .stats-card { background: var(--card-bg); border-radius: 12px; padding: 14px; border: 1px solid var(--border); margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+    .stats-item span { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 2px; }
+    .stats-item strong { font-size: 1.1rem; color: var(--primary-dark); }
+
+    /* لوحة "تسجيل سحب" السريعة (للمسؤول) */
+    .dispense-panel { background: #eff6ff; border: 2px solid #bfdbfe; border-radius: 14px; padding: 14px; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(2,132,199,0.1); }
+    .dispense-title { font-size: 0.95rem; font-weight: bold; color: #1e40af; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+    .dispense-input { width: 100%; padding: 10px; border: 1px solid #93c5fd; border-radius: 8px; font-size: 0.95rem; outline: none; background: #fff; margin-bottom: 10px; }
+    .dispense-input:focus { border-color: var(--primary); ring: 2px solid #bfdbfe; }
     
-    .top-actions { display: flex; align-items: center; gap: 8px; }
-    .btn-top { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); color: #fff; padding: 6px 11px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; }
-    .btn-top:active { background: rgba(255,255,255,0.35); }
-    .admin-btn.active { background: #ef4444; border-color: #ef4444; font-weight: bold; }
+    .live-family-card { background: #fff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; display: none; }
+    .live-family-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px dashed var(--border); padding-bottom: 6px; }
+    .live-family-header strong { font-size: 1.05rem; color: #0f172a; }
+    .live-stats { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted); }
+    .live-stats span b { color: var(--text); }
 
-    .container { max-width: 600px; margin: 0 auto; padding: 12px; }
+    .amount-input-box { width: 100%; padding: 12px; font-size: 1.25rem; font-weight: bold; border: 2px solid #0284c7; border-radius: 8px; text-align: center; outline: none; background: #fff; margin-bottom: 6px; letter-spacing: 1px; }
+    .live-preview { font-size: 0.85rem; font-weight: bold; color: #0369a1; text-align: center; margin-bottom: 10px; min-height: 18px; }
+    .btn-dispense-submit { width: 100%; background: #0284c7; color: #fff; border: none; padding: 12px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.15s; }
+    .btn-dispense-submit:active { transform: scale(0.98); }
 
-    .status-bar { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; font-weight: 500; margin-bottom: 12px; padding: 8px 12px; border-radius: 6px; background: #fff; border: 1px solid var(--border); }
-    .status-info { display: flex; align-items: center; gap: 8px; }
-    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-    .dot.online { background: var(--success); }
-    .dot.offline { background: var(--warning); }
-    .dot.syncing { background: var(--primary); }
+    /* بطاقات العائلات المنظمة */
+    .family-card { background: var(--card-bg); border-radius: 12px; padding: 14px; border: 1px solid var(--border); margin-bottom: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+    .family-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .family-name { font-size: 1.05rem; font-weight: 700; color: #1e293b; }
+    .family-members-badge { font-size: 0.8rem; background: #f1f5f9; padding: 4px 8px; border-radius: 6px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+    .members-input { width: 45px; text-align: center; font-size: 0.95rem; font-weight: bold; border: 1px solid var(--border); border-radius: 4px; padding: 2px; }
 
-    .btn-force-sync { background: var(--warning); color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; cursor: pointer; display: none; }
+    .family-metrics { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 10px; background: #f8fafc; padding: 8px 12px; border-radius: 8px; }
+    .family-metrics div span { color: var(--muted); font-size: 0.72rem; display: block; }
+    .family-metrics div strong { font-size: 0.95rem; }
 
-    .summary-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
-    .s-card { background: var(--card); border-radius: 10px; padding: 12px; text-align: center; border: 1px solid var(--border); }
-    .s-card span { font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 4px; }
-    .s-card strong { font-size: 1.25rem; color: var(--primary-dark); }
-    .s-card.highlight { background: #e0f2fe; border-color: #bae6fd; }
-    .s-card.success { background: var(--success-bg); border-color: #bbf7d0; }
-    .s-card.success strong { color: var(--success); }
-    .s-card.danger { background: var(--danger-bg); border-color: #fecaca; }
-    .s-card.danger strong { color: var(--danger); }
+    .family-actions { display: flex; justify-content: space-between; align-items: center; }
+    .btn-log { background: #f1f5f9; border: 1px solid var(--border); color: #334155; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+    .badge-remaining { padding: 5px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; }
+    .badge-ok { background: #dcfce7; color: #15803d; }
+    .badge-warn { background: #fee2e2; color: #b91c1c; }
 
-    .admin-panel { background: var(--warning-bg); border: 1px solid #fde68a; border-radius: 10px; padding: 12px; margin-bottom: 12px; display: none; }
-    .admin-panel.show { display: block; }
-    .admin-panel h3 { font-size: 0.85rem; color: #92400e; margin-bottom: 8px; }
-    .btn-act { background: var(--primary); color: #fff; border: none; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
-    .btn-warn { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+    /* النوافذ المنبثقة (Modals) */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 16px; }
+    .modal-box { background: #fff; width: 100%; max-width: 420px; border-radius: 14px; padding: 18px; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+    .modal-title { font-size: 1.1rem; font-weight: bold; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+    .btn-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--muted); }
 
-    details { background: var(--card); border-radius: 10px; border: 1px solid var(--border); margin-bottom: 14px; overflow: hidden; }
-    summary { padding: 12px 16px; font-weight: 600; cursor: pointer; font-size: 0.95rem; background: #fff; user-select: none; }
-    .settings-content { padding: 14px; border-top: 1px solid var(--border); background: #fafafa; display: flex; flex-direction: column; gap: 12px; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+    .form-control { width: 100%; padding: 9px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; }
 
-    .form-row { display: flex; flex-direction: column; gap: 4px; }
-    .form-row label { font-size: 0.8rem; font-weight: 600; color: var(--muted); }
-    input[type="number"], select { width: 100%; padding: 9px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; background: #fff; outline: none; }
-    input:disabled, select:disabled { background: #f1f5f9; color: #94a3b8; }
+    /* سجل العمليات */
+    .tab-nav { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+    .tab-btn { flex: 1; text-align: center; padding: 8px; font-size: 0.85rem; font-weight: 600; border: none; background: none; cursor: pointer; color: var(--muted); }
+    .tab-btn.active { color: var(--primary); border-bottom: 2px solid var(--primary); }
+    .log-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed var(--border); font-size: 0.85rem; }
+    .log-tools { display: flex; gap: 6px; }
+    .btn-log-action { border: none; border-radius: 4px; padding: 3px 6px; font-size: 0.75rem; cursor: pointer; font-weight: bold; }
+    .btn-log-edit { background: #e0f2fe; color: #0369a1; }
+    .btn-log-del { background: #fee2e2; color: #b91c1c; }
 
-    .tents-list { display: flex; flex-direction: column; gap: 10px; }
-    .family-card { background: var(--card); border-radius: 10px; padding: 12px; border: 1px solid var(--border); box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
-
-    .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-    .fam-name { font-weight: bold; font-size: 1rem; border: none; background: transparent; padding: 2px 4px; border-radius: 4px; width: 60%; }
-    .fam-name:focus { background: #fff; border: 1px solid var(--primary); }
-    .pop-badge { font-size: 0.8rem; background: #f1f5f9; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border); display: flex; align-items: center; gap: 4px; }
-    .pop-input-mini { width: 42px; padding: 2px; text-align: center; font-size: 0.85rem; border: 1px solid #cbd5e1; border-radius: 4px; font-weight: bold; background: #fff; }
-
-    .card-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.85rem; margin-bottom: 10px; background: #f8fafc; padding: 8px; border-radius: 6px; }
-    .stat-item span { color: var(--muted); display: block; font-size: 0.75rem; }
-    .stat-item strong { font-size: 1rem; }
-
-    .card-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-    
-    .withdraw-group { display: flex; align-items: center; gap: 6px; }
-    .withdraw-input { width: 85px !important; padding: 6px !important; font-size: 0.9rem !important; text-align: center; border-radius: 6px !important; border: 1px solid var(--border); background: #fff; }
-    .btn-add-w { background: var(--primary); color: #fff; border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer; }
-    .btn-add-w:active { background: var(--primary-dark); }
-
-    .btn-del { background: transparent; border: none; font-size: 1.1rem; cursor: pointer; padding: 4px; }
-
-    .btn-log { background: #f1f5f9; border: 1px solid var(--border); color: var(--primary-dark); padding: 5px 9px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
-    .btn-log:hover { background: #e2e8f0; }
-
-    .rem-tag { padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; text-align: center; }
-    .rem-positive { background: var(--success-bg); color: var(--success); }
-    .rem-zero { background: #f1f5f9; color: var(--muted); }
-    .rem-negative { background: var(--danger-bg); color: var(--danger); }
-
-    /* النوافذ المنبثقة والسجل */
-    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 12px; }
-    .modal-overlay.active { display: flex; }
-    .modal-box { background: #fff; width: 100%; max-width: 380px; border-radius: 12px; padding: 18px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); max-height: 85vh; display: flex; flex-direction: column; }
-    .modal-box h3 { font-size: 1.05rem; margin-bottom: 10px; color: var(--primary-dark); }
-
-    .tab-header { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 12px; }
-    .tab-btn { flex: 1; padding: 8px; text-align: center; background: none; border: none; font-weight: bold; font-size: 0.85rem; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
-    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
-
-    .log-list { overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
-    .log-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 8px; background: #f8fafc; border: 1px solid var(--border); font-size: 0.85rem; }
-    .log-time { color: var(--muted); font-size: 0.75rem; display: block; margin-top: 2px; }
-    .log-detail { font-size: 0.75rem; color: #0369a1; display: block; margin-top: 1px; font-weight: 500; }
-    .log-val { font-weight: bold; font-size: 0.95rem; color: var(--primary); }
-    .btn-undo { background: var(--danger-bg); border: 1px solid #fca5a5; color: var(--danger); border-radius: 4px; padding: 3px 6px; font-size: 0.75rem; font-weight: bold; cursor: pointer; margin-right: 6px; }
-
-    .empty-state { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 24px 0; }
+    .btn-block { width: 100%; padding: 10px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; margin-top: 8px; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-danger { background: #ef4444; color: #fff; }
+    .btn-outline { background: #f8fafc; border: 1px solid var(--border); color: #475569; }
   </style>
 </head>
 <body>
 
-  <div class="top-bar">
-    <h1>مياه المخيم</h1>
-    <div class="top-actions">
-      <button class="btn-top" onclick="openQrModal()">📲 مشاركة</button>
-      <button id="adminToggleBtn" class="btn-top admin-btn" onclick="openAdminModal()">🔒 دخول مسؤول</button>
+  <!-- شريط المزامنة السحابية -->
+  <div id="syncStatus" class="sync-bar sync-online">جاري فحص الاتصال...</div>
+
+  <div class="header">
+    <h1>🚰 توزيع المياه</h1>
+    <div>
+      <button id="adminBtn" class="btn-header" onclick="toggleAdminModal()">🔒 دخول مسؤول</button>
     </div>
   </div>
 
   <div class="container">
-    <div class="status-bar">
-      <div class="status-info">
-        <span class="dot online" id="statusDot"></span>
-        <span id="connStatus">جاري فحص الاتصال...</span>
-      </div>
-      <button id="forceSyncBtn" class="btn-force-sync" onclick="attemptSync()">🔄 رفع التعديلات الآن</button>
-    </div>
 
-    <!-- كروت الملخص المباشر -->
-    <div class="summary-cards">
-      <div class="s-card highlight">
-        <span>المياه الموزعة</span>
-        <strong id="dispNetWater">3500 لتر</strong>
-      </div>
-      <div class="s-card success" id="remBox">
-        <span>المتبقي الكلي بالمخيم</span>
-        <strong id="dispTotalRemaining">3500 لتر</strong>
-      </div>
-      <div class="s-card">
-        <span>إجمالي المستهلك</span>
-        <strong id="dispTotalConsumed">0 لتر</strong>
-      </div>
-      <div class="s-card">
-        <span>إجمالي السكان</span>
-        <strong id="dispTotalPop">49 فرد</strong>
+    <!-- ملخص الخزان العام -->
+    <div class="stats-card">
+      <div class="stats-grid">
+        <div class="stats-item">
+          <span>الماء المتاح</span>
+          <strong id="statNetWater">0 لتر</strong>
+        </div>
+        <div class="stats-item">
+          <span>المستهلك الكلي</span>
+          <strong id="statTotalConsumed">0 لتر</strong>
+        </div>
+        <div class="stats-item">
+          <span>المتبقي بالخزان</span>
+          <strong id="statRemainingWater">0 لتر</strong>
+        </div>
       </div>
     </div>
 
-    <!-- أدوات المسؤول -->
-    <div class="admin-panel" id="adminControls">
-      <h3>لوحة تحكم المسؤول</h3>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <button class="btn-act" onclick="addNewFamily()">➕ إضافة عائلة</button>
-        <button class="btn-act btn-warn" onclick="resetAllConsumption()">🔄 تصفير الاستهلاك للدورة الجديدة</button>
-        <button class="btn-act" style="background:#475569;" onclick="openChangePinModal()">🔑 تغيير رمز PIN</button>
+    <!-- لوحة "تسجيل سحب" (تظهر للمسؤول فقط) -->
+    <div id="dispensingPanel" class="dispense-panel" style="display: none;">
+      <div class="dispense-title">
+        <span>⚡ تسجيل سحب سريع</span>
+        <span style="font-size: 0.75rem; color: #0284c7; font-weight: normal;">إدخال فوري في الطابور</span>
       </div>
+
+      <!-- قائمة البحث والاختيار -->
+      <input type="text" id="dispenseSearchInput" class="dispense-input" placeholder="🔍 ابحث بالاسم (مثال: سا أو أبو سائد)..." list="familiesDatalist" oninput="handleFamilySearch(this.value)">
+      <datalist id="familiesDatalist"></datalist>
+
+      <!-- بطاقة العائلة اللحظية -->
+      <div id="liveFamilyCard" class="live-family-card">
+        <div class="live-family-header">
+          <strong id="liveFamName">—</strong>
+          <button class="btn-log" onclick="openLiveFamilyLog()">📋 السجل</button>
+        </div>
+        <div class="live-stats">
+          <span>الأفراد: <b id="liveFamMembers">0</b></span>
+          <span>الحصة: <b id="liveFamAllotment">0 لتر</b></span>
+          <span>المستهلك: <b id="liveFamConsumed">0 لتر</b></span>
+          <span>المتبقي: <b id="liveFamRemaining" style="color:var(--primary);">0 لتر</b></span>
+        </div>
+      </div>
+
+      <!-- إدخال الأوعية الواسع والمعاينة اللحظية -->
+      <input type="text" id="dispenseAmountInput" class="amount-input-box" placeholder="الأوعية: 18 16 12" oninput="handleLiveAmountPreview(this.value)" onkeydown="if(event.key==='Enter') submitDispense()">
+      <div id="livePreviewBox" class="live-preview">المجموع: 0 لتر</div>
+
+      <button class="btn-dispense-submit" onclick="submitDispense()">➕ إضافة السحب</button>
     </div>
 
-    <!-- إعدادات التوزيع والاحتياطي -->
-    <details>
-      <summary>⚙️ إعدادات التوزيع والاحتياطي (المسؤول فقط)</summary>
-      <div class="settings-content">
-        <div class="form-row">
-          <label>طريقة التوزيع</label>
-          <select id="distMode" onchange="updateSettingsFromUI()">
-            <option value="elasticity" selected>وفورات الحجم (معامل المرونة)</option>
-            <option value="per_capita">بالتساوي حسب عدد الأفراد (خطي)</option>
-            <option value="per_family">بالتساوي بين العائلات</option>
-          </select>
-        </div>
+    <!-- قائمة بطاقات العائلات السفلية المنظمة -->
+    <div id="familiesList"></div>
 
-        <div class="form-row">
-          <label>إجمالي المياه المتوفرة (لتر)</label>
-          <input type="number" id="totalWater" value="4000" step="50" onchange="updateSettingsFromUI()">
-        </div>
+    <!-- أدوات المسؤول (إضافة عائلة، إعدادات، تصفير) -->
+    <div id="adminControls" style="display: none; margin-top: 16px;">
+      <button class="btn-block btn-outline" onclick="addNewFamily()" style="margin-bottom: 8px;">➕ إضافة عائلة جديدة</button>
+      <button class="btn-block btn-outline" onclick="openSettingsModal()" style="margin-bottom: 8px;">⚙️ إعدادات التوزيع والخزان</button>
+      <button class="btn-block btn-outline" onclick="openChangePinModal()" style="margin-bottom: 8px;">🔑 تغيير رمز PIN المسؤول</button>
+      <button class="btn-block btn-danger" onclick="resetAllConsumption()">🔄 تصفير الاستهلاك للدورة الجديدة</button>
+    </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-          <div class="form-row">
-            <label>الاحتياطي (لتر)</label>
-            <input type="number" id="reserveLiters" value="500" step="10" onchange="syncReserve('liters')">
-          </div>
-          <div class="form-row">
-            <label>نسبة الاحتياطي (%)</label>
-            <input type="number" id="reservePercent" value="12.5" step="0.1" onchange="syncReserve('percent')">
-          </div>
-        </div>
-
-        <div class="form-row">
-          <label>طريقة التقريب</label>
-          <select id="roundingMode" onchange="updateSettingsFromUI()">
-            <option value="none">بدون تقريب</option>
-            <option value="5" selected>أقرب 5 لترات</option>
-            <option value="10">أقرب 10 لترات (صفر في البداية)</option>
-          </select>
-        </div>
-
-        <div class="form-row" id="alphaGroup">
-          <label>معامل المرونة (α): <span id="alphaValDisplay">0.58</span></label>
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <input type="range" id="alphaSlider" min="0.40" max="0.75" step="0.01" value="0.58" style="flex:1;" oninput="syncAlpha('slider')">
-            <input type="number" id="alphaNumber" min="0.40" max="0.75" step="0.01" value="0.58" style="width: 75px; text-align: center;" onchange="syncAlpha('num')">
-          </div>
-        </div>
-      </div>
-    </details>
-
-    <!-- بطاقات العائلات -->
-    <div class="tents-list" id="familiesList"></div>
   </div>
 
-  <!-- نافذة رمز الاستجابة السريع (QR Code) للمشاركة والتثبيت -->
-  <div class="modal-overlay" id="qrModal">
-    <div class="modal-box" style="text-align: center;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <h3 style="margin:0;">📲 مشاركة وتثبيت التطبيق</h3>
-        <button onclick="closeModal('qrModal')" style="background:none; border:none; font-size:1.2rem; cursor:pointer;">✖</button>
-      </div>
-      <p style="font-size: 0.82rem; color: var(--muted); margin-bottom: 14px;">
-        امسح الرمز بكاميرا الجوال لفتح التطبيق وتثبيته على شاشتك فوراً
-      </p>
-      
-      <div id="qrcode-container" style="display: flex; justify-content: center; align-items: center; padding: 12px; background: #fff; border-radius: 12px; border: 1px solid var(--border); margin: 0 auto 14px; width: fit-content;">
-        <div id="qrcode"></div>
-      </div>
-
-      <div style="display:flex; gap:8px;">
-        <button class="btn-act" style="flex:1;" onclick="copyAppUrl()">📋 نسخ الرابط</button>
-        <button class="btn-act" style="background:#94a3b8;" onclick="closeModal('qrModal')">إغلاق</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- نافذة سجل السحوبات الزمني -->
-  <div class="modal-overlay" id="logModal">
-    <div class="modal-box">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <h3 id="logModalTitle" style="margin:0;">سجل السحوبات</h3>
-        <button onclick="closeModal('logModal')" style="background:none; border:none; font-size:1.2rem; cursor:pointer;">✖</button>
-      </div>
-      
-      <div class="tab-header">
-        <button class="tab-btn active" id="tabCurrentBtn" onclick="switchLogTab('current')">الدورة الحالية</button>
-        <button class="tab-btn" id="tabPrevBtn" onclick="switchLogTab('previous')">الدورة السابقة</button>
-      </div>
-
-      <div id="logSummaryBanner" style="font-size:0.8rem; background:#f0f9ff; padding:6px 10px; border-radius:6px; margin-bottom:8px; color:var(--primary-dark); display:none;"></div>
-
-      <div class="log-list" id="logItemsContainer"></div>
-
-      <div style="margin-top: 12px; text-align: left;">
-        <button class="btn-act" style="background:#94a3b8; width:100%;" onclick="closeModal('logModal')">إغلاق</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- نافذة تسجيل دخول المسؤول -->
-  <div class="modal-overlay" id="loginModal">
-    <div class="modal-box">
-      <h3>تسجيل دخول المسؤول</h3>
-      <div class="form-row" style="margin-bottom: 12px;">
-        <label>رمز PIN</label>
-        <input type="password" id="pinInput" placeholder="أدخل الرمز" style="text-align: center; font-size: 1.2rem; letter-spacing: 4px;">
-      </div>
-      <div style="display: flex; gap: 8px;">
-        <button class="btn-act" style="flex: 1;" onclick="checkPin()">دخول</button>
-        <button class="btn-act" style="background:#94a3b8;" onclick="closeModal('loginModal')">إلغاء</button>
-      </div>
-      <div style="margin-top: 14px; text-align: center;">
-        <a href="#" style="font-size: 0.75rem; color: var(--primary);" onclick="showRecoveryPrompt()">نسيت رمز PIN؟</a>
-      </div>
+  <!-- نافذة دخول المسؤول -->
+  <div id="loginModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 320px; text-align: center;">
+      <div class="modal-title"><span>🔒 رمز الدخول</span><button class="btn-close" onclick="closeModal('loginModal')">✕</button></div>
+      <input type="password" id="adminPinInput" class="form-control" style="font-size: 1.4rem; text-align: center; letter-spacing: 4px; margin-bottom: 12px;" maxlength="10" placeholder="••••" onkeydown="if(event.key==='Enter') verifyAdminPin()">
+      <button class="btn-block btn-primary" onclick="verifyAdminPin()">دخول</button>
     </div>
   </div>
 
   <!-- نافذة تغيير رمز PIN -->
-  <div class="modal-overlay" id="changePinModal">
+  <div id="changePinModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 320px;">
+      <div class="modal-title"><span>🔑 تغيير رمز المسؤول</span><button class="btn-close" onclick="closeModal('changePinModal')">✕</button></div>
+      <div class="form-group">
+        <label>الرمز السري الجديد:</label>
+        <input type="password" id="newPinInput" class="form-control" maxlength="10" placeholder="اكتب الرمز الجديد" onkeydown="if(event.key==='Enter') saveNewPin()">
+      </div>
+      <button class="btn-block btn-primary" onclick="saveNewPin()">حفظ الرمز</button>
+    </div>
+  </div>
+
+  <!-- نافذة سجل العائلة وتعديل الأوعية -->
+  <div id="logModal" class="modal-overlay">
     <div class="modal-box">
-      <h3>تغيير رمز PIN</h3>
-      <div class="form-row" style="margin-bottom: 12px;">
-        <label>رمز PIN الجديد</label>
-        <input type="password" id="newPinInput" placeholder="4 أرقام أو أكثر" style="text-align: center; font-size: 1.2rem;">
+      <div class="modal-title"><span id="logModalFamilyName">سجل السحب</span><button class="btn-close" onclick="closeModal('logModal')">✕</button></div>
+      <div class="tab-nav">
+        <button id="tabCurrentBtn" class="tab-btn active" onclick="switchLogTab('current')">الدورة الحالية</button>
+        <button id="tabPrevBtn" class="tab-btn" onclick="switchLogTab('prev')">الدورة السابقة</button>
       </div>
-      <div style="display: flex; gap: 8px;">
-        <button class="btn-act" style="flex: 1;" onclick="saveNewPin()">حفظ</button>
-        <button class="btn-act" style="background:#94a3b8;" onclick="closeModal('changePinModal')">إلغاء</button>
+      <div id="logListContent"></div>
+    </div>
+  </div>
+
+  <!-- نافذة الإعدادات -->
+  <div id="settingsModal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-title"><span>⚙️️ إعدادات التوزيع</span><button class="btn-close" onclick="closeModal('settingsModal')">✕</button></div>
+      <div class="form-group">
+        <label>إجمالي المياه المتوفرة (لتر):</label>
+        <input type="number" id="settingTotalWater" class="form-control">
       </div>
+      <div class="form-group">
+        <label>الاحتياطي غير الموزع (لتر):</label>
+        <input type="number" id="settingReserve" class="form-control">
+      </div>
+      <div class="form-group">
+        <label>طريقة التوزيع:</label>
+        <select id="settingDistMode" class="form-control">
+          <option value="elasticity">وفورات الحجم بالمرونة (α = 0.58)</option>
+          <option value="per_capita">بالتساوي بحسب عدد الأفراد</option>
+          <option value="per_family">بالتساوي بين جميع العائلات</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>التقريب:</label>
+        <select id="settingRounding" class="form-control">
+          <option value="none">بدون تقريب</option>
+          <option value="5">لأقرب 5 لترات</option>
+          <option value="10">لأقرب 10 لترات</option>
+        </select>
+      </div>
+      <button class="btn-block btn-primary" onclick="saveSettings()">حفظ وتحديث الحصص</button>
     </div>
   </div>
 
   <script>
-    // تسجيل Service Worker
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function() {
-        navigator.serviceWorker.register('./sw.js').then(function(reg) {
-          reg.update();
-        }).catch(function(err) {
-          console.warn('SW Register:', err);
-        });
-      });
-    }
+    // تهيئة Firebase
+    const firebaseConfig = {
+      databaseURL: "https://camp-water-default-rtdb.europe-west1.firebasedatabase.app"
+    };
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const STATE_KEY = 'camp_data_state_v1';
+    const PENDING_SYNC_KEY = 'camp_pending_sync_v1';
+
+    let state = {
+      pin: "399411",
+      settings: { totalWater: 4000, reserveLiters: 1000, distMode: 'per_family', roundingMode: '5', alpha: 0.58 },
+      families: [],
+      updatedAt: 0
+    };
 
     let isAdmin = false;
     let isPushing = false;
-    let activeLogFamilyIdx = null;
-    let currentLogTab = 'current';
+    let selectedDispenseFamId = null;
+    let activeLogFamilyId = null;
+    let activeLogTab = 'current';
 
-    const MASTER_RECOVERY_KEY = "000999";
-    const STORAGE_KEY = 'camp_water_master_data_v4';
-    const PENDING_SYNC_KEY = 'camp_water_has_unsaved_changes_v4';
-
-    const defaultData = {
-      settings: {
-        totalWater: 4000,
-        reserveLiters: 500,
-        distMode: "elasticity",
-        roundingMode: "5",
-        alpha: 0.58
-      },
-      pin: "399411",
-      families: [
-        { id: 1, name: "عائلة 1", members: 5, consumed: 0, currentLogs: [] },
-        { id: 2, name: "عائلة 2", members: 6, consumed: 0, currentLogs: [] },
-        { id: 3, name: "عائلة 3", members: 3, consumed: 0, currentLogs: [] },
-        { id: 4, name: "عائلة 4", members: 4, consumed: 0, currentLogs: [] },
-        { id: 5, name: "عائلة 5", members: 4, consumed: 0, currentLogs: [] },
-        { id: 6, name: "عائلة 6", members: 7, consumed: 0, currentLogs: [] },
-        { id: 7, name: "عائلة 7", members: 2, consumed: 0, currentLogs: [] },
-        { id: 8, name: "عائلة 8", members: 3, consumed: 0, currentLogs: [] },
-        { id: 9, name: "عائلة 9", members: 7, consumed: 0, currentLogs: [] },
-        { id: 10, name: "عائلة 10", members: 3, consumed: 0, currentLogs: [] },
-        { id: 11, name: "عائلة 11", members: 2, consumed: 0, currentLogs: [] },
-        { id: 12, name: "عائلة 12", members: 3, consumed: 0, currentLogs: [] }
-      ]
-    };
-
-    function loadLocalState() {
+    // تحميل الحالة من التخزين المحلي فوراً
+    function loadLocal() {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed && parsed.families && parsed.families.length > 0) {
-            return parsed;
-          }
-        }
-      } catch (e) {}
-      return JSON.parse(JSON.stringify(defaultData));
+        const raw = localStorage.getItem(STATE_KEY);
+        if (raw) state = JSON.parse(raw);
+      } catch(e) {}
     }
 
-    let state = loadLocalState();
-    renderAll();
-    checkSyncStatusUI();
-
-    // ربط Firebase
-    let db = null;
-    try {
-      const firebaseConfig = {
-        apiKey: "AIzaSyD9UwiLg28jEzgda69k6DXaLiojELaIvrY",
-        authDomain: "camp-water.firebaseapp.com",
-        databaseURL: "https://camp-water-default-rtdb.europe-west1.firebasedatabase.app",
-        projectId: "camp-water",
-        storageBucket: "camp-water.firebasestorage.app",
-        messagingSenderId: "287630664751",
-        appId: "1:287630664751:web:fe190f358481ea5bf852da"
-      };
-
-      firebase.initializeApp(firebaseConfig);
-      db = firebase.database();
-
-      db.ref('.info/connected').on('value', function(snap) {
-        if (snap.val() === true) {
-          const hasPending = localStorage.getItem(PENDING_SYNC_KEY) === 'true';
-          if (hasPending) {
-            attemptSync();
-          } else {
-            updateStatusUI('online', 'متصل بالشبكة اللحظية');
-          }
-        } else {
-          checkSyncStatusUI();
-        }
-      });
-
-      db.ref('camp_data').on('value', function(snapshot) {
-        const remoteData = snapshot.val();
-        const hasPending = localStorage.getItem(PENDING_SYNC_KEY) === 'true';
-
-        if (hasPending) {
-          attemptSync();
-          return;
-        }
-
-        if (remoteData && remoteData.families && remoteData.families.length > 0) {
-          state = remoteData;
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-          renderAll();
-          if (activeLogFamilyIdx !== null) renderLogModalContent();
-          updateStatusUI('online', 'متصل بالشبكة اللحظية (محدث)');
-        } else if (!remoteData) {
-          attemptSync();
-        }
-      });
-    } catch (e) {
-      checkSyncStatusUI();
+    function saveLocal() {
+      try {
+        localStorage.setItem(STATE_KEY, JSON.stringify(state));
+      } catch(e) {}
     }
 
-    window.addEventListener('online', attemptSync);
-    window.addEventListener('offline', checkSyncStatusUI);
-
-    function checkSyncStatusUI() {
-      const hasPending = localStorage.getItem(PENDING_SYNC_KEY) === 'true';
-      const btn = document.getElementById('forceSyncBtn');
-      if (hasPending) {
-        updateStatusUI('offline', 'وضع أوفلاين (تعديلات غير مرفوعة محفوظة بالجهاز)');
-        if (btn) btn.style.display = 'block';
-      } else {
-        updateStatusUI('offline', 'وضع عدم الاتصال (حفظ محلي)');
-        if (btn) btn.style.display = 'none';
-      }
-    }
-
-    function updateStatusUI(type, text) {
-      const dot = document.getElementById('statusDot');
-      const label = document.getElementById('connStatus');
-      if (dot) dot.className = 'dot ' + type;
-      if (label) label.textContent = text;
-    }
-
-    function attemptSync() {
-      const hasPending = localStorage.getItem(PENDING_SYNC_KEY) === 'true';
-      if (!hasPending) return;
-
-      if (!navigator.onLine || !db) {
-        checkSyncStatusUI();
-        return;
-      }
-
-      if (isPushing) return;
-      isPushing = true;
-      updateStatusUI('syncing', 'جاري رفع التعديلات ومزامنتها...');
-
-      db.ref('camp_data').set(state).then(function() {
-        localStorage.setItem(PENDING_SYNC_KEY, 'false');
-        isPushing = false;
-        const btn = document.getElementById('forceSyncBtn');
-        if (btn) btn.style.display = 'none';
-        updateStatusUI('online', 'متصل بالشبكة اللحظية (تمت المزامنة بنجاح)');
-
-        // رفع أي سجلات تاريخية معلقة من وضع الأوفلاين إن وُجدت
-        try {
-          const pendingHistory = JSON.parse(localStorage.getItem('camp_pending_history_v1') || '[]');
-          if (pendingHistory.length > 0) {
-            pendingHistory.forEach(function(hist) {
-              db.ref('camp_history').push(hist);
-            });
-            localStorage.removeItem('camp_pending_history_v1');
-          }
-        } catch(e) {}
-
-      }).catch(function(err) {
-        console.warn('Sync failed:', err);
-        isPushing = false;
-        checkSyncStatusUI();
-      });
-    }
-
+    // مزامنة ورفع البيانات
     function pushState() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      localStorage.setItem(PENDING_SYNC_KEY, 'true');
-      renderAll();
-      if (activeLogFamilyIdx !== null) renderLogModalContent();
-      attemptSync();
-    }
+      state.updatedAt = Date.now();
+      saveLocal();
+      render();
 
-    // إدارة جلسة المسؤول
-    function openAdminModal() {
-      if (isAdmin) {
-        isAdmin = false;
-        document.getElementById('adminToggleBtn').textContent = "🔒 دخول مسؤول";
-        document.getElementById('adminToggleBtn').classList.remove('active');
-        document.getElementById('adminControls').classList.remove('show');
-        renderAll();
-      } else {
-        document.getElementById('pinInput').value = "";
-        document.getElementById('loginModal').classList.add('active');
-      }
-    }
-
-    function checkPin() {
-      const entered = document.getElementById('pinInput').value;
-      if (entered === (state.pin || "399411")) {
-        isAdmin = true;
-        closeModal('loginModal');
-        document.getElementById('adminToggleBtn').textContent = "🔓 وضع الإدارة (خروج)";
-        document.getElementById('adminToggleBtn').classList.add('active');
-        document.getElementById('adminControls').classList.add('show');
-        renderAll();
-      } else {
-        alert("رمز PIN غير صحيح!");
-      }
-    }
-
-    function showRecoveryPrompt() {
-      const key = prompt("أدخل رمز الطوارئ الرئيسي (Master Key) لإعادة ضبط الرمز:");
-      if (key === MASTER_RECOVERY_KEY) {
-        state.pin = "399411";
-        pushState();
-        alert("تمت استعادة رمز PIN الافتراضي بنجاح: 399411");
-        closeModal('loginModal');
-      } else if (key !== null) {
-        alert("رمز الطوارئ غير صحيح.");
-      }
-    }
-
-    function openChangePinModal() {
-      document.getElementById('newPinInput').value = "";
-      document.getElementById('changePinModal').classList.add('active');
-    }
-
-    function saveNewPin() {
-      const np = document.getElementById('newPinInput').value.trim();
-      if (np.length >= 4) {
-        state.pin = np;
-        pushState();
-        alert("تم تحديث رمز PIN بنجاح.");
-        closeModal('changePinModal');
-      } else {
-        alert("الرجاء إدخال 4 أرقام على الأقل.");
-      }
-    }
-
-    function closeModal(id) {
-      document.getElementById(id).classList.remove('active');
-      if (id === 'logModal') activeLogFamilyIdx = null;
-    }
-
-    function applyRounding(val, mode) {
-      if (mode === '5') return Math.round(val / 5) * 5;
-      if (mode === '10') return Math.round(val / 10) * 10;
-      return parseFloat(val.toFixed(1));
-    }
-
-    // إدارة رمز QR
-    function openQrModal() {
-      const appUrl = window.location.href.split('#')[0];
-      const container = document.getElementById('qrcode');
-      container.innerHTML = '';
-
-      if (typeof QRCode !== 'undefined') {
-        new QRCode(container, {
-          text: appUrl,
-          width: 190,
-          height: 190,
-          colorDark: "#0284c7",
-          colorLight: "#ffffff",
-          correctLevel: QRCode.CorrectLevel.M
-        });
-      } else {
-        container.innerHTML = '<p style="font-size:0.8rem; color:var(--muted); padding:10px;">' + appUrl + '</p>';
-      }
-
-      document.getElementById('qrModal').classList.add('active');
-    }
-
-    function copyAppUrl() {
-      const appUrl = window.location.href.split('#')[0];
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(appUrl).then(function() {
-          alert("تم نسخ رابط التطبيق بنجاح!");
+      if (navigator.onLine && db) {
+        setSyncUI('syncing', 'جاري المزامنة...');
+        isPushing = true;
+        db.ref('camp_data').set(state).then(function() {
+          isPushing = false;
+          setSyncUI('online', 'متصل بالشبكة اللحظية');
         }).catch(function() {
-          prompt("انسخ الرابط التالي:", appUrl);
+          isPushing = false;
+          localStorage.setItem(PENDING_SYNC_KEY, 'true');
+          setSyncUI('offline', 'تم الحفظ محلياً (بانتظار المزامنة)');
         });
       } else {
-        prompt("انسخ الرابط التالي:", appUrl);
+        localStorage.setItem(PENDING_SYNC_KEY, 'true');
+        setSyncUI('offline', 'تم الحفظ محلياً (أوفلاين)');
       }
     }
 
-    // إدارة السجل الزمني
-    function openFamilyLog(idx) {
-      activeLogFamilyIdx = idx;
-      currentLogTab = 'current';
-      document.getElementById('tabCurrentBtn').className = 'tab-btn active';
-      document.getElementById('tabPrevBtn').className = 'tab-btn';
-      renderLogModalContent();
-      document.getElementById('logModal').classList.add('active');
+    function setSyncUI(status, text) {
+      const el = document.getElementById('syncStatus');
+      el.className = 'sync-bar sync-' + status;
+      el.textContent = text;
     }
 
-    function switchLogTab(tab) {
-      currentLogTab = tab;
-      document.getElementById('tabCurrentBtn').className = 'tab-btn ' + (tab === 'current' ? 'active' : '');
-      document.getElementById('tabPrevBtn').className = 'tab-btn ' + (tab === 'previous' ? 'active' : '');
-      renderLogModalContent();
-    }
-
-    function formatTimeLabel(ts) {
-      const d = new Date(ts);
-      const hours = d.getHours();
-      const minutes = d.getMinutes().toString().padStart(2, '0');
-      const ampm = hours >= 12 ? 'م' : 'ص';
-      const h12 = hours % 12 || 12;
-      const day = d.getDate();
-      const month = d.getMonth() + 1;
-      return day + '/' + month + ' — ' + h12 + ':' + minutes + ' ' + ampm;
-    }
-
-    function renderLogModalContent() {
-      if (activeLogFamilyIdx === null || !state.families[activeLogFamilyIdx]) return;
-      const fam = state.families[activeLogFamilyIdx];
-      document.getElementById('logModalTitle').textContent = 'سجل: ' + fam.name;
-
-      const container = document.getElementById('logItemsContainer');
-      const banner = document.getElementById('logSummaryBanner');
-      container.innerHTML = '';
-
-      if (currentLogTab === 'current') {
-        const logs = fam.currentLogs || [];
-        banner.style.display = 'block';
-        banner.textContent = 'إجمالي المستهلك بالدورة الحالية: ' + (fam.consumed || 0) + ' لتر';
-
-        if (logs.length === 0) {
-          container.innerHTML = '<div class="empty-state">لا توجد سحوبات مسجلة في هذه الدورة حتى الآن.</div>';
-          return;
+    // الاستماع لقاعدة البيانات السحابية
+    function initFirebase() {
+      db.ref('camp_data').on('value', function(snapshot) {
+        if (isPushing) return;
+        const val = snapshot.val();
+        if (val && val.families) {
+          state = val;
+          saveLocal();
+          render();
+          setSyncUI('online', 'متصل بالشبكة اللحظية');
         }
-
-        logs.forEach(function(item) {
-          const row = document.createElement('div');
-          row.className = 'log-row';
-
-          let undoBtn = '';
-          if (isAdmin) {
-            undoBtn = '<button class="btn-undo" onclick="undoLogEntry(' + item.id + ')">✕ تراجع</button>';
-          }
-
-          let detailText = item.detail ? ('<span class="log-detail">(' + item.detail + ')</span>') : '';
-
-          // الأرقام بدون إشارة +
-          row.innerHTML = 
-            '<div>' +
-              '<span class="log-val">' + item.amount + ' لتر</span>' +
-              detailText +
-              '<span class="log-time">' + formatTimeLabel(item.timestamp) + '</span>' +
-            '</div>' +
-            '<div>' + undoBtn + '</div>';
-
-          container.appendChild(row);
-        });
-
-      } else {
-        const prev = fam.previousCycle;
-        if (!prev || !prev.logs || prev.logs.length === 0) {
-          banner.style.display = 'none';
-          container.innerHTML = '<div class="empty-state">لا يوجد أرشيف مسجل للدورة السابقة.</div>';
-          return;
-        }
-
-        banner.style.display = 'block';
-        banner.textContent = 'الدورة السابقة (أُغلقت بتاريخ ' + (prev.closedAt || '—') + ') — الاستهلاك الكلي: ' + (prev.totalConsumed || 0) + ' لتر';
-
-        prev.logs.forEach(function(item) {
-          const row = document.createElement('div');
-          row.className = 'log-row';
-          let detailText = item.detail ? ('<span class="log-detail">(' + item.detail + ')</span>') : '';
-
-          row.innerHTML = 
-            '<div>' +
-              '<span class="log-val">' + item.amount + ' لتر</span>' +
-              detailText +
-              '<span class="log-time">' + formatTimeLabel(item.timestamp) + '</span>' +
-            '</div>' +
-            '<div><span style="font-size:0.75rem; color:var(--muted);">مؤرشف</span></div>';
-
-          container.appendChild(row);
-        });
-      }
-    }
-
-    function addWithdrawal(idx) {
-      if (!isAdmin) return;
-      const inputEl = document.getElementById('withInput_' + idx);
-      if (!inputEl) return;
-
-      const rawVal = inputEl.value.trim();
-      if (!rawVal) {
-        inputEl.focus();
-        return;
-      }
-
-      const matches = rawVal.match(/\d+(\.\d+)?/g);
-      if (!matches || matches.length === 0) {
-        inputEl.focus();
-        return;
-      }
-
-      const numbers = matches.map(function(n) { return parseFloat(n); }).filter(function(n) { return n > 0; });
-      if (numbers.length === 0) {
-        inputEl.focus();
-        return;
-      }
-
-      const totalAmount = numbers.reduce(function(sum, cur) { return sum + cur; }, 0);
-      const detailStr = numbers.length > 1 ? numbers.join(' + ') : '';
-
-      state.families[idx].consumed = (state.families[idx].consumed || 0) + totalAmount;
-      state.families[idx].currentLogs = state.families[idx].currentLogs || [];
-      state.families[idx].currentLogs.unshift({
-        id: Date.now(),
-        amount: totalAmount,
-        detail: detailStr,
-        timestamp: Date.now()
+      }, function() {
+        setSyncUI('offline', 'وضع عدم الاتصال (البيانات محفوظة)');
       });
-
-      inputEl.value = '';
-      pushState();
     }
 
-    function undoLogEntry(logId) {
-      if (!isAdmin || activeLogFamilyIdx === null) return;
-      const fam = state.families[activeLogFamilyIdx];
-      if (!fam.currentLogs) return;
+    // حساب الحصص وفق المعادلات الرياضية المدققة
+    function computeAllotments() {
+      const netWater = Math.max(0, (state.settings.totalWater || 0) - (state.settings.reserveLiters || 0));
+      const mode = state.settings.distMode || 'per_family';
+      const alpha = state.settings.alpha || 0.58;
+      const rounding = state.settings.roundingMode || '5';
 
-      const idx = fam.currentLogs.findIndex(function(l) { return l.id === logId; });
-      if (idx !== -1) {
-        const removed = fam.currentLogs.splice(idx, 1)[0];
-        fam.consumed = Math.max(0, (fam.consumed || 0) - removed.amount);
-        pushState();
-      }
-    }
-
-    function renderAll() {
-      const s = state.settings || defaultData.settings;
-      const totalWater = parseFloat(s.totalWater) || 4000;
-      const reserve = parseFloat(s.reserveLiters) || 500;
-      const netWater = Math.max(0, totalWater - reserve);
-
-      const tw = document.getElementById('totalWater');
-      const rl = document.getElementById('reserveLiters');
-      const rp = document.getElementById('reservePercent');
-      const dm = document.getElementById('distMode');
-      const rm = document.getElementById('roundingMode');
-      const as = document.getElementById('alphaSlider');
-      const an = document.getElementById('alphaNumber');
-      const ad = document.getElementById('alphaValDisplay');
-
-      if (tw) tw.value = totalWater;
-      if (rl) rl.value = reserve;
-      if (rp) rp.value = totalWater > 0 ? ((reserve / totalWater) * 100).toFixed(1) : 0;
-      if (dm) dm.value = s.distMode;
-      if (rm) rm.value = s.roundingMode;
-      if (as) as.value = s.alpha;
-      if (an) an.value = s.alpha;
-      if (ad) ad.textContent = s.alpha;
-
-      const ag = document.getElementById('alphaGroup');
-      if (ag) ag.style.display = (s.distMode === 'elasticity') ? 'flex' : 'none';
-
-      const inputs = document.querySelectorAll('.settings-content input, .settings-content select');
-      inputs.forEach(function(el) { el.disabled = !isAdmin; });
-
-      const fams = state.families || defaultData.families;
       let totalPop = 0;
-      let weights = [];
+      let activeFamiliesCount = 0;
       let sumWeights = 0;
 
-      fams.forEach(function(f) {
+      state.families.forEach(function(f) {
         const m = parseInt(f.members) || 0;
-        totalPop += m;
-        if (s.distMode === 'elasticity') {
-          const w = m > 0 ? Math.pow(m, parseFloat(s.alpha) || 0.58) : 0;
-          weights.push(w);
-          sumWeights += w;
-        } else if (s.distMode === 'per_capita') {
-          weights.push(m);
-          sumWeights += m;
-        } else {
-          const w = m > 0 ? 1 : 0;
-          weights.push(w);
-          sumWeights += w;
+        if (m > 0) {
+          totalPop += m;
+          activeFamiliesCount++;
+          sumWeights += (mode === 'elasticity') ? Math.pow(m, alpha) : 0;
         }
       });
 
-      let totalConsumed = 0;
-      const container = document.getElementById('familiesList');
-      if (!container) return;
-      container.innerHTML = '';
-
-      fams.forEach(function(f, idx) {
+      const allotments = {};
+      state.families.forEach(function(f) {
         const m = parseInt(f.members) || 0;
-        let share = 0;
-        if (m > 0 && sumWeights > 0) {
-          const rawShare = (weights[idx] / sumWeights) * netWater;
-          share = applyRounding(rawShare, s.roundingMode);
-        }
-        const cons = parseFloat(f.consumed) || 0;
-        const rem = share - cons;
-        totalConsumed += cons;
+        let quota = 0;
 
-        let remClass = 'rem-positive';
-        let remText = 'باقي ' + rem + ' لتر';
-        if (m === 0) { remClass = 'rem-zero'; remText = 'غير نشطة'; }
-        else if (rem === 0) { remClass = 'rem-zero'; remText = 'تم استهلاك الحصة'; }
-        else if (rem < 0) { remClass = 'rem-negative'; remText = 'تجاوز بـ ' + Math.abs(rem) + ' لتر'; }
+        if (m > 0 && netWater > 0) {
+          if (mode === 'per_capita' && totalPop > 0) {
+            quota = (m / totalPop) * netWater;
+          } else if (mode === 'elasticity' && sumWeights > 0) {
+            quota = (Math.pow(m, alpha) / sumWeights) * netWater;
+          } else if (mode === 'per_family' && activeFamiliesCount > 0) {
+            quota = netWater / activeFamiliesCount;
+          }
+        }
+
+        // التقريب
+        if (rounding === '5') quota = Math.round(quota / 5) * 5;
+        else if (rounding === '10') quota = Math.round(quota / 10) * 10;
+        else quota = Math.round(quota);
+
+        allotments[f.id] = quota;
+      });
+
+      return { allotments: allotments, netWater: netWater };
+    }
+
+    // فك رموز الأوعية المكتوبة
+    function parseContainers(str) {
+      if (!str) return { total: 0, detail: '', items: [] };
+      const clean = str.replace(/[\+،,]/g, ' ');
+      const items = clean.trim().split(/\s+/).map(Number).filter(n => !isNaN(n) && n > 0);
+      const total = items.reduce((a, b) => a + b, 0);
+      return { total: total, detail: items.join(' + '), items: items };
+    }
+
+    // واجهة المستخدم والعرض
+    function render() {
+      const calc = computeAllotments();
+      const allotments = calc.allotments;
+      const netWater = calc.netWater;
+
+      let totalConsumed = 0;
+      state.families.forEach(f => totalConsumed += (parseFloat(f.consumed) || 0));
+
+      document.getElementById('statNetWater').textContent = netWater + ' لتر';
+      document.getElementById('statTotalConsumed').textContent = Math.round(totalConsumed) + ' لتر';
+      document.getElementById('statRemainingWater').textContent = Math.max(0, Math.round(netWater - totalConsumed)) + ' لتر';
+
+      // تحديث قائمة العائلات للبحث في لوحة الصرف
+      const datalist = document.getElementById('familiesDatalist');
+      datalist.innerHTML = '';
+      state.families.forEach(function(f) {
+        const opt = document.createElement('option');
+        opt.value = f.name;
+        datalist.appendChild(opt);
+      });
+
+      // بطاقات العائلات المنظمة بالأسفل
+      const famContainer = document.getElementById('familiesList');
+      famContainer.innerHTML = '';
+
+      state.families.forEach(function(f) {
+        const quota = allotments[f.id] || 0;
+        const consumed = parseFloat(f.consumed) || 0;
+        const remaining = Math.max(0, quota - consumed);
+        const isOk = remaining > 0;
 
         const card = document.createElement('div');
         card.className = 'family-card';
-
-        let adminActions = '';
-        if (isAdmin) {
-          adminActions = 
-            '<div class="withdraw-group">' +
-              '<input type="text" id="withInput_' + idx + '" class="withdraw-input" placeholder="مثال: 15 12" onkeydown="if(event.key===\'Enter\') addWithdrawal(' + idx + ')">' +
-              '<button class="btn-add-w" onclick="addWithdrawal(' + idx + ')">➕ إضافة</button>' +
-            '</div>';
-        }
-
-        let delBtn = isAdmin ? ('<button class="btn-del" onclick="deleteFamily(' + idx + ')">🗑️</button>') : '';
-
-        card.innerHTML = 
-          '<div class="card-head">' +
-            '<input class="fam-name" value="' + f.name + '" ' + (isAdmin ? '' : 'disabled') + ' onchange="updateFamilyData(' + idx + ', \'name\', this.value)">' +
-            '<div style="display:flex; align-items:center; gap:6px;">' +
-              '<span class="pop-badge">' +
-                '<input type="number" min="0" max="40" class="pop-input-mini" value="' + m + '" ' + (isAdmin ? '' : 'disabled') + ' onchange="updateFamilyData(' + idx + ', \'members\', this.value)"> فرد' +
-              '</span>' +
-              delBtn +
-            '</div>' +
-          '</div>' +
-          '<div class="card-stats">' +
-            '<div class="stat-item">' +
-              '<span>الحصة المقررة:</span>' +
-              '<strong>' + share + ' لتر</strong>' +
-            '</div>' +
-            '<div class="stat-item">' +
-              '<span>المستهلك:</span>' +
-              '<strong style="color:var(--primary);">' + cons + ' لتر</strong>' +
-            '</div>' +
-          '</div>' +
-          '<div class="card-actions">' +
-            (adminActions ? adminActions : '') +
-            '<div style="display:flex; align-items:center; gap:6px; margin-right:auto;">' +
-              '<button class="btn-log" onclick="openFamilyLog(' + idx + ')">📋 السجل</button>' +
-              '<span class="rem-tag ' + remClass + '">' + remText + '</span>' +
-            '</div>' +
-          '</div>';
-
-        container.appendChild(card);
+        card.innerHTML = `
+          <div class="family-header">
+            <div class="family-name">${f.name}</div>
+            <div class="family-members-badge">
+              ${isAdmin ? `<input type="number" class="members-input" value="${f.members}" onchange="updateMembers(${f.id}, this.value)">` : `<strong>${f.members}</strong>`}
+              <span>فرد</span>
+              ${isAdmin ? `<button onclick="deleteFamily(${f.id})" style="border:none; background:none; cursor:pointer; font-size:0.9rem; margin-right:4px;">🗑️</button>` : ''}
+            </div>
+          </div>
+          <div class="family-metrics">
+            <div><span>الحصة المقررة:</span><strong>${quota} لتر</strong></div>
+            <div><span>المستهلك:</span><strong>${consumed} لتر</strong></div>
+            <div><span>المتبقي:</span><strong style="color:${isOk ? 'var(--primary)' : 'var(--danger)'}">${remaining} لتر</strong></div>
+          </div>
+          <div class="family-actions">
+            <button class="btn-log" onclick="openFamilyLog(${f.id})">📋 السجل</button>
+            <span class="badge-remaining ${isOk ? 'badge-ok' : 'badge-warn'}">باقي ${remaining} لتر</span>
+          </div>
+        `;
+        famContainer.appendChild(card);
       });
 
-      document.getElementById('dispNetWater').textContent = Math.round(netWater) + ' لتر';
-      document.getElementById('dispTotalPop').textContent = totalPop + ' فرد';
-      document.getElementById('dispTotalConsumed').textContent = totalConsumed + ' لتر';
-
-      const campRemaining = netWater - totalConsumed;
-      const remBox = document.getElementById('remBox');
-      document.getElementById('dispTotalRemaining').textContent = Math.round(campRemaining) + ' لتر';
-      remBox.className = 's-card ' + (campRemaining < 0 ? 'danger' : 'success');
-    }
-
-    function updateSettingsFromUI() {
-      if (!isAdmin) return;
-      state.settings.totalWater = parseFloat(document.getElementById('totalWater').value) || 0;
-      state.settings.distMode = document.getElementById('distMode').value;
-      state.settings.roundingMode = document.getElementById('roundingMode').value;
-      pushState();
-    }
-
-    function syncReserve(origin) {
-      if (!isAdmin) return;
-      const total = parseFloat(document.getElementById('totalWater').value) || 0;
-      if (origin === 'liters') {
-        state.settings.reserveLiters = parseFloat(document.getElementById('reserveLiters').value) || 0;
-      } else {
-        const p = parseFloat(document.getElementById('reservePercent').value) || 0;
-        state.settings.reserveLiters = (p / 100) * total;
+      // تحديث البطاقة اللحظية إذا كانت هناك عائلة مختارة
+      if (selectedDispenseFamId) {
+        updateLiveFamilyUI(selectedDispenseFamId, allotments);
       }
-      pushState();
     }
 
-    function syncAlpha(origin) {
-      if (!isAdmin) return;
-      let val = origin === 'slider' ? document.getElementById('alphaSlider').value : document.getElementById('alphaNumber').value;
-      val = parseFloat(val) || 0.58;
-      state.settings.alpha = val;
-      pushState();
-    }
-
-    function updateFamilyData(idx, field, value) {
-      if (!isAdmin) return;
-      if (field === 'members') {
-        state.families[idx].members = Math.max(0, parseInt(value) || 0);
-      } else {
-        state.families[idx].name = value.trim() || ('عائلة ' + (idx + 1));
+    // منطق لوحة "تسجيل سحب"
+    function handleFamilySearch(query) {
+      if (!query || !query.trim()) {
+        selectedDispenseFamId = null;
+        document.getElementById('liveFamilyCard').style.display = 'none';
+        return;
       }
-      pushState();
+      const q = query.trim().toLowerCase();
+      const match = state.families.find(f => f.name.toLowerCase().includes(q));
+      if (match) {
+        selectedDispenseFamId = match.id;
+        const calc = computeAllotments();
+        updateLiveFamilyUI(match.id, calc.allotments);
+      } else {
+        selectedDispenseFamId = null;
+        document.getElementById('liveFamilyCard').style.display = 'none';
+      }
     }
 
+    function updateLiveFamilyUI(famId, allotments) {
+      const fam = state.families.find(f => f.id === famId);
+      if (!fam) return;
+
+      const quota = allotments[fam.id] || 0;
+      const consumed = parseFloat(fam.consumed) || 0;
+      const remaining = Math.max(0, quota - consumed);
+
+      document.getElementById('liveFamName').textContent = fam.name;
+      document.getElementById('liveFamMembers').textContent = fam.members;
+      document.getElementById('liveFamAllotment').textContent = quota + ' لتر';
+      document.getElementById('liveFamConsumed').textContent = consumed + ' لتر';
+      document.getElementById('liveFamRemaining').textContent = remaining + ' لتر';
+      document.getElementById('liveFamilyCard').style.display = 'block';
+
+      handleLiveAmountPreview(document.getElementById('dispenseAmountInput').value);
+    }
+
+    function handleLiveAmountPreview(val) {
+      const parsed = parseContainers(val);
+      const prevBox = document.getElementById('livePreviewBox');
+
+      if (!selectedDispenseFamId) {
+        prevBox.textContent = `المجموع: ${parsed.total} لتر (يرجى اختيار العائلة)`;
+        return;
+      }
+
+      const fam = state.families.find(f => f.id === selectedDispenseFamId);
+      const calc = computeAllotments();
+      const quota = calc.allotments[fam.id] || 0;
+      const consumed = parseFloat(fam.consumed) || 0;
+      const remAfter = Math.max(0, quota - (consumed + parsed.total));
+
+      prevBox.innerHTML = `المجموع: <b>${parsed.total} لتر</b> | المتبقي بعد السحب: <b>${remAfter} لتر</b>`;
+    }
+
+    function submitDispense() {
+      if (!selectedDispenseFamId) {
+        alert('يرجى اختيار العائلة أولاً من خانة البحث');
+        return;
+      }
+      const inputEl = document.getElementById('dispenseAmountInput');
+      const parsed = parseContainers(inputEl.value);
+
+      if (parsed.total <= 0) {
+        alert('يرجى إدخال أوعية صحيحة');
+        return;
+      }
+
+      const fam = state.families.find(f => f.id === selectedDispenseFamId);
+      if (!fam) return;
+
+      if (!fam.currentLogs) fam.currentLogs = [];
+      fam.currentLogs.push({
+        id: Date.now(),
+        amount: parsed.total,
+        detail: parsed.detail,
+        timestamp: Date.now()
+      });
+
+      fam.consumed = (parseFloat(fam.consumed) || 0) + parsed.total;
+
+      pushState();
+
+      // تجهيز الخانة للعائلة التالية
+      inputEl.value = '';
+      document.getElementById('livePreviewBox').textContent = 'تم تسجيل السحب بنجاح ✓';
+      setTimeout(function() {
+        document.getElementById('dispenseSearchInput').value = '';
+        document.getElementById('liveFamilyCard').style.display = 'none';
+        selectedDispenseFamId = null;
+        document.getElementById('livePreviewBox').textContent = 'المجموع: 0 لتر';
+        document.getElementById('dispenseSearchInput').focus();
+      }, 1200);
+    }
+
+    function openLiveFamilyLog() {
+      if (selectedDispenseFamId) openFamilyLog(selectedDispenseFamId);
+    }
+
+    // إدارة السجلات وميزة التعديل
+    function openFamilyLog(famId) {
+      activeLogFamilyId = famId;
+      activeLogTab = 'current';
+      renderLogsModal();
+      document.getElementById('logModal').style.display = 'flex';
+    }
+
+    function switchLogTab(tab) {
+      activeLogTab = tab;
+      document.getElementById('tabCurrentBtn').className = 'tab-btn' + (tab === 'current' ? ' active' : '');
+      document.getElementById('tabPrevBtn').className = 'tab-btn' + (tab === 'prev' ? ' active' : '');
+      renderLogsModal();
+    }
+
+    function renderLogsModal() {
+      const fam = state.families.find(f => f.id === activeLogFamilyId);
+      if (!fam) return;
+
+      document.getElementById('logModalFamilyName').textContent = 'سجل سحب: ' + fam.name;
+      const listContent = document.getElementById('logListContent');
+      listContent.innerHTML = '';
+
+      const logs = (activeLogTab === 'current') 
+        ? (fam.currentLogs || []) 
+        : ((fam.previousCycle && fam.previousCycle.logs) || []);
+
+      if (logs.length === 0) {
+        listContent.innerHTML = '<div style="text-align:center; padding:20px; color:var(--muted);">لا توجد عمليات مسجلة في هذا السجل</div>';
+        return;
+      }
+
+      logs.slice().reverse().forEach(function(l) {
+        const timeStr = new Date(l.timestamp).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+        const item = document.createElement('div');
+        item.className = 'log-item';
+        item.innerHTML = `
+          <div>
+            <strong>${l.amount} لتر</strong>
+            ${l.detail ? `<span style="font-size:0.75rem; color:var(--muted); margin-right:4px;">(${l.detail})</span>` : ''}
+            <div style="font-size:0.7rem; color:var(--muted);">${timeStr}</div>
+          </div>
+          ${(isAdmin && activeLogTab === 'current') ? `
+            <div class="log-tools">
+              <button class="btn-log-action btn-log-edit" onclick="editLogEntry(${l.id})">✏️ تعديل</button>
+              <button class="btn-log-action btn-log-del" onclick="deleteLogEntry(${l.id})">✕ تراجع</button>
+            </div>
+          ` : ''}
+        `;
+        listContent.appendChild(item);
+      });
+    }
+
+    function editLogEntry(logId) {
+      const fam = state.families.find(f => f.id === activeLogFamilyId);
+      if (!fam || !fam.currentLogs) return;
+
+      const log = fam.currentLogs.find(l => l.id === logId);
+      if (!log) return;
+
+      const currentVal = log.detail || log.amount;
+      const newVal = prompt(`تعديل سحب (${fam.name}):\nاكتب الأوعية الجديدة مفصولة بمسافة:`, currentVal);
+      if (newVal === null) return;
+
+      const parsed = parseContainers(newVal);
+      if (parsed.total <= 0) {
+        alert('الكمية غير صحيحة');
+        return;
+      }
+
+      const diff = parsed.total - log.amount;
+      log.amount = parsed.total;
+      log.detail = parsed.detail;
+      fam.consumed = Math.max(0, (parseFloat(fam.consumed) || 0) + diff);
+
+      pushState();
+      renderLogsModal();
+    }
+
+    function deleteLogEntry(logId) {
+      const fam = state.families.find(f => f.id === activeLogFamilyId);
+      if (!fam || !fam.currentLogs) return;
+
+      const logIndex = fam.currentLogs.findIndex(l => l.id === logId);
+      if (logIndex === -1) return;
+
+      if (confirm('هل تريد حذف هذه العملية والتراجع عن خصمها؟')) {
+        const removed = fam.currentLogs.splice(logIndex, 1)[0];
+        fam.consumed = Math.max(0, (parseFloat(fam.consumed) || 0) - removed.amount);
+        pushState();
+        renderLogsModal();
+      }
+    }
+
+    // إدارة العائلات والإعدادات
     function addNewFamily() {
-      if (!isAdmin) return;
-      const newId = state.families.length + 1;
+      const name = prompt('أدخل اسم العائلة الجديدة:');
+      if (!name || !name.trim()) return;
+
+      const newId = Date.now();
       state.families.push({
         id: newId,
-        name: 'عائلة ' + newId,
-        members: 4,
+        name: name.trim(),
+        members: 0, // تبدأ افتراضياً بـ 0 لحماية حصص باقي العائلات
         consumed: 0,
         currentLogs: []
       });
+
       pushState();
     }
 
-    function deleteFamily(idx) {
-      if (!isAdmin) return;
-      if (confirm('هل تريد حذف ' + state.families[idx].name + '؟')) {
-        state.families.splice(idx, 1);
+    function updateMembers(id, val) {
+      const fam = state.families.find(f => f.id === id);
+      if (fam) {
+        fam.members = Math.max(0, parseInt(val) || 0);
         pushState();
       }
     }
-    // تدوير الدورة: أرشفة تراكمية دائمة في camp_history ثم تصفير العدادات الحالية
+
+    function deleteFamily(id) {
+      const fam = state.families.find(f => f.id === id);
+      if (fam && confirm(`هل تريد بالتأكيد حذف (${fam.name}) نهائياً؟`)) {
+        state.families = state.families.filter(f => f.id !== id);
+        pushState();
+      }
+    }
+
+    // تدوير الدورة وحفظ الأرشيف التاريخي
     function resetAllConsumption() {
       if (!isAdmin) return;
-      if (confirm('هل تريد تصفير استهلاك جميع العائلات لبدء دورة تعبئة جديدة؟')) {
+      if (confirm('هل تريد تصفير استهلاك جميع العائلات وبدء دورة جديدة؟ (سيتم ترحيل سجل تاريخي دائم إلى camp_history)')) {
         const now = Date.now();
         const todayStr = new Date().toLocaleDateString('ar-EG', { day: 'numeric', month: 'short', year: 'numeric' });
-        
-        // 1. حساب إحصائيات الدورة المغلقة
+
         let totalConsumed = 0;
         let totalPop = 0;
         const archivedFamilies = state.families.map(function(f) {
@@ -950,20 +687,13 @@
           const c = parseFloat(f.consumed) || 0;
           totalPop += m;
           totalConsumed += c;
-          return {
-            id: f.id,
-            name: f.name,
-            members: m,
-            consumed: c,
-            logs: f.currentLogs || []
-          };
+          return { id: f.id, name: f.name, members: m, consumed: c, logs: f.currentLogs || [] };
         });
 
-        // 2. تجهيز سجل الأرشفة التاريخي الشامل
         const archivePayload = {
           cycleTimestamp: now,
           closedAtStr: todayStr,
-          settings: JSON.parse(JSON.stringify(state.settings || defaultData.settings)),
+          settings: JSON.parse(JSON.stringify(state.settings)),
           summary: {
             totalPop: totalPop,
             totalConsumed: totalConsumed,
@@ -974,11 +704,9 @@
           families: archivedFamilies
         };
 
-        // 3. رفع الأرشيف إلى مسار التاريخ في السحابة
         if (db && navigator.onLine) {
           db.ref('camp_history').push(archivePayload);
         } else {
-          // في حال كان الأوفلاين نشطاً، يُحفظ في قائمة انتظار محلية للأرشفة
           try {
             const pendingHistory = JSON.parse(localStorage.getItem('camp_pending_history_v1') || '[]');
             pendingHistory.push(archivePayload);
@@ -986,13 +714,8 @@
           } catch(e) {}
         }
 
-        // 4. تدوير السجلات محلياً كالمعتاد
         state.families.forEach(function(f) {
-          f.previousCycle = {
-            totalConsumed: f.consumed || 0,
-            closedAt: todayStr,
-            logs: f.currentLogs || []
-          };
+          f.previousCycle = { totalConsumed: f.consumed || 0, closedAt: todayStr, logs: f.currentLogs || [] };
           f.consumed = 0;
           f.currentLogs = [];
         });
@@ -1000,6 +723,82 @@
         pushState();
       }
     }
+
+    // إدارة المسؤول والأمان
+    function toggleAdminModal() {
+      if (isAdmin) {
+        isAdmin = false;
+        document.getElementById('adminBtn').textContent = '🔒 دخول مسؤول';
+        document.getElementById('dispensingPanel').style.display = 'none';
+        document.getElementById('adminControls').style.display = 'none';
+        render();
+      } else {
+        document.getElementById('adminPinInput').value = '';
+        document.getElementById('loginModal').style.display = 'flex';
+        setTimeout(() => document.getElementById('adminPinInput').focus(), 100);
+      }
+    }
+
+    function verifyAdminPin() {
+      const pin = document.getElementById('adminPinInput').value.trim();
+      const currentPin = state.pin || "399411";
+      if (pin === currentPin) {
+        isAdmin = true;
+        closeModal('loginModal');
+        document.getElementById('adminBtn').textContent = '🔓 خروج مسؤول';
+        document.getElementById('dispensingPanel').style.display = 'block';
+        document.getElementById('adminControls').style.display = 'block';
+        render();
+      } else {
+        alert('رمز PIN غير صحيح');
+      }
+    }
+
+    function openChangePinModal() {
+      document.getElementById('newPinInput').value = '';
+      document.getElementById('changePinModal').style.display = 'flex';
+      setTimeout(() => document.getElementById('newPinInput').focus(), 100);
+    }
+
+    function saveNewPin() {
+      const p = document.getElementById('newPinInput').value.trim();
+      if (p.length < 4) {
+        alert('يجب أن يتكون الرمز من 4 أرقام على الأقل');
+        return;
+      }
+      state.pin = p;
+      pushState();
+      closeModal('changePinModal');
+      alert('تم تحديث رمز PIN بنجاح');
+    }
+
+    function openSettingsModal() {
+      document.getElementById('settingTotalWater').value = state.settings.totalWater;
+      document.getElementById('settingReserve').value = state.settings.reserveLiters;
+      document.getElementById('settingDistMode').value = state.settings.distMode;
+      document.getElementById('settingRounding').value = state.settings.roundingMode;
+      document.getElementById('settingsModal').style.display = 'flex';
+    }
+
+    function saveSettings() {
+      state.settings.totalWater = parseFloat(document.getElementById('settingTotalWater').value) || 0;
+      state.settings.reserveLiters = parseFloat(document.getElementById('settingReserve').value) || 0;
+      state.settings.distMode = document.getElementById('settingDistMode').value;
+      state.settings.roundingMode = document.getElementById('settingRounding').value;
+      pushState();
+      closeModal('settingsModal');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).style.display = 'none';
+    }
+
+    // بدء التشغيل
+    window.onload = function() {
+      loadLocal();
+      render();
+      initFirebase();
+    };
   </script>
 </body>
 </html>
