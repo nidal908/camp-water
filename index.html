@@ -34,9 +34,10 @@
     .sync-offline { background: #fee2e2; color: #991b1b; }
     .sync-syncing { background: #e0f2fe; color: #075985; }
 
-    .header { background: var(--primary); color: #fff; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .header h1 { font-size: 1.15rem; font-weight: 700; }
-    .btn-header { background: rgba(255,255,255,0.2); border: none; color: #fff; padding: 6px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.82rem; }
+    .header { background: var(--primary); color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .header h1 { font-size: 1.1rem; font-weight: 700; }
+    .header-actions { display: flex; gap: 6px; }
+    .btn-header { background: rgba(255,255,255,0.2); border: none; color: #fff; padding: 6px 10px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.8rem; }
 
     .container { max-width: 650px; margin: 0 auto; padding: 12px; }
 
@@ -46,7 +47,7 @@
     .stats-item span { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 2px; }
     .stats-item strong { font-size: 1.1rem; color: var(--primary-dark); }
 
-    /* لوحة "تسجيل سحب" */
+    /* لوحة "تسجيل سحب" (للمسؤول فقط) */
     .dispense-panel { background: #eff6ff; border: 2px solid #bfdbfe; border-radius: 14px; padding: 14px; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(2,132,199,0.1); }
     .dispense-title { font-size: 1rem; font-weight: bold; color: #1e40af; margin-bottom: 10px; }
     
@@ -62,7 +63,7 @@
     .live-stats { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted); }
     .live-stats span b { color: var(--text); }
 
-    /* تطابق مظهر النصوص التوضيحية (Placeholders) */
+    /* تطابق مظهر النصوص التوضيحية */
     .dispense-input::placeholder { color: #94a3b8; opacity: 1; font-weight: normal; }
     .amount-input-box { width: 100%; padding: 12px; font-size: 1.25rem; font-weight: bold; border: 2px solid #0284c7; border-radius: 8px; text-align: center; outline: none; background: #fff; margin-bottom: 6px; letter-spacing: 1px; }
     .amount-input-box::placeholder { color: #94a3b8; opacity: 1; font-weight: normal; }
@@ -72,19 +73,19 @@
     .btn-dispense-submit { width: 100%; background: #0284c7; color: #fff; border: none; padding: 12px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.15s; }
     .btn-dispense-submit:active { transform: scale(0.98); }
 
-    /* بطاقات العائلات المنظمة */
-    .family-card { background: var(--card-bg); border-radius: 12px; padding: 14px; border: 1px solid var(--border); margin-bottom: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+    /* بطاقات العائلات */
+    .family-card { background: var(--card-bg); border-radius: 12px; padding: 12px 14px; border: 1px solid var(--border); margin-bottom: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
     .family-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
     .family-name { font-size: 1.05rem; font-weight: 700; color: #1e293b; }
-    .family-members-badge { font-size: 0.8rem; background: #f1f5f9; padding: 4px 8px; border-radius: 6px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
-    .members-input { width: 45px; text-align: center; font-size: 0.95rem; font-weight: bold; border: 1px solid var(--border); border-radius: 4px; padding: 2px; }
+    .family-meta-admin { display: flex; align-items: center; gap: 6px; }
+    .mini-input { width: 42px; text-align: center; font-size: 0.85rem; font-weight: bold; border: 1px solid var(--border); border-radius: 4px; padding: 2px; }
 
-    .family-metrics { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 10px; background: #f8fafc; padding: 8px 12px; border-radius: 8px; }
+    .family-metrics { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 8px; background: #f8fafc; padding: 8px 12px; border-radius: 8px; }
     .family-metrics div span { color: var(--muted); font-size: 0.72rem; display: block; }
     .family-metrics div strong { font-size: 0.95rem; }
 
     .family-actions { display: flex; justify-content: space-between; align-items: center; }
-    .btn-log { background: #f1f5f9; border: 1px solid var(--border); color: #334155; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+    .btn-log { background: #f1f5f9; border: 1px solid var(--border); color: #334155; padding: 5px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
     .badge-remaining { padding: 5px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; }
     .badge-ok { background: #dcfce7; color: #15803d; }
     .badge-warn { background: #fee2e2; color: #b91c1c; }
@@ -93,7 +94,7 @@
     /* النوافذ المنبثقة */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 16px; }
     .modal-box { background: #fff; width: 100%; max-width: 420px; border-radius: 14px; padding: 18px; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-    .modal-title { font-size: 1.1rem; font-weight: bold; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+    .modal-title { font-size: 1.05rem; font-weight: bold; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
     .btn-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--muted); }
 
     .form-group { margin-bottom: 12px; }
@@ -123,7 +124,8 @@
 
   <div class="header">
     <h1>🚰 سِجِلّ مياه المخيم</h1>
-    <div>
+    <div class="header-actions">
+      <button class="btn-header" onclick="openMemberLoginModal()">🔍 استعلام عن حصتي</button>
       <button id="adminBtn" class="btn-header" onclick="toggleAdminModal()">🔒 دخول مسؤول</button>
     </div>
   </div>
@@ -148,15 +150,15 @@
       </div>
     </div>
 
-    <!-- لوحة "تسجيل سحب" (للمسؤول فقط) -->
+    <!-- لوحة "تسجيل سحب" (تظهر للمسؤول فقط) -->
     <div id="dispensingPanel" class="dispense-panel" style="display: none;">
       <div class="dispense-title">
         <span>تسجيل سحب</span>
       </div>
 
-      <!-- قائمة البحث بالاسم مع زر الحذف ✕ السريع -->
+      <!-- قائمة البحث بالاسم أو برقم الخيمة -->
       <div class="search-wrapper">
-        <input type="text" id="dispenseSearchInput" class="dispense-input" placeholder="🔍 ابحث بالاسم (مثال: سا أو أبو سائد)..." list="familiesDatalist" oninput="handleFamilySearch(this.value)">
+        <input type="text" id="dispenseSearchInput" class="dispense-input" placeholder="🔍 ابحث بالاسم أو برقم الخيمة (مثال: سا أو 4)..." list="familiesDatalist" oninput="handleFamilySearch(this.value)">
         <button id="clearSearchBtn" class="clear-search-btn" type="button" onclick="clearDispenseSearch()">✕</button>
       </div>
       <datalist id="familiesDatalist"></datalist>
@@ -168,6 +170,7 @@
           <button class="btn-log" onclick="openLiveFamilyLog()">📋 السجل</button>
         </div>
         <div class="live-stats">
+          <span>خيمة: <b id="liveFamTent">0</b></span>
           <span>الأفراد: <b id="liveFamMembers">0</b></span>
           <span>الحصة: <b id="liveFamAllotment">0 لتر</b></span>
           <span>المستهلك: <b id="liveFamConsumed">0 لتر</b></span>
@@ -175,14 +178,14 @@
         </div>
       </div>
 
-      <!-- خانة الأوعية: نص متناسق يختفي عند النقر -->
+      <!-- خانة الأوعية -->
       <input type="text" id="dispenseAmountInput" class="amount-input-box" placeholder="مثال: 18 16 12" oninput="handleLiveAmountPreview(this.value)" onkeydown="if(event.key==='Enter') submitDispense()">
       <div id="livePreviewBox" class="live-preview">المجموع: 0 لتر</div>
 
       <button class="btn-dispense-submit" onclick="submitDispense()">➕ إضافة السحب</button>
     </div>
 
-    <!-- قائمة بطاقات العائلات بالأسفل -->
+    <!-- قائمة بطاقات العائلات -->
     <div id="familiesList"></div>
 
     <!-- لوحة تحكم المسؤول -->
@@ -195,16 +198,60 @@
 
   </div>
 
+  <!-- نافذة دخول العضو للاستعلام عن حصته -->
+  <div id="memberLoginModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 330px;">
+      <div class="modal-title"><span>🔍 استعلام عن حصتي</span><button class="btn-close" onclick="closeModal('memberLoginModal')">✕</button></div>
+      <div class="form-group">
+        <label>اختر اسم العائلة:</label>
+        <select id="memberFamilySelect" class="form-control"></select>
+      </div>
+      <div class="form-group">
+        <label>رمز PIN الخاص بك (الافتراضي هو رقم خيمتك):</label>
+        <input type="password" id="memberPinInput" class="form-control" placeholder="اكتب رمز PIN" onkeydown="if(event.key==='Enter') verifyMemberPin()">
+      </div>
+      <button class="btn-block btn-primary" onclick="verifyMemberPin()">عرض بياناتي</button>
+    </div>
+  </div>
+
+  <!-- نافذة عرض بيانات العضو الخاصة (Dashboard Modal) -->
+  <div id="memberViewModal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-title"><span id="memberCardTitle">بطاقتي</span><button class="btn-close" onclick="closeMemberViewModal()">✕ إغلاق</button></div>
+      
+      <div id="memberMetricsBox" class="family-metrics" style="margin-bottom: 12px;"></div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <strong style="font-size: 0.9rem;">📋 سجل سحوباتي:</strong>
+        <button class="btn-log" onclick="openMemberChangePinModal()">🔑 تغيير رمزي السري</button>
+      </div>
+      
+      <div id="memberLogsContainer"></div>
+    </div>
+  </div>
+
+  <!-- نافذة تغيير رمز PIN للعضو -->
+  <div id="memberChangePinModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 320px;">
+      <div class="modal-title"><span>🔑 تغيير رمز PIN للعائلة</span><button class="btn-close" onclick="closeModal('memberChangePinModal')">✕</button></div>
+      <div class="form-group">
+        <label>الرمز السري الجديد:</label>
+        <input type="password" id="newMemberPinInput" class="form-control" placeholder="اكتب الرمز الجديد" onkeydown="if(event.key==='Enter') saveNewMemberPin()">
+      </div>
+      <button class="btn-block btn-primary" onclick="saveNewMemberPin()">حفظ الرمز</button>
+    </div>
+  </div>
+
   <!-- نافذة دخول المسؤول -->
   <div id="loginModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 320px; text-align: center;">
-      <div class="modal-title"><span>🔒 رمز الدخول</span><button class="btn-close" onclick="closeModal('loginModal')">✕</button></div>
+      <div class="modal-title"><span>🔒 رمز دخول المسؤول</span><button class="btn-close" onclick="closeModal('loginModal')">✕</button></div>
       <input type="password" id="adminPinInput" class="form-control" style="font-size: 1.4rem; text-align: center; letter-spacing: 4px; margin-bottom: 12px;" maxlength="10" placeholder="••••" onkeydown="if(event.key==='Enter') verifyAdminPin()">
       <button class="btn-block btn-primary" onclick="verifyAdminPin()">دخول</button>
     </div>
   </div>
 
-  <!-- نافذة تغيير رمز PIN -->
+  <!-- نافذة تغيير رمز PIN للمسؤول -->
   <div id="changePinModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 320px;">
       <div class="modal-title"><span>🔑 تغيير رمز المسؤول</span><button class="btn-close" onclick="closeModal('changePinModal')">✕</button></div>
@@ -216,7 +263,7 @@
     </div>
   </div>
 
-  <!-- نافذة سجل العائلة -->
+  <!-- نافذة سجل العائلة العام (للمسؤول) -->
   <div id="logModal" class="modal-overlay">
     <div class="modal-box">
       <div class="modal-title"><span id="logModalFamilyName">سجل السحب</span><button class="btn-close" onclick="closeModal('logModal')">✕</button></div>
@@ -284,11 +331,33 @@
     let selectedDispenseFamId = null;
     let activeLogFamilyId = null;
     let activeLogTab = 'current';
+    let loggedInMemberFamId = null;
+
+    // ترحيل البيانات القديمة وضمان وجود رقم الخيمة والـ PIN
+    function migrateState() {
+      let changed = false;
+      if (state.families && state.families.length > 0) {
+        state.families.forEach((f, idx) => {
+          if (!f.tent) {
+            f.tent = String(idx + 1);
+            changed = true;
+          }
+          if (!f.pin) {
+            f.pin = String(f.tent);
+            changed = true;
+          }
+        });
+      }
+      if (changed) saveLocal();
+    }
 
     function loadLocal() {
       try {
         const raw = localStorage.getItem(STATE_KEY);
-        if (raw) state = JSON.parse(raw);
+        if (raw) {
+          state = JSON.parse(raw);
+          migrateState();
+        }
       } catch(e) {}
     }
 
@@ -395,6 +464,7 @@
         }
 
         state = val;
+        migrateState();
         saveLocal();
         render();
         if (isFirebaseConnected && navigator.onLine) {
@@ -465,7 +535,6 @@
       return { total: total, detail: items.join(' + '), items: items };
     }
 
-    // تنسيق التاريخ والوقت بالساعة والدقيقة واليوم بدقة
     function formatLogTimestamp(ts) {
       const d = new Date(ts);
       const days = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
@@ -482,6 +551,18 @@
       return `${dayName} ${year}/${month}/${date} - ${hoursStr}:${minutes} ${ampm}`;
     }
 
+    // دالة خلط عشوائي لعرض الكروت في الواجهة العامة دون التأثير على الترتيب الأصلي
+    function shuffleArray(array) {
+      const arr = array.slice();
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const temp = arr[i];
+        arr[i] = arr[j];
+        arr[j] = temp;
+      }
+      return arr;
+    }
+
     function render() {
       updateAdminUI();
 
@@ -496,66 +577,113 @@
       document.getElementById('statTotalConsumed').textContent = Math.round(totalConsumed) + ' لتر';
       document.getElementById('statRemainingWater').textContent = Math.max(0, Math.round(netWater - totalConsumed)) + ' لتر';
 
+      // تحديث قائمة البحث بالإسم ورقم الخيمة
       const datalist = document.getElementById('familiesDatalist');
       datalist.innerHTML = '';
       state.families.forEach(function(f) {
         const opt = document.createElement('option');
-        opt.value = f.name;
+        opt.value = `${f.name} (خيمة ${f.tent || '-'})`;
         datalist.appendChild(opt);
       });
 
       const famContainer = document.getElementById('familiesList');
       famContainer.innerHTML = '';
 
-      state.families.forEach(function(f) {
-        const quota = allotments[f.id] || 0;
-        const consumed = parseFloat(f.consumed) || 0;
-        const diff = quota - consumed;
+      if (isAdmin) {
+        // عرض كامل وتفصيلي للمسؤول
+        state.families.forEach(function(f) {
+          const quota = allotments[f.id] || 0;
+          const consumed = parseFloat(f.consumed) || 0;
+          const diff = quota - consumed;
 
-        let statusBadge = '';
-        let remDisplay = '';
+          let statusBadge = '';
+          let remDisplay = '';
 
-        if (diff > 0) {
-          statusBadge = `<span class="badge-remaining badge-ok">باقي ${diff} لتر</span>`;
-          remDisplay = `<div><span>المتبقي:</span><strong style="color:var(--primary);">${diff} لتر</strong></div>`;
-        } else if (diff === 0) {
-          statusBadge = `<span class="badge-remaining badge-neutral">أنهى الحصة</span>`;
-          remDisplay = `<div><span>المتبقي:</span><strong style="color:var(--muted);">0 لتر</strong></div>`;
-        } else {
-          const over = Math.abs(diff);
-          statusBadge = `<span class="badge-remaining badge-warn">تجاوز ${over} لتر</span>`;
-          remDisplay = `<div><span>تجاوز الحصة:</span><strong style="color:var(--danger);">${over} لتر</strong></div>`;
-        }
+          if (diff > 0) {
+            statusBadge = `<span class="badge-remaining badge-ok">باقي ${diff} لتر</span>`;
+            remDisplay = `<div><span>المتبقي:</span><strong style="color:var(--primary);">${diff} لتر</strong></div>`;
+          } else if (diff === 0) {
+            statusBadge = `<span class="badge-remaining badge-neutral">أنهى الحصة</span>`;
+            remDisplay = `<div><span>المتبقي:</span><strong style="color:var(--muted);">0 لتر</strong></div>`;
+          } else {
+            const over = Math.abs(diff);
+            statusBadge = `<span class="badge-remaining badge-warn">تجاوز ${over} لتر</span>`;
+            remDisplay = `<div><span>تجاوز الحصة:</span><strong style="color:var(--danger);">${over} لتر</strong></div>`;
+          }
 
-        const card = document.createElement('div');
-        card.className = 'family-card';
-        card.innerHTML = `
-          <div class="family-header">
-            <div class="family-name">${f.name}</div>
-            <div class="family-members-badge">
-              ${isAdmin ? `<input type="number" class="members-input" value="${f.members}" onchange="updateMembers(${f.id}, this.value)">` : `<strong>${f.members}</strong>`}
-              <span>فرد</span>
-              ${isAdmin ? `<button onclick="deleteFamily(${f.id})" style="border:none; background:none; cursor:pointer; font-size:0.9rem; margin-right:4px;">🗑️</button>` : ''}
+          const card = document.createElement('div');
+          card.className = 'family-card';
+          card.innerHTML = `
+            <div class="family-header">
+              <div>
+                <strong class="family-name">${f.name}</strong>
+              </div>
+              <div class="family-meta-admin">
+                <span style="font-size:0.75rem; color:var(--muted);">خيمة:</span>
+                <input type="text" class="mini-input" value="${f.tent || ''}" title="رقم الخيمة" onchange="updateTentNumber(${f.id}, this.value)">
+                <input type="number" class="mini-input" value="${f.members}" title="عدد الأفراد" onchange="updateMembers(${f.id}, this.value)">
+                <span style="font-size:0.75rem; color:var(--muted);">فرد</span>
+                <button onclick="resetMemberPinByAdmin(${f.id})" class="btn-log-action" style="background:#fef3c7; color:#92400e;" title="إعادة ضبط PIN إلى رقم الخيمة">🔄 ضبط PIN</button>
+                <button onclick="deleteFamily(${f.id})" style="border:none; background:none; cursor:pointer; font-size:0.95rem;">🗑️</button>
+              </div>
             </div>
-          </div>
-          <div class="family-metrics">
-            <div><span>الحصة المقررة:</span><strong>${quota} لتر</strong></div>
-            <div><span>المستهلك:</span><strong>${consumed} لتر</strong></div>
-            ${remDisplay}
-          </div>
-          <div class="family-actions">
-            <button class="btn-log" onclick="openFamilyLog(${f.id})">📋 السجل</button>
-            ${statusBadge}
-          </div>
-        `;
-        famContainer.appendChild(card);
-      });
+            <div class="family-metrics">
+              <div><span>الحصة المقررة:</span><strong>${quota} لتر</strong></div>
+              <div><span>المستهلك:</span><strong>${consumed} لتر</strong></div>
+              ${remDisplay}
+            </div>
+            <div class="family-actions">
+              <button class="btn-log" onclick="openFamilyLog(${f.id})">📋 السجل التفصيلي</button>
+              ${statusBadge}
+            </div>
+          `;
+          famContainer.appendChild(card);
+        });
+      } else {
+        // عرض مجهول الهوية ومخلوط عشوائياً في الصفحة العامة (الخيار ب)
+        const shuffled = shuffleArray(state.families);
+        shuffled.forEach(function(f) {
+          const quota = allotments[f.id] || 0;
+          const consumed = parseFloat(f.consumed) || 0;
+          const diff = quota - consumed;
+
+          let statusBadge = '';
+          let remDisplay = '';
+
+          if (diff > 0) {
+            statusBadge = `<span class="badge-remaining badge-ok">باقي ${diff} لتر</span>`;
+            remDisplay = `<div><span>المتبقي:</span><strong style="color:var(--primary);">${diff} لتر</strong></div>`;
+          } else if (diff === 0) {
+            statusBadge = `<span class="badge-remaining badge-neutral">أنهى الحصة</span>`;
+            remDisplay = `<div><span>المتبقي:</span><strong style="color:var(--muted);">0 لتر</strong></div>`;
+          } else {
+            const over = Math.abs(diff);
+            statusBadge = `<span class="badge-remaining badge-warn">تجاوز ${over} لتر</span>`;
+            remDisplay = `<div><span>تجاوز الحصة:</span><strong style="color:var(--danger);">${over} لتر</strong></div>`;
+          }
+
+          const card = document.createElement('div');
+          card.className = 'family-card';
+          card.innerHTML = `
+            <div class="family-metrics" style="margin-bottom: 8px;">
+              <div><span>الحصة المقررة:</span><strong>${quota} لتر</strong></div>
+              <div><span>المستهلك:</span><strong>${consumed} لتر</strong></div>
+              ${remDisplay}
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              ${statusBadge}
+            </div>
+          `;
+          famContainer.appendChild(card);
+        });
+      }
 
       if (selectedDispenseFamId) {
         updateLiveFamilyUI(selectedDispenseFamId, allotments);
       }
     }
 
+    // البحث في الصرف السريع بالاسم أو رقم الخيمة
     function handleFamilySearch(query) {
       const clearBtn = document.getElementById('clearSearchBtn');
       if (query && query.trim().length > 0) {
@@ -570,7 +698,12 @@
         return;
       }
       const q = query.trim().toLowerCase();
-      const match = state.families.find(f => f.name.toLowerCase().includes(q));
+      const match = state.families.find(f => 
+        f.name.toLowerCase().includes(q) || 
+        (f.tent && String(f.tent).toLowerCase() === q) ||
+        `${f.name} (خيمة ${f.tent || '-'})`.toLowerCase().includes(q)
+      );
+
       if (match) {
         selectedDispenseFamId = match.id;
         const calc = computeAllotments();
@@ -597,6 +730,7 @@
       const diff = quota - consumed;
 
       document.getElementById('liveFamName').textContent = fam.name;
+      document.getElementById('liveFamTent').textContent = fam.tent || '-';
       document.getElementById('liveFamMembers').textContent = fam.members;
       document.getElementById('liveFamAllotment').textContent = quota + ' لتر';
       document.getElementById('liveFamConsumed').textContent = consumed + ' لتر';
@@ -666,7 +800,6 @@
 
       pushState();
 
-      // إبقاء اسم العائلة في البطاقة وتفريغ الأوعية فقط
       inputEl.value = '';
       const calc = computeAllotments();
       updateLiveFamilyUI(selectedDispenseFamId, calc.allotments);
@@ -682,6 +815,147 @@
       if (selectedDispenseFamId) openFamilyLog(selectedDispenseFamId);
     }
 
+    // إدارة استعلام العضو (Member Inquiry)
+    function openMemberLoginModal() {
+      const select = document.getElementById('memberFamilySelect');
+      select.innerHTML = '<option value="">-- اختر عائلتك من القائمة --</option>';
+      state.families.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = `${f.name} (خيمة ${f.tent || '-'})`;
+        select.appendChild(opt);
+      });
+      document.getElementById('memberPinInput').value = '';
+      document.getElementById('memberLoginModal').style.display = 'flex';
+      setTimeout(() => document.getElementById('memberFamilySelect').focus(), 100);
+    }
+
+    function verifyMemberPin() {
+      const famId = parseInt(document.getElementById('memberFamilySelect').value);
+      const pin = document.getElementById('memberPinInput').value.trim();
+
+      if (!famId) {
+        alert('يرجى اختيار العائلة أولاً');
+        return;
+      }
+      const fam = state.families.find(f => f.id === famId);
+      if (!fam) return;
+
+      const expectedPin = fam.pin || fam.tent || "1";
+      if (pin === String(expectedPin)) {
+        loggedInMemberFamId = fam.id;
+        closeModal('memberLoginModal');
+        showMemberViewModal(fam.id);
+      } else {
+        alert('رمز PIN غير صحيح. إذا نسيته، يرجى مراجعة المسؤول لإعادة ضبطه.');
+      }
+    }
+
+    function showMemberViewModal(famId) {
+      const fam = state.families.find(f => f.id === famId);
+      if (!fam) return;
+
+      const calc = computeAllotments();
+      const quota = calc.allotments[fam.id] || 0;
+      const consumed = parseFloat(fam.consumed) || 0;
+      const diff = quota - consumed;
+
+      document.getElementById('memberCardTitle').textContent = `بطاقة: ${fam.name} (خيمة ${fam.tent || '-'})`;
+      
+      let remDisplay = '';
+      if (diff > 0) {
+        remDisplay = `<div><span>المتبقي:</span><strong style="color:var(--primary);">${diff} لتر</strong></div>`;
+      } else if (diff === 0) {
+        remDisplay = `<div><span>المتبقي:</span><strong style="color:var(--muted);">0 لتر (أنهى الحصة)</strong></div>`;
+      } else {
+        remDisplay = `<div><span>تجاوز الحصة:</span><strong style="color:var(--danger);">${Math.abs(diff)} لتر</strong></div>`;
+      }
+
+      document.getElementById('memberMetricsBox').innerHTML = `
+        <div><span>الحصة المقررة:</span><strong>${quota} لتر</strong></div>
+        <div><span>المستهلك:</span><strong>${consumed} لتر</strong></div>
+        ${remDisplay}
+      `;
+
+      const logsBox = document.getElementById('memberLogsContainer');
+      logsBox.innerHTML = '';
+      const logs = fam.currentLogs || [];
+
+      if (logs.length === 0) {
+        logsBox.innerHTML = '<div style="text-align:center; padding:15px; color:var(--muted);">لا توجد سحوبات مسجلة في هذه الدورة حتى الآن.</div>';
+      } else {
+        logs.slice().sort((a, b) => b.timestamp - a.timestamp).forEach(l => {
+          const item = document.createElement('div');
+          item.className = 'log-item';
+          item.innerHTML = `
+            <div>
+              <strong>${l.amount} لتر</strong>
+              ${l.detail ? `<span style="font-size:0.75rem; color:var(--muted); margin-right:4px;">(${l.detail})</span>` : ''}
+              <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${formatLogTimestamp(l.timestamp)}</div>
+            </div>
+          `;
+          logsBox.appendChild(item);
+        });
+      }
+
+      document.getElementById('memberViewModal').style.display = 'flex';
+    }
+
+    function closeMemberViewModal() {
+      loggedInMemberFamId = null;
+      closeModal('memberViewModal');
+    }
+
+    function openMemberChangePinModal() {
+      if (!loggedInMemberFamId) return;
+      document.getElementById('newMemberPinInput').value = '';
+      document.getElementById('memberChangePinModal').style.display = 'flex';
+      setTimeout(() => document.getElementById('newMemberPinInput').focus(), 100);
+    }
+
+    function saveNewMemberPin() {
+      if (!loggedInMemberFamId) return;
+      const p = document.getElementById('newMemberPinInput').value.trim();
+      if (!p) {
+        alert('يرجى كتابة رمز صحيح');
+        return;
+      }
+      const fam = state.families.find(f => f.id === loggedInMemberFamId);
+      if (fam) {
+        fam.pin = p;
+        pushState();
+        closeModal('memberChangePinModal');
+        alert('تم تغيير رمز PIN الخاص بك بنجاح ✓');
+      }
+    }
+
+    function resetMemberPinByAdmin(famId) {
+      if (!isAdmin) return;
+      const fam = state.families.find(f => f.id === famId);
+      if (fam && confirm(`هل تريد إعادة ضبط رمز PIN لعائلة (${fam.name}) إلى رقم الخيمة (${fam.tent})؟`)) {
+        fam.pin = String(fam.tent || "1");
+        pushState();
+        alert(`تمت إعادة تعيين PIN بنجاح إلى: ${fam.pin}`);
+      }
+    }
+
+    function updateTentNumber(id, val) {
+      const fam = state.families.find(f => f.id === id);
+      if (fam) {
+        fam.tent = val.trim();
+        pushState();
+      }
+    }
+
+    function updateMembers(id, val) {
+      const fam = state.families.find(f => f.id === id);
+      if (fam) {
+        fam.members = Math.max(0, parseInt(val) || 0);
+        pushState();
+      }
+    }
+
+    // إدارة السجلات العامة للمسؤول
     function openFamilyLog(famId) {
       activeLogFamilyId = famId;
       activeLogTab = 'current';
@@ -779,23 +1053,19 @@
       const name = prompt('أدخل اسم العائلة الجديدة:');
       if (!name || !name.trim()) return;
 
+      const tent = prompt('أدخل رقم الخيمة:', String(state.families.length + 1)) || String(state.families.length + 1);
+
       state.families.push({
         id: Date.now(),
         name: name.trim(),
+        tent: tent.trim(),
+        pin: tent.trim(),
         members: 0,
         consumed: 0,
         currentLogs: []
       });
 
       pushState();
-    }
-
-    function updateMembers(id, val) {
-      const fam = state.families.find(f => f.id === id);
-      if (fam) {
-        fam.members = Math.max(0, parseInt(val) || 0);
-        pushState();
-      }
     }
 
     function deleteFamily(id) {
@@ -819,7 +1089,7 @@
           const c = parseFloat(f.consumed) || 0;
           totalPop += m;
           totalConsumed += c;
-          return { id: f.id, name: f.name, members: m, consumed: c, logs: f.currentLogs || [] };
+          return { id: f.id, name: f.name, tent: f.tent, members: m, consumed: c, logs: f.currentLogs || [] };
         });
 
         const archivePayload = {
@@ -856,6 +1126,7 @@
       }
     }
 
+    // إدارة جلسة المسؤول
     function toggleAdminModal() {
       if (isAdmin) {
         isAdmin = false;
@@ -922,7 +1193,7 @@
       document.getElementById(id).style.display = 'none';
     }
 
-     window.onload = function() {
+    window.onload = function() {
       loadLocal();
 
       if (!navigator.onLine) {
