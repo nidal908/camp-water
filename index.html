@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>إدارة مياه المخيم</title>
+  <title>سِجِلّ مياه المخيم</title>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="icon.png">
   <meta name="theme-color" content="#0284c7">
@@ -54,7 +54,7 @@
     .stats-item span { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 2px; }
     .stats-item strong { font-size: 1.1rem; color: var(--primary-dark); }
 
-    /* بطاقة صندوق المضخة المصممة بنظافة */
+    /* بطاقة صندوق المضخة */
     .pump-info-card { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 1px solid #fde68a; border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); color: #92400e; }
     .pump-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px dashed #fcd34d; padding-bottom: 6px; font-weight: bold; font-size: 1rem; }
     .pump-card-body { display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem; }
@@ -76,6 +76,8 @@
     .live-stats span b { color: var(--text); }
 
     .dispense-input::placeholder { color: #94a3b8; opacity: 1; font-weight: normal; }
+    
+    /* خانة الأوعية تفتح بكيبورد رقمي ونقطة */
     .amount-input-box { width: 100%; padding: 12px; font-size: 1.25rem; font-weight: bold; border: 2px solid #0284c7; border-radius: 8px; text-align: center; outline: none; background: #fff; margin-bottom: 6px; letter-spacing: 1px; }
     .amount-input-box::placeholder { color: #94a3b8; opacity: 1; font-weight: normal; }
     .amount-input-box:focus::placeholder { color: transparent; }
@@ -89,7 +91,7 @@
     .family-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
     .family-name { font-size: 1.05rem; font-weight: 700; color: #1e293b; }
     .family-meta-admin { display: flex; align-items: center; gap: 6px; }
-    .mini-input { width: 42px; text-align: center; font-size: 0.85rem; font-weight: bold; border: 1px solid var(--border); border-radius: 4px; padding: 2px; }
+    .mini-input { width: 44px; text-align: center; font-size: 0.85rem; font-weight: bold; border: 1px solid var(--border); border-radius: 4px; padding: 2px; }
 
     .family-metrics { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 8px; background: #f8fafc; padding: 8px 12px; border-radius: 8px; }
     .family-metrics div span { color: var(--muted); font-size: 0.72rem; display: block; }
@@ -203,7 +205,8 @@
         </div>
       </div>
 
-      <input type="text" id="dispenseAmountInput" class="amount-input-box" placeholder="مثال: 18 16 12" oninput="handleLiveAmountPreview(this.value)" onkeydown="if(event.key==='Enter') submitDispense()">
+      <!-- خانة الأوعية: تفتح بكيبورد رقمي ونقطة وتدعم الفاصل بالنقطة أو المسافة -->
+      <input type="text" id="dispenseAmountInput" class="amount-input-box" inputmode="decimal" placeholder="مثال: 18.16.12 أو 18 16 12" oninput="handleLiveAmountPreview(this.value)" onkeydown="if(event.key==='Enter') submitDispense()">
       <div id="livePreviewBox" class="live-preview">المجموع: 0 لتر</div>
 
       <button class="btn-dispense-submit" onclick="submitDispense()">➕ إضافة السحب</button>
@@ -285,7 +288,7 @@
       <div class="modal-title"><span>⚡ صرف كهرباء للمضخة</span><button class="btn-close" onclick="closeModal('addExpenseModal')">✕</button></div>
       <div class="form-group">
         <label>المبلغ المصروف (شيكل ₪):</label>
-        <input type="number" id="expenseAmountInput" class="form-control" placeholder="مثال: 20" min="1">
+        <input type="text" id="expenseAmountInput" class="form-control" inputmode="decimal" placeholder="مثال: 20">
       </div>
       <div class="form-group">
         <label>البيان / ملاحظة الصرف:</label>
@@ -302,6 +305,7 @@
     </div>
   </div>
 
+  <!-- نافذة استعلام العائلة: كيبورد أرقام مع إخفاء الرمز -->
   <div id="memberLoginModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 330px;">
       <div class="modal-title"><span>🔍 استعلام عن حصتي</span><button class="btn-close" onclick="closeModal('memberLoginModal')">✕</button></div>
@@ -311,7 +315,7 @@
       </div>
       <div class="form-group">
         <label>رمز PIN الخاص بك (الافتراضي هو رقمك):</label>
-        <input type="password" id="memberPinInput" class="form-control" placeholder="اكتب رمز PIN" onkeydown="if(event.key==='Enter') verifyMemberPin()">
+        <input type="password" id="memberPinInput" class="form-control" inputmode="numeric" placeholder="اكتب رمز PIN" onkeydown="if(event.key==='Enter') verifyMemberPin()">
       </div>
       <button class="btn-block btn-primary" onclick="verifyMemberPin()">عرض بياناتي</button>
     </div>
@@ -337,33 +341,35 @@
     </div>
   </div>
 
+  <!-- تغيير PIN العائلة: كيبورد أرقام مع إخفاء الرمز -->
   <div id="memberChangePinModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 320px;">
       <div class="modal-title"><span>🔑 تغيير رمز PIN</span><button class="btn-close" onclick="closeModal('memberChangePinModal')">✕</button></div>
       <div class="form-group">
         <label>الرمز السري الجديد:</label>
-        <input type="password" id="newMemberPinInput" class="form-control" placeholder="اكتب الرمز الجديد" onkeydown="if(event.key==='Enter') saveNewMemberPin()">
+        <input type="password" id="newMemberPinInput" class="form-control" inputmode="numeric" placeholder="اكتب الرمز الجديد" onkeydown="if(event.key==='Enter') saveNewMemberPin()">
       </div>
       <button class="btn-block btn-primary" onclick="saveNewMemberPin()">حفظ الرمز</button>
     </div>
   </div>
 
-  <!-- نافذة دخول المسؤول مضاف لها زر وخيار استعادة الرمز المنسي -->
+  <!-- دخول المسؤول: كيبورد أرقام مع إخفاء الرمز وزر الاسترجاع -->
   <div id="loginModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 320px; text-align: center;">
       <div class="modal-title"><span>🔒 رمز دخول المسؤول</span><button class="btn-close" onclick="closeModal('loginModal')">✕</button></div>
-      <input type="password" id="adminPinInput" class="form-control" style="font-size: 1.4rem; text-align: center; letter-spacing: 4px; margin-bottom: 12px;" maxlength="10" placeholder="••••" onkeydown="if(event.key==='Enter') verifyAdminPin()">
+      <input type="password" id="adminPinInput" class="form-control" inputmode="numeric" style="font-size: 1.4rem; text-align: center; letter-spacing: 4px; margin-bottom: 12px;" maxlength="10" placeholder="••••" onkeydown="if(event.key==='Enter') verifyAdminPin()">
       <button class="btn-block btn-primary" onclick="verifyAdminPin()">دخول</button>
       <div style="margin-top: 12px; font-size: 0.8rem; color: var(--primary); cursor: pointer; text-decoration: underline;" onclick="recoverAdminPin()">نسيت رمز المسؤول؟</div>
     </div>
   </div>
 
+  <!-- تغيير PIN المسؤول: كيبورد أرقام مع إخفاء الرمز -->
   <div id="changePinModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 320px;">
       <div class="modal-title"><span>🔑 تغيير رمز المسؤول</span><button class="btn-close" onclick="closeModal('changePinModal')">✕</button></div>
       <div class="form-group">
         <label>الرمز السري الجديد:</label>
-        <input type="password" id="newPinInput" class="form-control" maxlength="10" placeholder="اكتب الرمز الجديد" onkeydown="if(event.key==='Enter') saveNewPin()">
+        <input type="password" id="newPinInput" class="form-control" inputmode="numeric" maxlength="10" placeholder="اكتب الرمز الجديد" onkeydown="if(event.key==='Enter') saveNewPin()">
       </div>
       <button class="btn-block btn-primary" onclick="saveNewPin()">حفظ الرمز</button>
     </div>
@@ -385,11 +391,11 @@
       <div class="modal-title"><span>⚙ إعدادات التوزيع</span><button class="btn-close" onclick="closeModal('settingsModal')">✕</button></div>
       <div class="form-group">
         <label>إجمالي المياه المتوفرة (لتر):</label>
-        <input type="number" id="settingTotalWater" class="form-control">
+        <input type="text" id="settingTotalWater" class="form-control" inputmode="numeric">
       </div>
       <div class="form-group">
         <label>الكمية غير القابلة للسحب (لتر):</label>
-        <input type="number" id="settingReserve" class="form-control">
+        <input type="text" id="settingReserve" class="form-control" inputmode="numeric">
       </div>
       <div class="form-group">
         <label>طريقة التوزيع:</label>
@@ -412,7 +418,7 @@
   </div>
 
   <script>
-    const MASTER_PIN = "399411"; // مفتاح الطوارئ الرئيسي الذي يعمل دائماً
+    const MASTER_PIN = "399411"; // مفتاح الطوارئ الرئيسي
 
     const firebaseConfig = {
       databaseURL: "https://camp-water-default-rtdb.europe-west1.firebasedatabase.app"
@@ -449,7 +455,7 @@
     let loggedInMemberFamId = null;
     let activeMemberLogTab = 'current';
 
-    // دالة حماية النصوص من الرموز الخاصة
+    // حماية النصوص من الرموز الخاصة
     function escapeHtml(text) {
       if (text === null || text === undefined) return '';
       return String(text)
@@ -458,6 +464,14 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
+    }
+
+    // تحويل الأرقام المشرقية (العربية) إلى لاتينية
+    function normalizeArabicDigits(value) {
+      if (value === null || value === undefined) return '';
+      return String(value)
+        .replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660))
+        .replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06F0));
     }
 
     function migrateState() {
@@ -503,7 +517,6 @@
       }
     }
 
-    // حفظ محلي آمن مع التنبيه الفوري في حال امتلاء الذاكرة
     function saveLocal() {
       try {
         localStorage.setItem(STATE_KEY, JSON.stringify(state));
@@ -561,7 +574,6 @@
       }
     }
 
-    // رفع آمن مع حماية الأرشيف بـ Promise.all لمنع فقد البيانات
     function syncPendingToServer() {
       if (!navigator.onLine || !db || isPushing) return;
 
@@ -695,15 +707,10 @@
       return { allotments: allotments, netWater: netWater };
     }
 
-    function normalizeArabicDigits(value) {
-      return String(value || '')
-        .replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660))
-        .replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06F0));
-    }
-
+    // دعم النقطة والمسافة والزائد مع تحويل الأرقام المشرقية
     function parseContainers(str) {
       if (!str) return { total: 0, detail: '', items: [] };
-      const clean = normalizeArabicDigits(str).replace(/[+،,]/g, ' ');
+      const clean = normalizeArabicDigits(str).replace(/[\.+،,]/g, ' ');
       const items = clean.trim().split(/\s+/).map(Number).filter(n => Number.isFinite(n) && n > 0);
       const total = items.reduce((a, b) => a + b, 0);
       return { total: total, detail: items.join(' + '), items: items };
@@ -794,8 +801,8 @@
               </div>
               <div class="family-meta-admin">
                 <span style="font-size:0.75rem; color:var(--muted);">رقم:</span>
-                <input type="text" class="mini-input" value="${safeTent}" title="رقم العائلة" onchange="updateTentNumber(${f.id}, this.value)">
-                <input type="number" class="mini-input" value="${f.members}" title="عدد الأفراد" onchange="updateMembers(${f.id}, this.value)">
+                <input type="text" class="mini-input" inputmode="numeric" value="${safeTent}" title="رقم العائلة" onchange="updateTentNumber(${f.id}, this.value)">
+                <input type="text" class="mini-input" inputmode="numeric" value="${f.members}" title="عدد الأفراد" onchange="updateMembers(${f.id}, this.value)">
                 <span style="font-size:0.75rem; color:var(--muted);">فرد</span>
                 <button onclick="resetMemberPinByAdmin(${f.id})" class="btn-log-action" style="background:#fef3c7; color:#92400e;" title="إعادة ضبط PIN إلى رقم العائلة">🔄 ضبط PIN</button>
                 <button onclick="deleteFamily(${f.id})" style="border:none; background:none; cursor:pointer; font-size:0.95rem;">🗑️</button>
@@ -967,10 +974,11 @@
     }
 
     function submitExpense() {
-      const amt = parseFloat(document.getElementById('expenseAmountInput').value);
+      const rawAmt = normalizeArabicDigits(document.getElementById('expenseAmountInput').value);
+      const amt = parseFloat(rawAmt);
       const note = document.getElementById('expenseNoteInput').value.trim();
 
-      if (!amt || amt <= 0) {
+      if (isNaN(amt) || amt <= 0) {
         alert('يرجى إدخال مبلغ صحيح');
         return;
       }
@@ -1000,8 +1008,8 @@
       const current = state.pumpFund.feePerFamily || 5;
       const n = prompt('أدخل مبلغ الاشتراك المطلوب من كل عائلة (شيكل):', current);
       if (n !== null) {
-        const val = parseFloat(n);
-        if (val > 0) {
+        const val = parseFloat(normalizeArabicDigits(n));
+        if (!isNaN(val) && val > 0) {
           state.pumpFund.feePerFamily = val;
           pushState();
         }
@@ -1015,7 +1023,7 @@
       
       if (n === null) return;
 
-      const val = parseFloat(n.trim());
+      const val = parseFloat(normalizeArabicDigits(n).trim());
 
       if (isNaN(val)) {
         alert('خطأ: يرجى إدخال رقم صحيح.');
@@ -1130,6 +1138,7 @@
       modal.style.display = 'flex';
     }
 
+    // بحث يدعم الأرقام المشرقية والعربية واللاتينية بالكامل
     function handleFamilySearch(query) {
       const clearBtn = document.getElementById('clearSearchBtn');
       if (query && query.trim().length > 0) {
@@ -1143,12 +1152,22 @@
         document.getElementById('liveFamilyCard').style.display = 'none';
         return;
       }
-      const q = query.trim().toLowerCase();
-      const match = state.families.find(f => 
-        f.name.toLowerCase().includes(q) || 
-        (f.tent && String(f.tent).toLowerCase() === q) ||
-        `${f.name} (${f.tent || '-'})`.toLowerCase().includes(q)
-      );
+
+      const qRaw = query.trim().toLowerCase();
+      const qNorm = normalizeArabicDigits(qRaw);
+
+      const match = state.families.find(f => {
+        const famName = f.name.toLowerCase();
+        const tentStr = String(f.tent || '').toLowerCase();
+        const tentNorm = normalizeArabicDigits(tentStr);
+
+        return famName.includes(qRaw) ||
+               famName.includes(qNorm) ||
+               tentStr === qRaw ||
+               tentNorm === qNorm ||
+               `${famName} (${tentStr})`.includes(qRaw) ||
+               `${famName} (${tentNorm})`.includes(qNorm);
+      });
 
       if (match) {
         selectedDispenseFamId = match.id;
@@ -1277,7 +1296,8 @@
 
     function verifyMemberPin() {
       const famId = parseInt(document.getElementById('memberFamilySelect').value);
-      const pin = document.getElementById('memberPinInput').value.trim();
+      const rawPin = document.getElementById('memberPinInput').value;
+      const pin = normalizeArabicDigits(rawPin).trim();
 
       if (!famId) {
         alert('يرجى اختيار العائلة أولاً');
@@ -1286,8 +1306,8 @@
       const fam = state.families.find(f => f.id === famId);
       if (!fam) return;
 
-      const expectedPin = fam.pin || fam.tent || "1";
-      if (pin === String(expectedPin)) {
+      const expectedPin = normalizeArabicDigits(fam.pin || fam.tent || "1").trim();
+      if (pin === expectedPin) {
         loggedInMemberFamId = fam.id;
         activeMemberLogTab = 'current';
         closeModal('memberLoginModal');
@@ -1379,7 +1399,8 @@
 
     function saveNewMemberPin() {
       if (!loggedInMemberFamId) return;
-      const p = document.getElementById('newMemberPinInput').value.trim();
+      const rawPin = document.getElementById('newMemberPinInput').value;
+      const p = normalizeArabicDigits(rawPin).trim();
       if (!p) {
         alert('يرجى كتابة رمز صحيح');
         return;
@@ -1406,7 +1427,7 @@
     function updateTentNumber(id, val) {
       const fam = state.families.find(f => f.id === id);
       if (fam) {
-        fam.tent = val.trim();
+        fam.tent = normalizeArabicDigits(val).trim();
         pushState();
       }
     }
@@ -1414,7 +1435,8 @@
     function updateMembers(id, val) {
       const fam = state.families.find(f => f.id === id);
       if (fam) {
-        fam.members = Math.max(0, parseInt(val) || 0);
+        const norm = normalizeArabicDigits(val);
+        fam.members = Math.max(0, parseInt(norm) || 0);
         pushState();
       }
     }
@@ -1479,7 +1501,7 @@
       if (!log) return;
 
       const currentVal = log.detail || log.amount;
-      const newVal = prompt(`تعديل سحب (${fam.name}):\nاكتب الأوعية الجديدة مفصولة بمسافة:`, currentVal);
+      const newVal = prompt(`تعديل سحب (${fam.name}):\nاكتب الأوعية الجديدة مفصولة بنقطة أو مسافة:`, currentVal);
       if (newVal === null) return;
 
       const parsed = parseContainers(newVal);
@@ -1516,13 +1538,14 @@
       const name = prompt('أدخل اسم العائلة الجديدة:');
       if (!name || !name.trim()) return;
 
-      const tent = prompt('أدخل رقم العائلة:', String(state.families.length + 1)) || String(state.families.length + 1);
+      const tentInput = prompt('أدخل رقم العائلة:', String(state.families.length + 1)) || String(state.families.length + 1);
+      const tent = normalizeArabicDigits(tentInput).trim();
 
       state.families.push({
         id: Date.now(),
         name: name.trim(),
-        tent: tent.trim(),
-        pin: tent.trim(),
+        tent: tent,
+        pin: tent,
         members: 0,
         consumed: 0,
         currentLogs: []
@@ -1602,12 +1625,13 @@
       }
     }
 
-    // التحقق من رمز المسؤول مع دعم رمز الماستر للطوارئ
     function verifyAdminPin() {
-      const pin = document.getElementById('adminPinInput').value.trim();
-      const currentPin = state.pin || MASTER_PIN;
+      const rawPin = document.getElementById('adminPinInput').value;
+      const pin = normalizeArabicDigits(rawPin).trim();
+      const currentPin = normalizeArabicDigits(state.pin || MASTER_PIN).trim();
+      const master = MASTER_PIN.trim();
 
-      if (pin === currentPin || pin === MASTER_PIN) {
+      if (pin === currentPin || pin === master) {
         isAdmin = true;
         sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
         closeModal('loginModal');
@@ -1618,10 +1642,9 @@
       }
     }
 
-    // استعادة رمز المسؤول في حال نسيانه
     function recoverAdminPin() {
       const entered = prompt('أدخل رمز الطوارئ الرئيسي (Master PIN) لاستعادة الدخول:');
-      if (entered === MASTER_PIN) {
+      if (entered !== null && normalizeArabicDigits(entered).trim() === MASTER_PIN) {
         state.pin = MASTER_PIN;
         isAdmin = true;
         sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
@@ -1647,7 +1670,8 @@
         alert('غير مصرح لك بإجراء هذا التعديل');
         return;
       }
-      const p = document.getElementById('newPinInput').value.trim();
+      const rawP = document.getElementById('newPinInput').value;
+      const p = normalizeArabicDigits(rawP).trim();
       if (!p || p.length < 4) {
         alert('يجب أن يتكون الرمز من 4 أرقام على الأقل');
         return;
@@ -1667,8 +1691,11 @@
     }
 
     function saveSettings() {
-      state.settings.totalWater = parseFloat(document.getElementById('settingTotalWater').value) || 0;
-      state.settings.reserveLiters = parseFloat(document.getElementById('settingReserve').value) || 0;
+      const tw = normalizeArabicDigits(document.getElementById('settingTotalWater').value);
+      const res = normalizeArabicDigits(document.getElementById('settingReserve').value);
+
+      state.settings.totalWater = parseFloat(tw) || 0;
+      state.settings.reserveLiters = parseFloat(res) || 0;
       state.settings.distMode = document.getElementById('settingDistMode').value;
       state.settings.roundingMode = document.getElementById('settingRounding').value;
       pushState();
