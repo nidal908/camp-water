@@ -1,58 +1,50 @@
-const CACHE_NAME = 'camp-water-cache-v2';
+const CACHE_NAME = 'camp-water-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',
-  'https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js'
+  './manifest.json',
+  './icon.png',
+  'https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js',
+  'https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js'
 ];
 
+// تثبيت وحفظ الملفات في الهاتف
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS_TO_CACHE);
+    }).then(() => self.skipWaiting())
   );
 });
 
+// تفعيل وتنظيف النسخ القديمة
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) return caches.delete(key);
-        })
+        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
       );
     }).then(() => self.clients.claim())
   );
 });
 
+// الرد من الذاكرة المحلية أولاً عند انقطاع النت
 self.addEventListener('fetch', (event) => {
-  if (event.request.url.includes('firebaseio.com') || event.request.url.includes('firebasedatabase.app')) {
+  // عدم اعتراض اتصالات Firebase اللحظية (WebSockets)
+  if (event.request.url.includes('firebaseio.com') || event.request.url.includes('.info/connected')) {
     return;
   }
 
-  // إذا كان الطلب للصفحة الرئيسية: جلب من النت أولاً لتحديث الكاش، وإذا كان النت مقطوعاً جلب من الذاكرة
-  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
-    event.respondWith(
-      fetch(event.request)
-        .then((networkResponse) => {
-          return caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, networkResponse.clone());
-            return networkResponse;
-          });
-        })
-        .catch(() => caches.match('./index.html'))
-    );
-    return;
-  }
-
-  // للمكتبات الثابتة
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      return cached || fetch(event.request).then((resp) => {
-        return caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, resp.clone());
-          return resp;
-        });
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetch(event.request).catch(() => {
+        // في حال انقطاع النت تماماً
+        if (event.request.mode === 'navigate') {
+          return caches.match('./index.html');
+        }
       });
     })
   );
