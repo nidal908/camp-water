@@ -238,7 +238,6 @@
       </div>
     </div>
 
-    <!-- البطاقة المعدلة بصياغة واضحة وجمالية تامة -->
     <div class="pump-info-card">
       <div class="pump-card-header">
         <span id="pumpRoundTitle">جولة التحصيل رقم (1)</span>
@@ -303,7 +302,6 @@
     </div>
   </div>
 
-  <!-- شكل القائمة النظيف بالصيغة: أبو سائد (1) -->
   <div id="memberLoginModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 330px;">
       <div class="modal-title"><span>🔍 استعلام عن حصتي</span><button class="btn-close" onclick="closeModal('memberLoginModal')">✕</button></div>
@@ -350,11 +348,13 @@
     </div>
   </div>
 
+  <!-- نافذة دخول المسؤول مضاف لها زر وخيار استعادة الرمز المنسي -->
   <div id="loginModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 320px; text-align: center;">
       <div class="modal-title"><span>🔒 رمز دخول المسؤول</span><button class="btn-close" onclick="closeModal('loginModal')">✕</button></div>
       <input type="password" id="adminPinInput" class="form-control" style="font-size: 1.4rem; text-align: center; letter-spacing: 4px; margin-bottom: 12px;" maxlength="10" placeholder="••••" onkeydown="if(event.key==='Enter') verifyAdminPin()">
       <button class="btn-block btn-primary" onclick="verifyAdminPin()">دخول</button>
+      <div style="margin-top: 12px; font-size: 0.8rem; color: var(--primary); cursor: pointer; text-decoration: underline;" onclick="recoverAdminPin()">نسيت رمز المسؤول؟</div>
     </div>
   </div>
 
@@ -412,6 +412,8 @@
   </div>
 
   <script>
+    const MASTER_PIN = "399411"; // مفتاح الطوارئ الرئيسي الذي يعمل دائماً
+
     const firebaseConfig = {
       databaseURL: "https://camp-water-default-rtdb.europe-west1.firebasedatabase.app"
     };
@@ -423,7 +425,7 @@
     const ADMIN_SESSION_KEY = 'camp_admin_session_v1';
 
     let state = {
-      pin: "399411",
+      pin: MASTER_PIN,
       settings: { totalWater: 4000, reserveLiters: 1000, distMode: 'per_family', roundingMode: '5', alpha: 0.58 },
       families: [],
       pumpFund: {
@@ -446,6 +448,17 @@
     let activeLogTab = 'current';
     let loggedInMemberFamId = null;
     let activeMemberLogTab = 'current';
+
+    // دالة حماية النصوص من الرموز الخاصة
+    function escapeHtml(text) {
+      if (text === null || text === undefined) return '';
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
 
     function migrateState() {
       let changed = false;
@@ -485,13 +498,20 @@
           state = JSON.parse(raw);
           migrateState();
         }
-      } catch(e) {}
+      } catch(e) {
+        console.error('Failed to load local state:', e);
+      }
     }
 
+    // حفظ محلي آمن مع التنبيه الفوري في حال امتلاء الذاكرة
     function saveLocal() {
       try {
         localStorage.setItem(STATE_KEY, JSON.stringify(state));
-      } catch(e) {}
+      } catch(e) {
+        console.error('Local save failed:', e);
+        setSyncUI('offline', '⚠️ تحذير: تعذر الحفظ على ذاكرة الهاتف!');
+        alert('تنبيه هام: مساحة تخزين المتصفح/الجهاز ممتلئة. يرجى توفير مساحة لضمان عدم ضياع التعديلات محلياً.');
+      }
     }
 
     function setSyncUI(status, text) {
@@ -541,11 +561,17 @@
       }
     }
 
+    // رفع آمن مع حماية الأرشيف بـ Promise.all لمنع فقد البيانات
     function syncPendingToServer() {
       if (!navigator.onLine || !db || isPushing) return;
 
       const hasPending = localStorage.getItem(PENDING_SYNC_KEY) === 'true';
-      if (!hasPending) {
+      let pendingHist = [];
+      try {
+        pendingHist = JSON.parse(localStorage.getItem('camp_pending_history_v1') || '[]');
+      } catch(e) {}
+
+      if (!hasPending && pendingHist.length === 0) {
         setSyncUI('online', 'متصل');
         return;
       }
@@ -553,24 +579,28 @@
       isPushing = true;
       setSyncUI('syncing', 'جاري المزامنة...');
 
-      db.ref('camp_data').set(state).then(function() {
-        localStorage.setItem(PENDING_SYNC_KEY, 'false');
+      const syncTasks = [];
+
+      if (hasPending) {
+        syncTasks.push(db.ref('camp_data').set(state).then(function() {
+          localStorage.setItem(PENDING_SYNC_KEY, 'false');
+        }));
+      }
+
+      if (pendingHist.length > 0) {
+        const histPromises = pendingHist.map(item => db.ref('camp_history').push(item));
+        syncTasks.push(Promise.all(histPromises).then(function() {
+          localStorage.removeItem('camp_pending_history_v1');
+        }));
+      }
+
+      Promise.all(syncTasks).then(function() {
         isPushing = false;
-
-        try {
-          const pendingHist = JSON.parse(localStorage.getItem('camp_pending_history_v1') || '[]');
-          if (pendingHist.length > 0) {
-            pendingHist.forEach(function(item) {
-              db.ref('camp_history').push(item);
-            });
-            localStorage.removeItem('camp_pending_history_v1');
-          }
-        } catch(e) {}
-
         setSyncUI('online', 'متصل');
-      }).catch(function() {
+      }).catch(function(err) {
         isPushing = false;
-        setSyncUI('offline', 'تم الحفظ محلياً (أوفلاين)');
+        console.error('Sync failed:', err);
+        setSyncUI('offline', 'تم الحفظ محلياً (تعثر الاتصال بالسيرفر)');
       });
     }
 
@@ -665,7 +695,6 @@
       return { allotments: allotments, netWater: netWater };
     }
 
-    // دالة تحويل الأرقام المشرقية (العربية) إلى لاتينية
     function normalizeArabicDigits(value) {
       return String(value || '')
         .replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660))
@@ -696,7 +725,6 @@
       return `${dayName} ${year}/${month}/${date} - ${hoursStr}:${minutes} ${ampm}`;
     }
 
-    // الخلط العشوائي لحماية خصوصية العائلات
     function shuffleArray(array) {
       const arr = array.slice();
       for (let i = arr.length - 1; i > 0; i--) {
@@ -754,16 +782,19 @@
             remDisplay = `<div><span>تجاوز الحصة:</span><strong style="color:var(--danger);">${over} لتر</strong></div>`;
           }
 
+          const safeName = escapeHtml(f.name);
+          const safeTent = escapeHtml(f.tent || '');
+
           const card = document.createElement('div');
           card.className = 'family-card';
           card.innerHTML = `
             <div class="family-header">
               <div>
-                <strong class="family-name">${f.name}</strong>
+                <strong class="family-name">${safeName}</strong>
               </div>
               <div class="family-meta-admin">
                 <span style="font-size:0.75rem; color:var(--muted);">رقم:</span>
-                <input type="text" class="mini-input" value="${f.tent || ''}" title="رقم العائلة" onchange="updateTentNumber(${f.id}, this.value)">
+                <input type="text" class="mini-input" value="${safeTent}" title="رقم العائلة" onchange="updateTentNumber(${f.id}, this.value)">
                 <input type="number" class="mini-input" value="${f.members}" title="عدد الأفراد" onchange="updateMembers(${f.id}, this.value)">
                 <span style="font-size:0.75rem; color:var(--muted);">فرد</span>
                 <button onclick="resetMemberPinByAdmin(${f.id})" class="btn-log-action" style="background:#fef3c7; color:#92400e;" title="إعادة ضبط PIN إلى رقم العائلة">🔄 ضبط PIN</button>
@@ -783,7 +814,6 @@
           famContainer.appendChild(card);
         });
       } else {
-        // الحصص المرقمة والمخلوطة عشوائياً عند كل عرض (حماية الخصوصية)
         const shuffled = shuffleArray(state.families);
         shuffled.forEach(function(f, index) {
           const quota = allotments[f.id] || 0;
@@ -842,7 +872,6 @@
         const paymentRecord = fund.payments && fund.payments[f.id];
         if (paymentRecord && paymentRecord.paid) {
           paidFamiliesCount++;
-          // قراءة المبلغ الفعلي المسجل للدفعة أو اعتماد قيمة الاشتراك
           totalCollected += (paymentRecord.amount !== undefined ? Number(paymentRecord.amount) : fee);
         }
       });
@@ -881,7 +910,7 @@
         item.className = 'pump-list-item';
         item.innerHTML = `
           <div>
-            <strong>${f.name}</strong>
+            <strong>${escapeHtml(f.name)}</strong>
           </div>
           <div style="display:flex; align-items:center; gap:8px;">
             ${isPaid 
@@ -906,7 +935,7 @@
           div.innerHTML = `
             <div>
               <strong style="color:var(--danger);">${exp.amount} شيكل</strong>
-              <span style="margin-right:6px; font-weight:600;">${exp.note || 'تشغيل مضخة'}</span>
+              <span style="margin-right:6px; font-weight:600;">${escapeHtml(exp.note || 'تشغيل مضخة')}</span>
               <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${formatLogTimestamp(exp.timestamp)}</div>
             </div>
             ${isAdmin ? `<button class="btn-log-action btn-log-del" onclick="deleteExpenseEntry(${exp.id})">حذف ✕</button>` : ''}
@@ -924,7 +953,7 @@
 
       state.pumpFund.payments[famId] = {
         paid: !current,
-        amount: fee, // حفظ المبلغ الفعلي عند لحظة السداد
+        amount: fee,
         timestamp: Date.now()
       };
       pushState();
@@ -1075,7 +1104,7 @@
               <div>• إجمالي المحصل: <b>${h.totalCollected} ₪</b> | إجمالي المصروف: <b style="color:var(--danger);">${h.totalExpenses} ₪</b></div>
               <div>• الرصيد المرحّل للجولة التالية: <b>${h.surplusCarriedOver} ₪</b></div>
               ${h.unpaidFamilies && h.unpaidFamilies.length > 0 
-                ? `<div style="color:var(--danger); font-size:0.78rem; margin-top:4px;">• لم يسدد في هذه الجولة: ${h.unpaidFamilies.join('، ')}</div>` 
+                ? `<div style="color:var(--danger); font-size:0.78rem; margin-top:4px;">• لم يسدد في هذه الجولة: ${h.unpaidFamilies.map(escapeHtml).join('، ')}</div>` 
                 : `<div style="color:var(--success); font-size:0.78rem; margin-top:4px;">• سدد الجميع بنسبة 100% ✓</div>`}
             </div>
           `;
@@ -1328,7 +1357,7 @@
         item.innerHTML = `
           <div>
             <strong>${l.amount} لتر</strong>
-            ${l.detail ? `<span style="font-size:0.75rem; color:var(--muted); margin-right:4px;">(${l.detail})</span>` : ''}
+            ${l.detail ? `<span style="font-size:0.75rem; color:var(--muted); margin-right:4px;">(${escapeHtml(l.detail)})</span>` : ''}
             <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${formatLogTimestamp(l.timestamp)}</div>
           </div>
         `;
@@ -1428,7 +1457,7 @@
         item.innerHTML = `
           <div>
             <strong>${l.amount} لتر</strong>
-            ${l.detail ? `<span style="font-size:0.75rem; color:var(--muted); margin-right:4px;">(${l.detail})</span>` : ''}
+            ${l.detail ? `<span style="font-size:0.75rem; color:var(--muted); margin-right:4px;">(${escapeHtml(l.detail)})</span>` : ''}
             <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${timeStr}</div>
           </div>
           ${(isAdmin && activeLogTab === 'current') ? `
@@ -1573,10 +1602,12 @@
       }
     }
 
+    // التحقق من رمز المسؤول مع دعم رمز الماستر للطوارئ
     function verifyAdminPin() {
       const pin = document.getElementById('adminPinInput').value.trim();
-      const currentPin = state.pin || "399411";
-      if (pin === currentPin) {
+      const currentPin = state.pin || MASTER_PIN;
+
+      if (pin === currentPin || pin === MASTER_PIN) {
         isAdmin = true;
         sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
         closeModal('loginModal');
@@ -1584,6 +1615,23 @@
         render();
       } else {
         alert('رمز PIN غير صحيح');
+      }
+    }
+
+    // استعادة رمز المسؤول في حال نسيانه
+    function recoverAdminPin() {
+      const entered = prompt('أدخل رمز الطوارئ الرئيسي (Master PIN) لاستعادة الدخول:');
+      if (entered === MASTER_PIN) {
+        state.pin = MASTER_PIN;
+        isAdmin = true;
+        sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+        pushState();
+        closeModal('loginModal');
+        updateAdminUI();
+        render();
+        alert(`تم استعادة الدخول وإعادة تعيين رمز PIN الافتراضي بنجاح: ${MASTER_PIN}`);
+      } else if (entered !== null) {
+        alert('رمز الطوارئ الرئيسي غير صحيح');
       }
     }
 
