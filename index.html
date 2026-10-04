@@ -250,13 +250,14 @@
     <!-- لوحة تحكم المسؤول في الصندوق -->
     <div id="adminPumpControls" style="display: none; margin-bottom: 14px;">
       <button class="btn-block btn-primary" onclick="openAddExpenseModal()" style="margin-bottom: 8px;">➕ تسجيل مصروف كهرباء جديد</button>
-      <div style="display: flex; gap: 8px;">
-        <button class="btn-block btn-outline" onclick="changePumpFee()" style="margin-top:0;">⚙ تعديل اشتراك الجولة</button>
-        <button class="btn-block btn-danger" onclick="closeAndArchivePumpRound()" style="margin-top:0;">🔄 إغلاق وبدء جولة جديدة</button>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="btn-block btn-outline" onclick="changePumpFee()" style="margin-top:0; flex:1;">⚙ تعديل اشتراك الجولة</button>
+        <button class="btn-block btn-outline" onclick="changeCarryOver()" style="margin-top:0; flex:1;">💰 ضبط الرصيد المرحّل</button>
+        <button class="btn-block btn-danger" onclick="closeAndArchivePumpRound()" style="margin-top:0; flex:100%;">🔄 إغلاق وبدء جولة جديدة</button>
       </div>
     </div>
 
-    <!-- قائمة الشفافية المجتمعية والالتزام بالسداد -->
+    <!-- قائمة الشفافية المجتمعية والالتزام بالسداد (بدون كلمة عائلة #) -->
     <h3 style="font-size: 0.95rem; margin-bottom: 8px; color: #1e293b;">📋 كشف التزام وسداد العائلات:</h3>
     <div id="pumpFamiliesList"></div>
 
@@ -374,7 +375,7 @@
     </div>
   </div>
 
-  <!-- نافذة الإعدادات (مع اعتماد مصطلح "الكمية غير القابلة للسحب") -->
+  <!-- نافذة الإعدادات -->
   <div id="settingsModal" class="modal-overlay">
     <div class="modal-box">
       <div class="modal-title"><span>⚙ إعدادات التوزيع</span><button class="btn-close" onclick="closeModal('settingsModal')">✕</button></div>
@@ -442,7 +443,6 @@
     let loggedInMemberFamId = null;
     let activeMemberLogTab = 'current';
 
-    // ترقية البيانات وضمان تكامل الصندوق ورقم العائلة
     function migrateState() {
       let changed = false;
       if (state.families && state.families.length > 0) {
@@ -699,7 +699,7 @@
     function render() {
       updateAdminUI();
 
-      // 1. حسابات قسم المياه
+      // 1. حسابات وعرض جدول المياه
       const calc = computeAllotments();
       const allotments = calc.allotments;
       const netWater = calc.netWater;
@@ -772,7 +772,7 @@
           famContainer.appendChild(card);
         });
       } else {
-        // الخيار (أ): حصص مرقمة ومخلوطة عشوائياً
+        // الخيار أ: ترويسة مرمزة مخلوطة عشوائياً
         const shuffled = shuffleArray(state.families);
         shuffled.forEach(function(f, index) {
           const quota = allotments[f.id] || 0;
@@ -821,7 +821,6 @@
       renderPumpFund();
     }
 
-    // عرض وتحديث صندوق كهرباء المضخة
     function renderPumpFund() {
       const fund = state.pumpFund;
       const fee = fund.feePerFamily || 5;
@@ -846,7 +845,7 @@
       document.getElementById('pumpRoundFee').textContent = `المبلغ المطلوب: ${fee} شيكل لكل عائلة ${carryOver > 0 ? `| مرحّل سابق: +${carryOver} ₪` : ''}`;
       document.getElementById('pumpPaidCount').textContent = `سدد ${paidFamiliesCount} من أصل ${state.families.length} عائلة`;
 
-      // قائمة كشف السداد العلني
+      // كشف السداد العلني (تم حذف عائلة # ليظهر الاسم فقط)
       const pumpListEl = document.getElementById('pumpFamiliesList');
       pumpListEl.innerHTML = '';
 
@@ -857,7 +856,6 @@
         item.innerHTML = `
           <div>
             <strong>${f.name}</strong>
-            
           </div>
           <div style="display:flex; align-items:center; gap:8px;">
             ${isPaid 
@@ -953,6 +951,26 @@
       }
     }
 
+    // تعديل الرصيد المرحل مع منع القيم السالبة لغلق أي مدخل للتحايل
+    function changeCarryOver() {
+      if (!isAdmin) return;
+      const current = state.pumpFund.carryOver || 0;
+      const n = prompt('أدخل الرصيد المتبقي المرحّل من الدورة السابقة (شيكل):\n(ملاحظة: لا يُقبل إدخال مبالغ سالبة)', current);
+      
+      if (n === null) return;
+
+      const val = parseFloat(n.trim());
+
+      if (isNaN(val) || val < 0) {
+        alert('خطأ: لا يمكن إدخال قيم سالبة أو غير صحيحة. الخصومات تُسجل حصراً عبر "دفتر المصروفات" لضمان الشفافية.');
+        return;
+      }
+
+      state.pumpFund.carryOver = val;
+      pushState();
+      alert(`تم تثبيت الرصيد المرحّل بنجاح: +${val} ₪`);
+    }
+
     function closeAndArchivePumpRound() {
       if (!isAdmin) return;
       const fund = state.pumpFund;
@@ -994,14 +1012,13 @@
         if (!fund.history) fund.history = [];
         fund.history.push(archiveItem);
 
-        // بدء جولة جديدة مع ترحيل الفائض
         fund.currentRound = (fund.currentRound || 1) + 1;
         fund.carryOver = balance;
         fund.payments = {};
         fund.expenses = [];
 
         pushState();
-        alert(`تمت أرشفة الجولة بنجاح، وبدأت الجولة رقم (${fund.currentRound}) مع ترحيل رصيد (+${balance} ₪) ✓`);
+        alert(`تمت أرشفة الجولة بنجاح، وبدأت الجولة رقم (${fund.currentRound}) مع ترحيل رصيد (+${balance} ₪) تلقائياً ✓`);
       }
     }
 
@@ -1039,7 +1056,6 @@
       modal.style.display = 'flex';
     }
 
-    // دوال البحث والتسجيل السريع
     function handleFamilySearch(query) {
       const clearBtn = document.getElementById('clearSearchBtn');
       if (query && query.trim().length > 0) {
@@ -1171,7 +1187,6 @@
       if (selectedDispenseFamId) openFamilyLog(selectedDispenseFamId);
     }
 
-    // استعلام العضو عن حصته
     function openMemberLoginModal() {
       const select = document.getElementById('memberFamilySelect');
       select.innerHTML = '<option value="">-- اختر عائلتك من القائمة --</option>';
@@ -1330,7 +1345,6 @@
       }
     }
 
-    // سجلات المسؤول لقسم المياه
     function openFamilyLog(famId) {
       activeLogFamilyId = famId;
       activeLogTab = 'current';
@@ -1501,7 +1515,6 @@
       }
     }
 
-    // إدارة جلسة المسؤول
     function toggleAdminModal() {
       if (isAdmin) {
         isAdmin = false;
