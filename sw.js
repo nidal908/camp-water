@@ -1,4 +1,4 @@
-const CACHE_NAME = 'camp-water-v2';
+const CACHE_NAME = 'camp-water-v3';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -8,16 +8,22 @@ const ASSETS_TO_CACHE = [
   'https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js'
 ];
 
-// تثبيت وحفظ الملفات في الهاتف
+// تثبيت وحفظ الملفات في الهاتف بشكل آمن
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
+    caches.open(CACHE_NAME).then(async (cache) => {
+      for (const asset of ASSETS_TO_CACHE) {
+        try {
+          await cache.add(asset);
+        } catch (err) {
+          console.warn('تخطي ملف تعذر كاشه مؤقتاً:', asset);
+        }
+      }
     }).then(() => self.skipWaiting())
   );
 });
 
-// تفعيل وتنظيف النسخ القديمة
+// تفعيل وتنظيف النسخ السابقة فوراً
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -28,9 +34,9 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// الرد من الذاكرة المحلية أولاً عند انقطاع النت
+// الرد من الذاكرة المحلية أولاً عند انقطاع الاتصال
 self.addEventListener('fetch', (event) => {
-  // عدم اعتراض اتصالات Firebase اللحظية (WebSockets)
+  // عدم اعتراض اتصالات Firebase الحية
   if (event.request.url.includes('firebaseio.com') || event.request.url.includes('.info/connected')) {
     return;
   }
@@ -40,10 +46,11 @@ self.addEventListener('fetch', (event) => {
       if (cachedResponse) {
         return cachedResponse;
       }
-      return fetch(event.request).catch(() => {
-        // في حال انقطاع النت تماماً
+      return fetch(event.request).catch(async () => {
+        // عند انقطاع النت وطلب فتح الصفحة
         if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
+          const fallback = await caches.match('./index.html') || await caches.match('./');
+          return fallback;
         }
       });
     })
