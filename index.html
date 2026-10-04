@@ -54,6 +54,11 @@
     .stats-item span { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 2px; }
     .stats-item strong { font-size: 1.1rem; color: var(--primary-dark); }
 
+    /* بطاقة صندوق المضخة المعدلة جمالياً */
+    .pump-info-card { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 1px solid #fde68a; border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); color: #92400e; }
+    .pump-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px dashed #fcd34d; padding-bottom: 6px; font-weight: bold; font-size: 1rem; }
+    .pump-card-body { display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem; }
+
     /* لوحة "تسجيل سحب" للمسؤول */
     .dispense-panel { background: #eff6ff; border: 2px solid #bfdbfe; border-radius: 14px; padding: 14px; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(2,132,199,0.1); }
     .dispense-title { font-size: 1rem; font-weight: bold; color: #1e40af; margin-bottom: 10px; }
@@ -97,12 +102,15 @@
     .badge-warn { background: #fee2e2; color: #b91c1c; }
     .badge-neutral { background: #f1f5f9; color: #475569; }
 
-    /* قسم صندوق الكهرباء والمضخة */
-    .pump-status-bar { background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 0.85rem; color: #92400e; display: flex; justify-content: space-between; align-items: center; }
+    /* عناصر صندوق الكهرباء */
     .pump-list-item { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
     .pump-badge-paid { background: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; }
     .pump-badge-unpaid { background: #fee2e2; color: #991b1b; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; }
     .btn-toggle-paid { border: 1px solid var(--border); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; cursor: pointer; }
+
+    /* زر التلميح (Tooltip / Info Button) */
+    .info-btn { background: #e0f2fe; color: #0369a1; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 0.7rem; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; margin-right: 4px; }
+    .info-btn:hover { background: #bae6fd; }
 
     /* النوافذ المنبثقة */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 16px; }
@@ -152,11 +160,10 @@
 
   <!-- تبويب 1: جدول وتوزيع المياه -->
   <div id="waterSection" class="container">
-    <!-- ملخص الخزان العام -->
     <div class="stats-card">
       <div class="stats-grid">
         <div class="stats-item">
-          <span>الماء المتاح</span>
+          <span>الماء المتاح <button class="info-btn" onclick="openWaterInfoModal()" title="تفاصيل سعة الخزان">?</button></span>
           <strong id="statNetWater">0 لتر</strong>
         </div>
         <div class="stats-item">
@@ -182,7 +189,6 @@
       </div>
       <datalist id="familiesDatalist"></datalist>
 
-      <!-- بطاقة العائلة اللحظية -->
       <div id="liveFamilyCard" class="live-family-card">
         <div class="live-family-header">
           <strong id="liveFamName">—</strong>
@@ -197,17 +203,14 @@
         </div>
       </div>
 
-      <!-- خانة الأوعية -->
       <input type="text" id="dispenseAmountInput" class="amount-input-box" placeholder="مثال: 18 16 12" oninput="handleLiveAmountPreview(this.value)" onkeydown="if(event.key==='Enter') submitDispense()">
       <div id="livePreviewBox" class="live-preview">المجموع: 0 لتر</div>
 
       <button class="btn-dispense-submit" onclick="submitDispense()">➕ إضافة السحب</button>
     </div>
 
-    <!-- قائمة بطاقات العائلات -->
     <div id="familiesList"></div>
 
-    <!-- لوحة تحكم المسؤول لقسم المياه -->
     <div id="adminControls" style="display: none; margin-top: 16px;">
       <button class="btn-block btn-outline" onclick="addNewFamily()" style="margin-bottom: 8px;">➕ إضافة عائلة جديدة</button>
       <button class="btn-block btn-outline" onclick="openSettingsModal()" style="margin-bottom: 8px;">⚙ إعدادات التوزيع والخزان</button>
@@ -218,7 +221,6 @@
 
   <!-- تبويب 2: صندوق كهرباء المضخة التشاركي -->
   <div id="pumpSection" class="container" style="display: none;">
-    <!-- العداد المالي المباشر -->
     <div class="stats-card">
       <div class="stats-grid">
         <div class="stats-item">
@@ -236,40 +238,52 @@
       </div>
     </div>
 
-    <!-- شريط معلومات الجولة الحالية -->
-    <div class="pump-status-bar">
-      <div>
-        <strong id="pumpRoundTitle">جولة التحصيل رقم 1</strong>
-        <span id="pumpRoundFee" style="font-size: 0.78rem; display: block;">المبلغ المطلوب: 5 شيكل لكل عائلة</span>
+    <!-- البطاقة المعاد تصميمها جمالياً (بدون علامة +) -->
+    <div class="pump-info-card">
+      <div class="pump-card-header">
+        <span id="pumpRoundTitle">جولة التحصيل رقم (1)</span>
+        <span id="pumpPaidCount" style="font-size: 0.85rem;">سدد 0 من 0</span>
       </div>
-      <div>
-        <b id="pumpPaidCount">سدد 0 من 0</b>
+      <div class="pump-card-body">
+        <div>
+          <span id="pumpRoundFeeText" style="display:block; font-weight:600;">المبلغ المطلوب: 5 شيكل لكل عائلة</span>
+          <span id="pumpCarryOverText" style="display:block; font-size:0.78rem; color:#b45309; margin-top:2px;">مرحّل سابق: 7 ₪</span>
+        </div>
+        <div style="font-size: 1.2rem; font-weight: bold;">
+          ₪
+        </div>
       </div>
     </div>
 
-    <!-- لوحة تحكم المسؤول في الصندوق -->
     <div id="adminPumpControls" style="display: none; margin-bottom: 14px;">
       <button class="btn-block btn-primary" onclick="openAddExpenseModal()" style="margin-bottom: 8px;">➕ تسجيل مصروف كهرباء جديد</button>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <button class="btn-block btn-outline" onclick="changePumpFee()" style="margin-top:0; flex:1;">⚙ تعديل اشتراك الجولة</button>
-        <button class="btn-block btn-outline" onclick="changeCarryOver()" style="margin-top:0; flex:1;">💰 ضبط الرصيد المرحّل</button>
-        <button class="btn-block btn-danger" onclick="closeAndArchivePumpRound()" style="margin-top:0; flex:100%;">🔄 إغلاق وبدء جولة جديدة</button>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <button class="btn-block btn-outline" onclick="changePumpFee()" style="margin-top:0;">⚙ تعديل الاشتراك</button>
+        <button class="btn-block btn-outline" onclick="changeCarryOver()" style="margin-top:0;">💰 ضبط المرحّل</button>
       </div>
+      <button class="btn-block btn-danger" onclick="closeAndArchivePumpRound()" style="margin-top: 8px;">🔄 إغلاق وبدء جولة جديدة</button>
     </div>
 
-    <!-- قائمة الشفافية المجتمعية والالتزام بالسداد (بدون كلمة عائلة #) -->
     <h3 style="font-size: 0.95rem; margin-bottom: 8px; color: #1e293b;">📋 كشف التزام وسداد العائلات:</h3>
     <div id="pumpFamiliesList"></div>
 
-    <!-- سجل فواتير ومصروفات الكهرباء -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin: 18px 0 8px 0;">
       <h3 style="font-size: 0.95rem; color: #1e293b;">⚡ دفتر مصروفات الكهرباء:</h3>
-      <button class="btn-log" onclick="openPumpHistoryModal()">📜 أرشيف الجولات السابقة</button>
+      <button class="btn-log" onclick="openPumpHistoryModal()">📜 أرشيف الجولات</button>
     </div>
     <div id="pumpExpensesList" class="stats-card" style="padding: 10px 14px;"></div>
   </div>
 
-  <!-- نافذة تسجيل مصروف كهرباء جديد -->
+  <!-- النوافذ المنبثقة -->
+  <div id="waterInfoModal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 330px;">
+      <div class="modal-title"><span>ℹ️ تفاصيل سعة الخزان</span><button class="btn-close" onclick="closeModal('waterInfoModal')">✕</button></div>
+      <div id="waterInfoContent" style="font-size: 0.9rem; line-height: 1.6; color: var(--text);">
+        جاري التحميل...
+      </div>
+    </div>
+  </div>
+
   <div id="addExpenseModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 330px;">
       <div class="modal-title"><span>⚡ صرف كهرباء للمضخة</span><button class="btn-close" onclick="closeModal('addExpenseModal')">✕</button></div>
@@ -285,7 +299,6 @@
     </div>
   </div>
 
-  <!-- نافذة أرشيف جولات الكهرباء السابقة -->
   <div id="pumpHistoryModal" class="modal-overlay">
     <div class="modal-box">
       <div class="modal-title"><span>📜 أرشيف جولات الكهرباء السابقة</span><button class="btn-close" onclick="closeModal('pumpHistoryModal')">✕</button></div>
@@ -293,7 +306,7 @@
     </div>
   </div>
 
-  <!-- نافذة استعلام العضو -->
+  <!-- شكل القائمة النظيف في الاستعلام: أبو سائد (1) -->
   <div id="memberLoginModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 330px;">
       <div class="modal-title"><span>🔍 استعلام عن حصتي</span><button class="btn-close" onclick="closeModal('memberLoginModal')">✕</button></div>
@@ -309,7 +322,6 @@
     </div>
   </div>
 
-  <!-- نافذة عرض بيانات العضو (Modal) -->
   <div id="memberViewModal" class="modal-overlay">
     <div class="modal-box">
       <div class="modal-title"><span id="memberCardTitle">بطاقتي</span><button class="btn-close" onclick="closeMemberViewModal()">✕ إغلاق</button></div>
@@ -330,7 +342,6 @@
     </div>
   </div>
 
-  <!-- نافذة تغيير رمز PIN للعضو -->
   <div id="memberChangePinModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 320px;">
       <div class="modal-title"><span>🔑 تغيير رمز PIN للعائلة</span><button class="btn-close" onclick="closeModal('memberChangePinModal')">✕</button></div>
@@ -342,7 +353,6 @@
     </div>
   </div>
 
-  <!-- نافذة دخول المسؤول -->
   <div id="loginModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 320px; text-align: center;">
       <div class="modal-title"><span>🔒 رمز دخول المسؤول</span><button class="btn-close" onclick="closeModal('loginModal')">✕</button></div>
@@ -351,7 +361,6 @@
     </div>
   </div>
 
-  <!-- نافذة تغيير رمز PIN للمسؤول -->
   <div id="changePinModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 320px;">
       <div class="modal-title"><span>🔑 تغيير رمز المسؤول</span><button class="btn-close" onclick="closeModal('changePinModal')">✕</button></div>
@@ -363,7 +372,6 @@
     </div>
   </div>
 
-  <!-- نافذة سجل العائلة العام (للمسؤول) -->
   <div id="logModal" class="modal-overlay">
     <div class="modal-box">
       <div class="modal-title"><span id="logModalFamilyName">سجل السحب</span><button class="btn-close" onclick="closeModal('logModal')">✕</button></div>
@@ -375,7 +383,6 @@
     </div>
   </div>
 
-  <!-- نافذة الإعدادات -->
   <div id="settingsModal" class="modal-overlay">
     <div class="modal-box">
       <div class="modal-title"><span>⚙ إعدادات التوزيع</span><button class="btn-close" onclick="closeModal('settingsModal')">✕</button></div>
@@ -533,7 +540,7 @@
       if (navigator.onLine && isFirebaseConnected && db) {
         syncPendingToServer();
       } else {
-        setSyncUI('offline', 'تم الحفظ محلياً (أوفلاين)');
+        setSyncUI('offline', 'وضع عدم الاتصال (أوفلاين)');
       }
     }
 
@@ -699,7 +706,6 @@
     function render() {
       updateAdminUI();
 
-      // 1. حسابات وعرض جدول المياه
       const calc = computeAllotments();
       const allotments = calc.allotments;
       const netWater = calc.netWater;
@@ -772,7 +778,7 @@
           famContainer.appendChild(card);
         });
       } else {
-        // الخيار أ: ترويسة مرمزة مخلوطة عشوائياً
+        // الخيار (أ): حصص مرقمة ومخلوطة عشوائياً (بدون أسماء)
         const shuffled = shuffleArray(state.families);
         shuffled.forEach(function(f, index) {
           const quota = allotments[f.id] || 0;
@@ -817,7 +823,6 @@
         updateLiveFamilyUI(selectedDispenseFamId, allotments);
       }
 
-      // 2. حسابات وعرض صندوق كهرباء المضخة
       renderPumpFund();
     }
 
@@ -842,10 +847,10 @@
       document.getElementById('statPumpSpent').textContent = totalExpenses + ' ₪';
 
       document.getElementById('pumpRoundTitle').textContent = `جولة التحصيل رقم (${fund.currentRound || 1})`;
-      document.getElementById('pumpRoundFee').textContent = `المبلغ المطلوب: ${fee} شيكل لكل عائلة ${carryOver > 0 ? `| مرحّل سابق: +${carryOver} ₪` : ''}`;
-      document.getElementById('pumpPaidCount').textContent = `سدد ${paidFamiliesCount} من أصل ${state.families.length} عائلة`;
+      document.getElementById('pumpRoundFeeText').textContent = `المبلغ المطلوب: ${fee} شيكل لكل عائلة`;
+      document.getElementById('pumpCarryOverText').textContent = carryOver > 0 ? `مرحّل سابق: ${carryOver} ₪` : `لا يوجد رصيد مرحّل`;
+      document.getElementById('pumpPaidCount').textContent = `سدد ${paidFamiliesCount} من أصل ${state.families.length}`;
 
-      // كشف السداد العلني (تم حذف عائلة # ليظهر الاسم فقط)
       const pumpListEl = document.getElementById('pumpFamiliesList');
       pumpListEl.innerHTML = '';
 
@@ -867,7 +872,6 @@
         pumpListEl.appendChild(item);
       });
 
-      // دفتر مصروفات الكهرباء
       const expListEl = document.getElementById('pumpExpensesList');
       expListEl.innerHTML = '';
       const expenses = fund.expenses || [];
@@ -951,7 +955,7 @@
       }
     }
 
-    // تعديل الرصيد المرحل مع منع القيم السالبة لغلق أي مدخل للتحايل
+    // دالة ضبط الرصيد المرحّل (محصنة ضد القيم السالبة)
     function changeCarryOver() {
       if (!isAdmin) return;
       const current = state.pumpFund.carryOver || 0;
@@ -1018,7 +1022,7 @@
         fund.expenses = [];
 
         pushState();
-        alert(`تمت أرشفة الجولة بنجاح، وبدأت الجولة رقم (${fund.currentRound}) مع ترحيل رصيد (+${balance} ₪) تلقائياً ✓`);
+        alert(`تمت أرشفة الجولة بنجاح، وبدأت الجولة رقم (${fund.currentRound}) مع ترحيل رصيد (+${balance} ₪) ✓`);
       }
     }
 
@@ -1053,6 +1057,22 @@
         });
       }
 
+      modal.style.display = 'flex';
+    }
+
+    // نافذة معلومات سعة الخزان (Tooltip / Info Modal)
+    function openWaterInfoModal() {
+      const modal = document.getElementById('waterInfoModal');
+      const content = document.getElementById('waterInfoContent');
+      const totalW = state.settings.totalWater || 0;
+      const reserveW = state.settings.reserveLiters || 0;
+      const netW = Math.max(0, totalW - reserveW);
+
+      content.innerHTML = `
+        <div style="margin-bottom:8px;">• <b>سعة الخزانات الإجمالية:</b> ${totalW} لتر</div>
+        <div style="margin-bottom:8px;">• <b>الكمية غير القابلة للسحب (تحت المحبس):</b> ${reserveW} لتر</div>
+        <div>• <b>صافي الماء المتاح للتوزيع الفعلي:</b> <b style="color:var(--primary);">${netW} لتر</b></div>
+      `;
       modal.style.display = 'flex';
     }
 
@@ -1187,13 +1207,14 @@
       if (selectedDispenseFamId) openFamilyLog(selectedDispenseFamId);
     }
 
+    // استعلام العضو بالشكل النظيف: أبو سائد (1)
     function openMemberLoginModal() {
       const select = document.getElementById('memberFamilySelect');
       select.innerHTML = '<option value="">-- اختر عائلتك من القائمة --</option>';
       state.families.forEach(f => {
         const opt = document.createElement('option');
         opt.value = f.id;
-        opt.textContent = `${f.name} (عائلة ${f.tent || '-'})`;
+        opt.textContent = `${f.name} (${f.tent || '-'})`;
         select.appendChild(opt);
       });
       document.getElementById('memberPinInput').value = '';
@@ -1388,7 +1409,7 @@
           </div>
           ${(isAdmin && activeLogTab === 'current') ? `
             <div class="log-tools">
-              <button class="btn-log-action btn-log-edit" onclick="editLogEntry(${l.id})">✏️ تعديل</button>
+              <button class="btn-log-action btn-log-edit" onclick="editLogEntry(${l.id})">✏ تعديل</button>
               <button class="btn-log-action btn-log-del" onclick="deleteLogEntry(${l.id})">✕ تراجع</button>
             </div>
           ` : ''}
