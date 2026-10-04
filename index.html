@@ -54,7 +54,7 @@
     .stats-item span { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 2px; }
     .stats-item strong { font-size: 1.1rem; color: var(--primary-dark); }
 
-    /* بطاقة صندوق المضخة المعدلة جمالياً */
+    /* بطاقة صندوق المضخة المصححة جمالياً */
     .pump-info-card { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 1px solid #fde68a; border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); color: #92400e; }
     .pump-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px dashed #fcd34d; padding-bottom: 6px; font-weight: bold; font-size: 1rem; }
     .pump-card-body { display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem; }
@@ -195,7 +195,7 @@
           <button class="btn-log" onclick="openLiveFamilyLog()">📋 السجل</button>
         </div>
         <div class="live-stats">
-          <span>عائلة: <b id="liveFamTent">0</b></span>
+          <span>رقم: <b id="liveFamTent">0</b></span>
           <span>الأفراد: <b id="liveFamMembers">0</b></span>
           <span>الحصة: <b id="liveFamAllotment">0 لتر</b></span>
           <span>المستهلك: <b id="liveFamConsumed">0 لتر</b></span>
@@ -238,7 +238,7 @@
       </div>
     </div>
 
-    <!-- البطاقة المعاد تصميمها جمالياً (بدون علامة +) -->
+    <!-- البطاقة المعدلة جمالياً ونظيفاً بدون أي رمز شيكل في الزاوية وبصياغة واضحة -->
     <div class="pump-info-card">
       <div class="pump-card-header">
         <span id="pumpRoundTitle">جولة التحصيل رقم (1)</span>
@@ -247,10 +247,7 @@
       <div class="pump-card-body">
         <div>
           <span id="pumpRoundFeeText" style="display:block; font-weight:600;">المبلغ المطلوب: 5 شيكل لكل عائلة</span>
-          <span id="pumpCarryOverText" style="display:block; font-size:0.78rem; color:#b45309; margin-top:2px;">مرحّل سابق: 7 ₪</span>
-        </div>
-        <div style="font-size: 1.2rem; font-weight: bold;">
-          ₪
+          <span id="pumpCarryOverText" style="display:block; font-size:0.78rem; color:#b45309; margin-top:2px;">متبقي من الجولة السابقة: 7 ₪</span>
         </div>
       </div>
     </div>
@@ -306,7 +303,7 @@
     </div>
   </div>
 
-  <!-- شكل القائمة النظيف في الاستعلام: أبو سائد (1) -->
+  <!-- شكل القائمة النظيف بالصيغة: أبو سائد (1) بدون كلمة عائلة -->
   <div id="memberLoginModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 330px;">
       <div class="modal-title"><span>🔍 استعلام عن حصتي</span><button class="btn-close" onclick="closeModal('memberLoginModal')">✕</button></div>
@@ -315,7 +312,7 @@
         <select id="memberFamilySelect" class="form-control"></select>
       </div>
       <div class="form-group">
-        <label>رمز PIN الخاص بك (الافتراضي هو رقم عائلتك):</label>
+        <label>رمز PIN الخاص بك (الافتراضي هو رقمك):</label>
         <input type="password" id="memberPinInput" class="form-control" placeholder="اكتب رمز PIN" onkeydown="if(event.key==='Enter') verifyMemberPin()">
       </div>
       <button class="btn-block btn-primary" onclick="verifyMemberPin()">عرض بياناتي</button>
@@ -344,7 +341,7 @@
 
   <div id="memberChangePinModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 320px;">
-      <div class="modal-title"><span>🔑 تغيير رمز PIN للعائلة</span><button class="btn-close" onclick="closeModal('memberChangePinModal')">✕</button></div>
+      <div class="modal-title"><span>🔑 تغيير رمز PIN</span><button class="btn-close" onclick="closeModal('memberChangePinModal')">✕</button></div>
       <div class="form-group">
         <label>الرمز السري الجديد:</label>
         <input type="password" id="newMemberPinInput" class="form-control" placeholder="اكتب الرمز الجديد" onkeydown="if(event.key==='Enter') saveNewMemberPin()">
@@ -540,7 +537,7 @@
       if (navigator.onLine && isFirebaseConnected && db) {
         syncPendingToServer();
       } else {
-        setSyncUI('offline', 'وضع عدم الاتصال (أوفلاين)');
+        setSyncUI('offline', 'تم الحفظ محلياً (أوفلاين)');
       }
     }
 
@@ -721,7 +718,7 @@
       datalist.innerHTML = '';
       state.families.forEach(function(f) {
         const opt = document.createElement('option');
-        opt.value = `${f.name} (عائلة ${f.tent || '-'})`;
+        opt.value = `${f.name} (${f.tent || '-'})`;
         datalist.appendChild(opt);
       });
 
@@ -757,7 +754,7 @@
                 <strong class="family-name">${f.name}</strong>
               </div>
               <div class="family-meta-admin">
-                <span style="font-size:0.75rem; color:var(--muted);">عائلة:</span>
+                <span style="font-size:0.75rem; color:var(--muted);">رقم:</span>
                 <input type="text" class="mini-input" value="${f.tent || ''}" title="رقم العائلة" onchange="updateTentNumber(${f.id}, this.value)">
                 <input type="number" class="mini-input" value="${f.members}" title="عدد الأفراد" onchange="updateMembers(${f.id}, this.value)">
                 <span style="font-size:0.75rem; color:var(--muted);">فرد</span>
@@ -848,7 +845,20 @@
 
       document.getElementById('pumpRoundTitle').textContent = `جولة التحصيل رقم (${fund.currentRound || 1})`;
       document.getElementById('pumpRoundFeeText').textContent = `المبلغ المطلوب: ${fee} شيكل لكل عائلة`;
-      document.getElementById('pumpCarryOverText').textContent = carryOver > 0 ? `مرحّل سابق: ${carryOver} ₪` : `لا يوجد رصيد مرحّل`;
+      
+      // الصياغة الجديدة الواضحة للرصيد المرحّل (بدون رمز شيكل في الزاوية، ودعم إظهار العجز إن وجد)
+      const carryOverEl = document.getElementById('pumpCarryOverText');
+      if (carryOver > 0) {
+        carryOverEl.textContent = `متبقي من الجولة السابقة: ${carryOver} ₪`;
+        carryOverEl.style.color = '#b45309';
+      } else if (carryOver < 0) {
+        carryOverEl.textContent = `عجز مرحّل من الجولة السابقة (دين): ${carryOver} ₪`;
+        carryOverEl.style.color = '#dc2626';
+      } else {
+        carryOverEl.textContent = `لا يوجد رصيد مرحّل من الجولة السابقة`;
+        carryOverEl.style.color = '#64748b';
+      }
+
       document.getElementById('pumpPaidCount').textContent = `سدد ${paidFamiliesCount} من أصل ${state.families.length}`;
 
       const pumpListEl = document.getElementById('pumpFamiliesList');
@@ -955,24 +965,24 @@
       }
     }
 
-    // دالة ضبط الرصيد المرحّل (محصنة ضد القيم السالبة)
+    // دالة ضبط الرصيد المرحّل (تسمح بالموجب والعجز السالب الناتج عن الدفع المسبق)
     function changeCarryOver() {
       if (!isAdmin) return;
       const current = state.pumpFund.carryOver || 0;
-      const n = prompt('أدخل الرصيد المتبقي المرحّل من الدورة السابقة (شيكل):\n(ملاحظة: لا يُقبل إدخال مبالغ سالبة)', current);
+      const n = prompt('أدخل رصيد الجولة السابقة (شيكل):\n(ملاحظة: اكتب قيمة موجبة للمتبقي، أو قيمة سالبة في حال وجود عجز/دفع مسبق من جيبك)', current);
       
       if (n === null) return;
 
       const val = parseFloat(n.trim());
 
-      if (isNaN(val) || val < 0) {
-        alert('خطأ: لا يمكن إدخال قيم سالبة أو غير صحيحة. الخصومات تُسجل حصراً عبر "دفتر المصروفات" لضمان الشفافية.');
+      if (isNaN(val)) {
+        alert('خطأ: يرجى إدخال رقم صحيح.');
         return;
       }
 
       state.pumpFund.carryOver = val;
       pushState();
-      alert(`تم تثبيت الرصيد المرحّل بنجاح: +${val} ₪`);
+      alert(`تم تثبيت الرصيد المرحّل بنجاح: ${val} ₪`);
     }
 
     function closeAndArchivePumpRound() {
@@ -1022,7 +1032,7 @@
         fund.expenses = [];
 
         pushState();
-        alert(`تمت أرشفة الجولة بنجاح، وبدأت الجولة رقم (${fund.currentRound}) مع ترحيل رصيد (+${balance} ₪) ✓`);
+        alert(`تمت أرشفة الجولة بنجاح، وبدأت الجولة رقم (${fund.currentRound}) مع ترحيل رصيد (${balance} ₪) ✓`);
       }
     }
 
@@ -1047,7 +1057,7 @@
             <div style="font-size:0.85rem; line-height:1.6;">
               <div>• اشتراك العائلة: <b>${h.feePerFamily} ₪</b></div>
               <div>• إجمالي المحصل: <b>${h.totalCollected} ₪</b> | إجمالي المصروف: <b style="color:var(--danger);">${h.totalExpenses} ₪</b></div>
-              <div>• الفائض المرحّل للجولة التالية: <b style="color:var(--success);">${h.surplusCarriedOver} ₪</b></div>
+              <div>• الرصيد المرحّل للجولة التالية: <b>${h.surplusCarriedOver} ₪</b></div>
               ${h.unpaidFamilies && h.unpaidFamilies.length > 0 
                 ? `<div style="color:var(--danger); font-size:0.78rem; margin-top:4px;">• لم يسدد في هذه الجولة: ${h.unpaidFamilies.join('، ')}</div>` 
                 : `<div style="color:var(--success); font-size:0.78rem; margin-top:4px;">• سدد الجميع بنسبة 100% ✓</div>`}
@@ -1060,7 +1070,6 @@
       modal.style.display = 'flex';
     }
 
-    // نافذة معلومات سعة الخزان (Tooltip / Info Modal)
     function openWaterInfoModal() {
       const modal = document.getElementById('waterInfoModal');
       const content = document.getElementById('waterInfoContent');
@@ -1093,7 +1102,7 @@
       const match = state.families.find(f => 
         f.name.toLowerCase().includes(q) || 
         (f.tent && String(f.tent).toLowerCase() === q) ||
-        `${f.name} (عائلة ${f.tent || '-'})`.toLowerCase().includes(q)
+        `${f.name} (${f.tent || '-'})`.toLowerCase().includes(q)
       );
 
       if (match) {
@@ -1253,7 +1262,7 @@
       const consumed = parseFloat(fam.consumed) || 0;
       const diff = quota - consumed;
 
-      document.getElementById('memberCardTitle').textContent = `بطاقة: ${fam.name} (عائلة ${fam.tent || '-'})`;
+      document.getElementById('memberCardTitle').textContent = `بطاقة: ${fam.name} (${fam.tent || '-'})`;
       
       let remDisplay = '';
       if (diff > 0) {
