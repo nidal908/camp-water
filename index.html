@@ -63,7 +63,7 @@
     .live-stats { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted); }
     .live-stats span b { color: var(--text); }
 
-    /* تطابق مظهر النصوص التوضيحية */
+    /* نصوص توضيحية */
     .dispense-input::placeholder { color: #94a3b8; opacity: 1; font-weight: normal; }
     .amount-input-box { width: 100%; padding: 12px; font-size: 1.25rem; font-weight: bold; border: 2px solid #0284c7; border-radius: 8px; text-align: center; outline: none; background: #fff; margin-bottom: 6px; letter-spacing: 1px; }
     .amount-input-box::placeholder { color: #94a3b8; opacity: 1; font-weight: normal; }
@@ -150,15 +150,15 @@
       </div>
     </div>
 
-    <!-- لوحة "تسجيل سحب" (تظهر للمسؤول فقط) -->
+    <!-- لوحة "تسجيل سحب" (للمسؤول فقط) -->
     <div id="dispensingPanel" class="dispense-panel" style="display: none;">
       <div class="dispense-title">
         <span>تسجيل سحب</span>
       </div>
 
-      <!-- قائمة البحث بالاسم أو برقم الخيمة -->
+      <!-- قائمة البحث بالاسم أو برقم العائلة -->
       <div class="search-wrapper">
-        <input type="text" id="dispenseSearchInput" class="dispense-input" placeholder="🔍 ابحث بالاسم أو برقم الخيمة (مثال: سا أو 4)..." list="familiesDatalist" oninput="handleFamilySearch(this.value)">
+        <input type="text" id="dispenseSearchInput" class="dispense-input" placeholder="🔍 ابحث بالاسم أو برقم العائلة (مثال: سا أو 4)..." list="familiesDatalist" oninput="handleFamilySearch(this.value)">
         <button id="clearSearchBtn" class="clear-search-btn" type="button" onclick="clearDispenseSearch()">✕</button>
       </div>
       <datalist id="familiesDatalist"></datalist>
@@ -170,7 +170,7 @@
           <button class="btn-log" onclick="openLiveFamilyLog()">📋 السجل</button>
         </div>
         <div class="live-stats">
-          <span>خيمة: <b id="liveFamTent">0</b></span>
+          <span>عائلة: <b id="liveFamTent">0</b></span>
           <span>الأفراد: <b id="liveFamMembers">0</b></span>
           <span>الحصة: <b id="liveFamAllotment">0 لتر</b></span>
           <span>المستهلك: <b id="liveFamConsumed">0 لتر</b></span>
@@ -191,7 +191,7 @@
     <!-- لوحة تحكم المسؤول -->
     <div id="adminControls" style="display: none; margin-top: 16px;">
       <button class="btn-block btn-outline" onclick="addNewFamily()" style="margin-bottom: 8px;">➕ إضافة عائلة جديدة</button>
-      <button class="btn-block btn-outline" onclick="openSettingsModal()" style="margin-bottom: 8px;">⚙️ إعدادات التوزيع والخزان</button>
+      <button class="btn-block btn-outline" onclick="openSettingsModal()" style="margin-bottom: 8px;">⚙️️ إعدادات التوزيع والخزان</button>
       <button class="btn-block btn-outline" onclick="openChangePinModal()" style="margin-bottom: 8px;">🔑 تغيير رمز PIN المسؤول</button>
       <button class="btn-block btn-danger" onclick="resetAllConsumption()">🔄 تصفير الاستهلاك للدورة الجديدة</button>
     </div>
@@ -207,7 +207,7 @@
         <select id="memberFamilySelect" class="form-control"></select>
       </div>
       <div class="form-group">
-        <label>رمز PIN الخاص بك (الافتراضي هو رقم خيمتك):</label>
+        <label>رمز PIN الخاص بك (الافتراضي هو رقم عائلتك):</label>
         <input type="password" id="memberPinInput" class="form-control" placeholder="اكتب رمز PIN" onkeydown="if(event.key==='Enter') verifyMemberPin()">
       </div>
       <button class="btn-block btn-primary" onclick="verifyMemberPin()">عرض بياناتي</button>
@@ -224,6 +224,12 @@
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
         <strong style="font-size: 0.9rem;">📋 سجل سحوباتي:</strong>
         <button class="btn-log" onclick="openMemberChangePinModal()">🔑 تغيير رمزي السري</button>
+      </div>
+
+      <!-- تبويبات السجل للعضو لمشاهدة الدورة الحالية والسابقة -->
+      <div class="tab-nav">
+        <button id="memberTabCurrentBtn" class="tab-btn active" onclick="switchMemberLogTab('current')">الدورة الحالية</button>
+        <button id="memberTabPrevBtn" class="tab-btn" onclick="switchMemberLogTab('prev')">الدورة السابقة</button>
       </div>
       
       <div id="memberLogsContainer"></div>
@@ -332,8 +338,9 @@
     let activeLogFamilyId = null;
     let activeLogTab = 'current';
     let loggedInMemberFamId = null;
+    let activeMemberLogTab = 'current';
 
-    // ترحيل البيانات القديمة وضمان وجود رقم الخيمة والـ PIN
+    // ترقية البيانات وضمان رقم العائلة ورمز PIN
     function migrateState() {
       let changed = false;
       if (state.families && state.families.length > 0) {
@@ -551,7 +558,7 @@
       return `${dayName} ${year}/${month}/${date} - ${hoursStr}:${minutes} ${ampm}`;
     }
 
-    // دالة خلط عشوائي لعرض الكروت في الواجهة العامة دون التأثير على الترتيب الأصلي
+    // خلط عشوائي لعرض الكروت في الواجهة العامة
     function shuffleArray(array) {
       const arr = array.slice();
       for (let i = arr.length - 1; i > 0; i--) {
@@ -577,12 +584,12 @@
       document.getElementById('statTotalConsumed').textContent = Math.round(totalConsumed) + ' لتر';
       document.getElementById('statRemainingWater').textContent = Math.max(0, Math.round(netWater - totalConsumed)) + ' لتر';
 
-      // تحديث قائمة البحث بالإسم ورقم الخيمة
+      // قائمة البحث بالاسم أو برقم العائلة
       const datalist = document.getElementById('familiesDatalist');
       datalist.innerHTML = '';
       state.families.forEach(function(f) {
         const opt = document.createElement('option');
-        opt.value = `${f.name} (خيمة ${f.tent || '-'})`;
+        opt.value = `${f.name} (عائلة ${f.tent || '-'})`;
         datalist.appendChild(opt);
       });
 
@@ -590,7 +597,7 @@
       famContainer.innerHTML = '';
 
       if (isAdmin) {
-        // عرض كامل وتفصيلي للمسؤول
+        // العرض الكامل للمسؤول
         state.families.forEach(function(f) {
           const quota = allotments[f.id] || 0;
           const consumed = parseFloat(f.consumed) || 0;
@@ -619,11 +626,11 @@
                 <strong class="family-name">${f.name}</strong>
               </div>
               <div class="family-meta-admin">
-                <span style="font-size:0.75rem; color:var(--muted);">خيمة:</span>
-                <input type="text" class="mini-input" value="${f.tent || ''}" title="رقم الخيمة" onchange="updateTentNumber(${f.id}, this.value)">
+                <span style="font-size:0.75rem; color:var(--muted);">عائلة:</span>
+                <input type="text" class="mini-input" value="${f.tent || ''}" title="رقم العائلة" onchange="updateTentNumber(${f.id}, this.value)">
                 <input type="number" class="mini-input" value="${f.members}" title="عدد الأفراد" onchange="updateMembers(${f.id}, this.value)">
                 <span style="font-size:0.75rem; color:var(--muted);">فرد</span>
-                <button onclick="resetMemberPinByAdmin(${f.id})" class="btn-log-action" style="background:#fef3c7; color:#92400e;" title="إعادة ضبط PIN إلى رقم الخيمة">🔄 ضبط PIN</button>
+                <button onclick="resetMemberPinByAdmin(${f.id})" class="btn-log-action" style="background:#fef3c7; color:#92400e;" title="إعادة ضبط PIN إلى رقم العائلة">🔄 ضبط PIN</button>
                 <button onclick="deleteFamily(${f.id})" style="border:none; background:none; cursor:pointer; font-size:0.95rem;">🗑️</button>
               </div>
             </div>
@@ -640,9 +647,9 @@
           famContainer.appendChild(card);
         });
       } else {
-        // عرض مجهول الهوية ومخلوط عشوائياً في الصفحة العامة (الخيار ب)
+        // الخيار (أ): ترقيم عشوائي مخلوط يمنع التمييز تماماً
         const shuffled = shuffleArray(state.families);
-        shuffled.forEach(function(f) {
+        shuffled.forEach(function(f, index) {
           const quota = allotments[f.id] || 0;
           const consumed = parseFloat(f.consumed) || 0;
           const diff = quota - consumed;
@@ -665,6 +672,9 @@
           const card = document.createElement('div');
           card.className = 'family-card';
           card.innerHTML = `
+            <div class="family-header" style="margin-bottom:6px; border-bottom:1px dashed var(--border); padding-bottom:6px;">
+              <strong style="color:var(--primary-dark); font-size:0.92rem;">حصة #${index + 1}</strong>
+            </div>
             <div class="family-metrics" style="margin-bottom: 8px;">
               <div><span>الحصة المقررة:</span><strong>${quota} لتر</strong></div>
               <div><span>المستهلك:</span><strong>${consumed} لتر</strong></div>
@@ -683,7 +693,7 @@
       }
     }
 
-    // البحث في الصرف السريع بالاسم أو رقم الخيمة
+    // البحث في الصرف بالاسم أو برقم العائلة
     function handleFamilySearch(query) {
       const clearBtn = document.getElementById('clearSearchBtn');
       if (query && query.trim().length > 0) {
@@ -701,7 +711,7 @@
       const match = state.families.find(f => 
         f.name.toLowerCase().includes(q) || 
         (f.tent && String(f.tent).toLowerCase() === q) ||
-        `${f.name} (خيمة ${f.tent || '-'})`.toLowerCase().includes(q)
+        `${f.name} (عائلة ${f.tent || '-'})`.toLowerCase().includes(q)
       );
 
       if (match) {
@@ -815,14 +825,14 @@
       if (selectedDispenseFamId) openFamilyLog(selectedDispenseFamId);
     }
 
-    // إدارة استعلام العضو (Member Inquiry)
+    // استعلام العضو (Member Dashboard)
     function openMemberLoginModal() {
       const select = document.getElementById('memberFamilySelect');
       select.innerHTML = '<option value="">-- اختر عائلتك من القائمة --</option>';
       state.families.forEach(f => {
         const opt = document.createElement('option');
         opt.value = f.id;
-        opt.textContent = `${f.name} (خيمة ${f.tent || '-'})`;
+        opt.textContent = `${f.name} (عائلة ${f.tent || '-'})`;
         select.appendChild(opt);
       });
       document.getElementById('memberPinInput').value = '';
@@ -844,6 +854,7 @@
       const expectedPin = fam.pin || fam.tent || "1";
       if (pin === String(expectedPin)) {
         loggedInMemberFamId = fam.id;
+        activeMemberLogTab = 'current';
         closeModal('memberLoginModal');
         showMemberViewModal(fam.id);
       } else {
@@ -860,7 +871,7 @@
       const consumed = parseFloat(fam.consumed) || 0;
       const diff = quota - consumed;
 
-      document.getElementById('memberCardTitle').textContent = `بطاقة: ${fam.name} (خيمة ${fam.tent || '-'})`;
+      document.getElementById('memberCardTitle').textContent = `بطاقة: ${fam.name} (عائلة ${fam.tent || '-'})`;
       
       let remDisplay = '';
       if (diff > 0) {
@@ -877,28 +888,46 @@
         ${remDisplay}
       `;
 
+      renderMemberLogs();
+      document.getElementById('memberViewModal').style.display = 'flex';
+    }
+
+    function switchMemberLogTab(tab) {
+      activeMemberLogTab = tab;
+      document.getElementById('memberTabCurrentBtn').className = 'tab-btn' + (tab === 'current' ? ' active' : '');
+      document.getElementById('memberTabPrevBtn').className = 'tab-btn' + (tab === 'prev' ? ' active' : '');
+      renderMemberLogs();
+    }
+
+    function renderMemberLogs() {
+      if (!loggedInMemberFamId) return;
+      const fam = state.families.find(f => f.id === loggedInMemberFamId);
+      if (!fam) return;
+
       const logsBox = document.getElementById('memberLogsContainer');
       logsBox.innerHTML = '';
-      const logs = fam.currentLogs || [];
+
+      const logs = (activeMemberLogTab === 'current')
+        ? (fam.currentLogs || [])
+        : ((fam.previousCycle && fam.previousCycle.logs) || []);
 
       if (logs.length === 0) {
-        logsBox.innerHTML = '<div style="text-align:center; padding:15px; color:var(--muted);">لا توجد سحوبات مسجلة في هذه الدورة حتى الآن.</div>';
-      } else {
-        logs.slice().sort((a, b) => b.timestamp - a.timestamp).forEach(l => {
-          const item = document.createElement('div');
-          item.className = 'log-item';
-          item.innerHTML = `
-            <div>
-              <strong>${l.amount} لتر</strong>
-              ${l.detail ? `<span style="font-size:0.75rem; color:var(--muted); margin-right:4px;">(${l.detail})</span>` : ''}
-              <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${formatLogTimestamp(l.timestamp)}</div>
-            </div>
-          `;
-          logsBox.appendChild(item);
-        });
+        logsBox.innerHTML = '<div style="text-align:center; padding:15px; color:var(--muted);">لا توجد سحوبات مسجلة في هذا السجل.</div>';
+        return;
       }
 
-      document.getElementById('memberViewModal').style.display = 'flex';
+      logs.slice().sort((a, b) => b.timestamp - a.timestamp).forEach(l => {
+        const item = document.createElement('div');
+        item.className = 'log-item';
+        item.innerHTML = `
+          <div>
+            <strong>${l.amount} لتر</strong>
+            ${l.detail ? `<span style="font-size:0.75rem; color:var(--muted); margin-right:4px;">(${l.detail})</span>` : ''}
+            <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${formatLogTimestamp(l.timestamp)}</div>
+          </div>
+        `;
+        logsBox.appendChild(item);
+      });
     }
 
     function closeMemberViewModal() {
@@ -932,7 +961,7 @@
     function resetMemberPinByAdmin(famId) {
       if (!isAdmin) return;
       const fam = state.families.find(f => f.id === famId);
-      if (fam && confirm(`هل تريد إعادة ضبط رمز PIN لعائلة (${fam.name}) إلى رقم الخيمة (${fam.tent})؟`)) {
+      if (fam && confirm(`هل تريد إعادة ضبط رمز PIN لعائلة (${fam.name}) إلى رقم العائلة (${fam.tent})؟`)) {
         fam.pin = String(fam.tent || "1");
         pushState();
         alert(`تمت إعادة تعيين PIN بنجاح إلى: ${fam.pin}`);
@@ -955,7 +984,7 @@
       }
     }
 
-    // إدارة السجلات العامة للمسؤول
+    // سجلات المسؤول
     function openFamilyLog(famId) {
       activeLogFamilyId = famId;
       activeLogTab = 'current';
@@ -1053,7 +1082,7 @@
       const name = prompt('أدخل اسم العائلة الجديدة:');
       if (!name || !name.trim()) return;
 
-      const tent = prompt('أدخل رقم الخيمة:', String(state.families.length + 1)) || String(state.families.length + 1);
+      const tent = prompt('أدخل رقم العائلة:', String(state.families.length + 1)) || String(state.families.length + 1);
 
       state.families.push({
         id: Date.now(),
