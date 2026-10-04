@@ -922,7 +922,7 @@
       document.getElementById(id).style.display = 'none';
     }
 
-    window.onload = function() {
+     window.onload = function() {
       loadLocal();
 
       if (!navigator.onLine) {
@@ -934,12 +934,11 @@
       render();
       initFirebase();
 
-            if ('serviceWorker' in navigator) {
+      if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js').catch(function(err) {
           console.log('SW registration failed:', err);
         });
       }
-    };
     };
   </script>
 </body>
