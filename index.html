@@ -46,7 +46,6 @@
       overflow: hidden;
     }
 
-    /* أهداف لمس قياسية للميدان */
     button, input, select {
       touch-action: manipulation;
     }
@@ -166,7 +165,7 @@
       padding: 12px; 
     }
 
-    /* لوحة الإحصائيات العامة عريضة ومقروءة في الشمس */
+    /* لوحة الإحصائيات العامة */
     .stats-card { 
       background: var(--card-bg); 
       border-radius: 14px; 
@@ -223,7 +222,7 @@
       font-size: 0.9rem; 
     }
 
-    /* لوحة "تسجيل سحب" المحصنة للميدان */
+    /* لوحة "تسجيل سحب" */
     .dispense-panel { 
       background: #eff6ff; 
       border: 2px solid #bfdbfe; 
@@ -305,7 +304,6 @@
       color: var(--text); 
     }
 
-    /* إبراز المتبقي كعداد ميداني ضخم */
     .live-remaining-highlight {
       background: #ecfdf5;
       border: 2px solid #86efac;
@@ -329,7 +327,6 @@
       color: #15803d;
     }
 
-    /* خانة الأوعية */
     .amount-input-box { 
       width: 100%; 
       padding: 12px; 
@@ -668,7 +665,6 @@
           <span>الحصة: <b id="liveFamAllotment">0 لتر</b></span>
           <span>المستهلك: <b id="liveFamConsumed">0 لتر</b></span>
         </div>
-        <!-- إبراز المتبقي بوضوح تام للمسؤول -->
         <div class="live-remaining-highlight">
           <span id="liveFamRemainingTitle">المتبقي الصافي للعائلة</span>
           <strong id="liveFamRemaining">0 لتر</strong>
@@ -745,7 +741,7 @@
   <!-- شريط التنبيهات Toast -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <!-- النوافذ المنبثقة (Bottom Sheets) -->
+  <!-- النوافذ المنبثقة -->
   <div id="waterInfoModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 360px;">
       <div class="modal-title"><span>ℹ️ تفاصيل سعة الخزان</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('waterInfoModal')">✕</button></div>
@@ -923,8 +919,8 @@
     let loggedInMemberFamId = null;
     let activeMemberLogTab = 'current';
     let toastTimer = null;
+    let isModalPushed = false;
 
-    // دالة عرض التنبيهات السريعة (Toast)
     function showToast(message) {
       const t = document.getElementById('toast');
       t.textContent = message;
@@ -935,35 +931,39 @@
       }, 2300);
     }
 
-    // إدارة النوافذ المنبثقة مع زر الرجوع في أندرويد
+    // إدارة النوافذ المنبثقة وحل مشكلة زر الرجوع دون إغلاق البطاقات المتتالية
     function openModal(id) {
       const m = document.getElementById(id);
       if (!m) return;
       m.style.display = 'flex';
       document.body.classList.add('modal-open');
-      history.pushState({ modalId: id }, '');
+
+      if (!isModalPushed) {
+        history.pushState({ modalOpen: true }, '');
+        isModalPushed = true;
+      }
     }
 
-    function closeModal(id, fromPopState = false) {
+    function closeModal(id, keepHistory = false) {
       const m = document.getElementById(id);
       if (m) m.style.display = 'none';
 
-      const anyOpen = Array.from(document.querySelectorAll('.modal-overlay')).some(el => el.style.display === 'flex');
-      if (!anyOpen) {
+      const openModals = Array.from(document.querySelectorAll('.modal-overlay')).filter(el => el.style.display === 'flex');
+      if (openModals.length === 0) {
         document.body.classList.remove('modal-open');
-      }
-
-      if (!fromPopState && history.state && history.state.modalId === id) {
-        history.back();
+        if (!keepHistory && isModalPushed) {
+          isModalPushed = false;
+          if (history.state && history.state.modalOpen) {
+            history.back();
+          }
+        }
       }
     }
 
-    // استجابة زر الرجوع في أندرويد
     window.addEventListener('popstate', function() {
+      isModalPushed = false;
       document.querySelectorAll('.modal-overlay').forEach(m => {
-        if (m.style.display === 'flex') {
-          m.style.display = 'none';
-        }
+        m.style.display = 'none';
       });
       document.body.classList.remove('modal-open');
     });
@@ -1208,7 +1208,6 @@
           }
         }
 
-        // الحساب الدقيق لأقرب لتر صحيح بدون كسور، أو مضاعفات 5 و 10
         if (rounding === '5') quota = Math.round(quota / 5) * 5;
         else if (rounding === '10') quota = Math.round(quota / 10) * 10;
         else quota = Math.round(quota);
@@ -1219,7 +1218,6 @@
       return { allotments: allotments, netWater: netWater };
     }
 
-    // تدعم الفاصل بالنقطة (.)، والمسافة، وعلامة (+) والأرقام المشرقية
     function parseContainers(str) {
       if (!str) return { total: 0, detail: '', items: [] };
       const clean = normalizeArabicDigits(str).replace(/[\.+،,]/g, ' ');
@@ -1652,7 +1650,6 @@
       openModal('waterInfoModal');
     }
 
-    // بحث يدعم الأرقام مع انتقال التركيز المباشر لخانة الأوعية
     function handleFamilySearch(query) {
       const clearBtn = document.getElementById('clearSearchBtn');
       if (query && query.trim().length > 0) {
@@ -1688,7 +1685,6 @@
         const calc = computeAllotments();
         updateLiveFamilyUI(match.id, calc.allotments);
 
-        // Autofocus مباشر لخانة الأوعية لسرعة العمل الميداني
         setTimeout(() => {
           const amtInp = document.getElementById('dispenseAmountInput');
           if (amtInp) amtInp.focus();
@@ -1765,7 +1761,6 @@
       }
     }
 
-    // تسجيل السحب مع منع النقر المزدوج والتأكيد عند التجاوز
     function submitDispense() {
       if (!selectedDispenseFamId) {
         alert('يرجى اختيار العائلة أولاً من خانة البحث');
@@ -1787,7 +1782,6 @@
       const consumed = parseFloat(fam.consumed) || 0;
       const remAfter = quota - (consumed + parsed.total);
 
-      // تأكيد مسبق في حال تجاوز الحصة
       if (remAfter < 0) {
         const over = Math.abs(remAfter);
         if (!confirm(`⚠️ تنبيه: هذه العملية ستجعل العائلة تتجاوز حصتها المقررة بمقدار (${over} لتر).\n\nهل تريد تسجيل السحب رغم ذلك؟`)) {
@@ -1795,7 +1789,6 @@
         }
       }
 
-      // منع الضغط المزدوج
       const btn = document.getElementById('dispenseSubmitBtn');
       btn.disabled = true;
       btn.textContent = '⏳ جاري التسجيل...';
@@ -1843,6 +1836,7 @@
       setTimeout(() => document.getElementById('memberFamilySelect').focus(), 150);
     }
 
+    // التحقق والانتقال السلس إلى نافذة البطاقة دون تعارض مع زر الرجوع
     function verifyMemberPin() {
       const famId = parseInt(document.getElementById('memberFamilySelect').value);
       const rawPin = document.getElementById('memberPinInput').value;
@@ -1855,11 +1849,14 @@
       const fam = state.families.find(f => f.id === famId);
       if (!fam) return;
 
-      const expectedPin = normalizeArabicDigits(fam.pin || fam.tent || "1").trim();
+      const expectedPin = normalizeArabicDigits((fam.pin !== undefined && fam.pin !== null && fam.pin !== '') ? fam.pin : (fam.tent || "1")).trim();
+      
       if (pin === expectedPin) {
         loggedInMemberFamId = fam.id;
         activeMemberLogTab = 'current';
-        closeModal('memberLoginModal');
+        
+        // إغلاق نافذة الدخول مع الاحتفاظ بسجل التصفح للنافذة التالية
+        closeModal('memberLoginModal', true);
         showMemberViewModal(fam.id);
       } else {
         alert('رمز PIN غير صحيح. إذا نسيته، يرجى مراجعة المسؤول لإعادة ضبطه.');
