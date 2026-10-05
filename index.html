@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>سِجِلّ مياه المخيم</title>
+  <title>إدارة مياه المخيم</title>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="icon.png">
-  <meta name="theme-color" content="#0284c7">
+  <meta name="theme-color" content="#0369a1">
 
   <!-- مكتبات Firebase الأساسية -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -14,141 +14,607 @@
 
   <style>
     :root {
-      --primary: #0284c7;
-      --primary-dark: #0369a1;
+      --primary: #0369a1;
+      --primary-dark: #075985;
       --bg: #f8fafc;
       --card-bg: #ffffff;
       --text: #0f172a;
-      --muted: #64748b;
-      --border: #e2e8f0;
-      --success: #16a34a;
-      --warning: #ca8a04;
-      --danger: #dc2626;
-      --purple: #7c3aed;
+      --muted: #475569;
+      --border: #cbd5e1;
+      --success: #15803d;
+      --warning: #b45309;
+      --danger: #b91c1c;
+      --focus-ring: rgba(3, 105, 161, 0.35);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background-color: var(--bg); color: var(--text); padding-bottom: 70px; }
+
+    * { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body { 
+      background-color: var(--bg); 
+      color: var(--text); 
+      min-width: 320px;
+      padding-bottom: calc(30px + env(safe-area-inset-bottom)); 
+    }
+
+    body.modal-open {
+      overflow: hidden;
+    }
+
+    /* أهداف لمس قياسية للميدان */
+    button, input, select {
+      touch-action: manipulation;
+    }
+
+    button {
+      min-height: 48px;
+      cursor: pointer;
+      transition: transform 0.08s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 3px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    input, select {
+      min-height: 48px;
+      font-size: 16px;
+    }
 
     /* شريط الحالة والاتصال اللحظي */
-    .sync-bar { padding: 6px 12px; font-size: 0.8rem; text-align: center; font-weight: 600; display: flex; justify-content: center; align-items: center; gap: 8px; transition: background 0.3s; }
+    .sync-bar { 
+      padding: 8px 12px; 
+      font-size: 0.85rem; 
+      text-align: center; 
+      font-weight: 700; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      gap: 8px; 
+      transition: background 0.3s; 
+    }
     .sync-online { background: #dcfce7; color: #166534; }
     .sync-offline { background: #fee2e2; color: #991b1b; }
-    .sync-syncing { background: #e0f2fe; color: #075985; }
+    .sync-syncing { background: #e0f2fe; color: #0369a1; }
+    .sync-pending { background: #fef3c7; color: #92400e; }
 
-    .header { background: var(--primary); color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .header h1 { font-size: 1.1rem; font-weight: 700; }
-    .header-actions { display: flex; gap: 6px; }
-    .btn-header { background: rgba(255,255,255,0.2); border: none; color: #fff; padding: 6px 10px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.8rem; }
+    .header { 
+      background: var(--primary); 
+      color: #fff; 
+      padding: 12px 14px; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      box-shadow: 0 2px 4px rgba(0,0,0,0.12); 
+    }
+    .header h1 { 
+      font-size: 1.15rem; 
+      font-weight: 800; 
+      white-space: nowrap;
+    }
+    .header-actions { 
+      display: flex; 
+      gap: 6px; 
+    }
+    .btn-header { 
+      background: rgba(255,255,255,0.22); 
+      border: 1px solid rgba(255,255,255,0.3); 
+      color: #fff; 
+      padding: 8px 12px; 
+      border-radius: 8px; 
+      font-weight: 700; 
+      font-size: 0.85rem; 
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
 
     /* شريط التبويبات الرئيسي */
-    .main-nav-container { background: #fff; border-bottom: 2px solid var(--border); position: sticky; top: 0; z-index: 90; }
-    .main-tabs { display: flex; max-width: 650px; margin: 0 auto; }
-    .main-tab-btn { flex: 1; padding: 12px 8px; font-size: 0.95rem; font-weight: 700; border: none; background: none; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; border-bottom: 3px solid transparent; transition: 0.2s; }
-    .main-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); background: #f0f9ff; }
+    .main-nav-container { 
+      background: #fff; 
+      border-bottom: 2px solid var(--border); 
+      position: sticky; 
+      top: 0; 
+      z-index: 90; 
+    }
+    .main-tabs { 
+      display: flex; 
+      max-width: 650px; 
+      margin: 0 auto; 
+    }
+    .main-tab-btn { 
+      flex: 1; 
+      padding: 12px 8px; 
+      font-size: 0.95rem; 
+      font-weight: 800; 
+      border: none; 
+      background: none; 
+      color: var(--muted); 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      gap: 6px; 
+      border-bottom: 3px solid transparent; 
+      min-height: 50px;
+    }
+    .main-tab-btn.active { 
+      color: var(--primary); 
+      border-bottom-color: var(--primary); 
+      background: #f0f9ff; 
+    }
 
-    .container { max-width: 650px; margin: 0 auto; padding: 12px; }
+    .container { 
+      max-width: 650px; 
+      margin: 0 auto; 
+      padding: 12px; 
+    }
 
-    /* لوحة الإحصائيات العامة */
-    .stats-card { background: var(--card-bg); border-radius: 12px; padding: 14px; border: 1px solid var(--border); margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
-    .stats-item span { font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 2px; }
-    .stats-item strong { font-size: 1.1rem; color: var(--primary-dark); }
+    /* لوحة الإحصائيات العامة عريضة ومقروءة في الشمس */
+    .stats-card { 
+      background: var(--card-bg); 
+      border-radius: 14px; 
+      padding: 14px 10px; 
+      border: 1px solid var(--border); 
+      margin-bottom: 12px; 
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06); 
+    }
+    .stats-grid { 
+      display: grid; 
+      grid-template-columns: repeat(3, 1fr); 
+      gap: 6px; 
+      text-align: center; 
+    }
+    .stats-item span { 
+      font-size: 0.82rem; 
+      font-weight: 700; 
+      color: var(--muted); 
+      display: block; 
+      margin-bottom: 4px; 
+    }
+    .stats-item strong { 
+      font-size: 1.25rem; 
+      font-weight: 900; 
+      color: var(--primary-dark); 
+      display: block;
+      line-height: 1.2;
+    }
 
     /* بطاقة صندوق المضخة */
-    .pump-info-card { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 1px solid #fde68a; border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); color: #92400e; }
-    .pump-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px dashed #fcd34d; padding-bottom: 6px; font-weight: bold; font-size: 1rem; }
-    .pump-card-body { display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem; }
+    .pump-info-card { 
+      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); 
+      border: 1px solid #fde68a; 
+      border-radius: 12px; 
+      padding: 14px; 
+      margin-bottom: 12px; 
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04); 
+      color: #92400e; 
+    }
+    .pump-card-header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      margin-bottom: 8px; 
+      border-bottom: 1px dashed #fcd34d; 
+      padding-bottom: 6px; 
+      font-weight: 800; 
+      font-size: 1rem; 
+    }
+    .pump-card-body { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      font-size: 0.9rem; 
+    }
 
-    /* لوحة "تسجيل سحب" للمسؤول */
-    .dispense-panel { background: #eff6ff; border: 2px solid #bfdbfe; border-radius: 14px; padding: 14px; margin-bottom: 16px; box-shadow: 0 2px 6px rgba(2,132,199,0.1); }
-    .dispense-title { font-size: 1rem; font-weight: bold; color: #1e40af; margin-bottom: 10px; }
+    /* لوحة "تسجيل سحب" المحصنة للميدان */
+    .dispense-panel { 
+      background: #eff6ff; 
+      border: 2px solid #bfdbfe; 
+      border-radius: 14px; 
+      padding: 14px; 
+      margin-bottom: 16px; 
+      box-shadow: 0 2px 8px rgba(3,105,161,0.12); 
+    }
+    .dispense-title { 
+      font-size: 1.05rem; 
+      font-weight: 800; 
+      color: #1e40af; 
+      margin-bottom: 10px; 
+    }
     
-    .search-wrapper { position: relative; margin-bottom: 10px; }
-    .dispense-input { width: 100%; padding: 10px 38px 10px 10px; border: 1px solid #93c5fd; border-radius: 8px; font-size: 0.95rem; outline: none; background: #fff; }
-    .dispense-input:focus { border-color: var(--primary); }
-    .clear-search-btn { display: none; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 1.15rem; color: #94a3b8; cursor: pointer; padding: 4px; line-height: 1; }
-    .clear-search-btn:hover { color: var(--danger); }
+    .search-wrapper { 
+      position: relative; 
+      margin-bottom: 10px; 
+    }
+    .dispense-input { 
+      width: 100%; 
+      padding: 10px 42px 10px 12px; 
+      border: 2px solid #93c5fd; 
+      border-radius: 10px; 
+      font-size: 1rem; 
+      outline: none; 
+      background: #fff; 
+    }
+    .dispense-input:focus { 
+      border-color: var(--primary); 
+    }
+    .clear-search-btn { 
+      display: none; 
+      position: absolute; 
+      left: 8px; 
+      top: 50%; 
+      transform: translateY(-50%); 
+      background: none; 
+      border: none; 
+      font-size: 1.3rem; 
+      color: #64748b; 
+      width: 38px;
+      height: 38px;
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-    .live-family-card { background: #fff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; display: none; }
-    .live-family-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px dashed var(--border); padding-bottom: 6px; }
-    .live-family-header strong { font-size: 1.05rem; color: #0f172a; }
-    .live-stats { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted); }
-    .live-stats span b { color: var(--text); }
+    .live-family-card { 
+      background: #fff; 
+      border: 2px solid #cbd5e1; 
+      border-radius: 12px; 
+      padding: 12px; 
+      margin-bottom: 12px; 
+      display: none; 
+    }
+    .live-family-header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      margin-bottom: 8px; 
+      border-bottom: 1px dashed var(--border); 
+      padding-bottom: 6px; 
+    }
+    .live-family-header strong { 
+      font-size: 1.15rem; 
+      color: #0f172a; 
+      font-weight: 800;
+    }
+    .live-stats { 
+      display: flex; 
+      justify-content: space-between; 
+      font-size: 0.85rem; 
+      color: var(--muted); 
+      margin-bottom: 8px;
+    }
+    .live-stats span b { 
+      color: var(--text); 
+    }
 
-    .dispense-input::placeholder { color: #94a3b8; opacity: 1; font-weight: normal; }
-    
-    /* خانة الأوعية تفتح بكيبورد رقمي ونقطة */
-    .amount-input-box { width: 100%; padding: 12px; font-size: 1.25rem; font-weight: bold; border: 2px solid #0284c7; border-radius: 8px; text-align: center; outline: none; background: #fff; margin-bottom: 6px; letter-spacing: 1px; }
-    .amount-input-box::placeholder { color: #94a3b8; opacity: 1; font-weight: normal; }
-    .amount-input-box:focus::placeholder { color: transparent; }
+    /* إبراز المتبقي كعداد ميداني ضخم */
+    .live-remaining-highlight {
+      background: #ecfdf5;
+      border: 2px solid #86efac;
+      border-radius: 10px;
+      padding: 10px;
+      text-align: center;
+      margin-top: 4px;
+    }
+    .live-remaining-highlight span {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #166534;
+      margin-bottom: 2px;
+    }
+    .live-remaining-highlight strong {
+      display: block;
+      font-size: 1.6rem;
+      font-weight: 900;
+      line-height: 1.1;
+      color: #15803d;
+    }
 
-    .live-preview { font-size: 0.85rem; font-weight: bold; color: #0369a1; text-align: center; margin-bottom: 10px; min-height: 18px; }
-    .btn-dispense-submit { width: 100%; background: #0284c7; color: #fff; border: none; padding: 12px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.15s; }
-    .btn-dispense-submit:active { transform: scale(0.98); }
+    /* خانة الأوعية */
+    .amount-input-box { 
+      width: 100%; 
+      padding: 12px; 
+      font-size: 1.3rem; 
+      font-weight: 800; 
+      border: 2px solid var(--primary); 
+      border-radius: 10px; 
+      text-align: center; 
+      outline: none; 
+      background: #fff; 
+      margin-bottom: 6px; 
+      min-height: 56px;
+    }
+
+    .live-preview { 
+      font-size: 0.9rem; 
+      font-weight: 800; 
+      color: #0369a1; 
+      text-align: center; 
+      margin-bottom: 10px; 
+      min-height: 22px; 
+    }
+    .btn-dispense-submit { 
+      width: 100%; 
+      background: var(--primary); 
+      color: #fff; 
+      border: none; 
+      padding: 12px; 
+      border-radius: 10px; 
+      font-size: 1.05rem; 
+      font-weight: 800; 
+      min-height: 54px;
+    }
 
     /* بطاقات العائلات */
-    .family-card { background: var(--card-bg); border-radius: 12px; padding: 12px 14px; border: 1px solid var(--border); margin-bottom: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
-    .family-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-    .family-name { font-size: 1.05rem; font-weight: 700; color: #1e293b; }
-    .family-meta-admin { display: flex; align-items: center; gap: 6px; }
-    .mini-input { width: 44px; text-align: center; font-size: 0.85rem; font-weight: bold; border: 1px solid var(--border); border-radius: 4px; padding: 2px; }
+    .family-card { 
+      background: var(--card-bg); 
+      border-radius: 14px; 
+      padding: 12px 14px; 
+      border: 1px solid var(--border); 
+      margin-bottom: 10px; 
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04); 
+    }
+    .family-header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      margin-bottom: 8px; 
+    }
+    .family-name { 
+      font-size: 1.1rem; 
+      font-weight: 800; 
+      color: #1e293b; 
+    }
+    
+    .family-meta-admin { 
+      display: flex; 
+      align-items: center; 
+      gap: 6px; 
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .mini-input { 
+      width: 48px; 
+      min-height: 44px;
+      text-align: center; 
+      font-size: 1rem; 
+      font-weight: 800; 
+      border: 1px solid var(--border); 
+      border-radius: 8px; 
+      padding: 4px; 
+    }
 
-    .family-metrics { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 8px; background: #f8fafc; padding: 8px 12px; border-radius: 8px; }
-    .family-metrics div span { color: var(--muted); font-size: 0.72rem; display: block; }
-    .family-metrics div strong { font-size: 0.95rem; }
+    .family-metrics { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      font-size: 0.88rem; 
+      margin-bottom: 8px; 
+      background: #f8fafc; 
+      padding: 8px 12px; 
+      border-radius: 10px; 
+      border: 1px solid #f1f5f9;
+    }
+    .family-metrics div span { 
+      color: var(--muted); 
+      font-size: 0.74rem; 
+      font-weight: 600;
+      display: block; 
+    }
+    .family-metrics div strong { 
+      font-size: 1rem; 
+      font-weight: 800;
+    }
 
-    .family-actions { display: flex; justify-content: space-between; align-items: center; }
-    .btn-log { background: #f1f5f9; border: 1px solid var(--border); color: #334155; padding: 5px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
-    .badge-remaining { padding: 5px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; }
+    .family-actions { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+    }
+    .btn-log { 
+      background: #f1f5f9; 
+      border: 1px solid var(--border); 
+      color: #334155; 
+      padding: 8px 12px; 
+      border-radius: 8px; 
+      font-size: 0.82rem; 
+      font-weight: 700; 
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .badge-remaining { 
+      padding: 6px 12px; 
+      border-radius: 8px; 
+      font-size: 0.85rem; 
+      font-weight: 800; 
+    }
     .badge-ok { background: #dcfce7; color: #15803d; }
     .badge-warn { background: #fee2e2; color: #b91c1c; }
     .badge-neutral { background: #f1f5f9; color: #475569; }
 
     /* عناصر صندوق الكهرباء */
-    .pump-list-item { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
-    .pump-badge-paid { background: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; }
-    .pump-badge-unpaid { background: #fee2e2; color: #991b1b; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; }
-    .btn-toggle-paid { border: 1px solid var(--border); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; cursor: pointer; }
+    .pump-list-item { 
+      background: #fff; 
+      border: 1px solid var(--border); 
+      border-radius: 10px; 
+      padding: 10px 12px; 
+      margin-bottom: 8px; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+    }
+    .pump-badge-paid { background: #dcfce7; color: #166534; padding: 6px 10px; border-radius: 8px; font-size: 0.82rem; font-weight: 800; }
+    .pump-badge-unpaid { background: #fee2e2; color: #991b1b; padding: 6px 10px; border-radius: 8px; font-size: 0.82rem; font-weight: 800; }
+    .btn-toggle-paid { 
+      border: 1px solid var(--border); 
+      padding: 8px 12px; 
+      border-radius: 8px; 
+      font-size: 0.82rem; 
+      font-weight: 800; 
+      min-height: 44px;
+    }
 
-    /* زر التلميح (Tooltip / Info Button) */
-    .info-btn { background: #e0f2fe; color: #0369a1; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 0.7rem; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; margin-right: 4px; }
-    .info-btn:hover { background: #bae6fd; }
+    /* زر التلميح */
+    .info-btn { 
+      background: #e0f2fe; 
+      color: #0369a1; 
+      border: none; 
+      border-radius: 50%; 
+      width: 32px; 
+      height: 32px; 
+      min-height: 32px; 
+      font-size: 0.85rem; 
+      font-weight: 800; 
+      display: inline-flex; 
+      align-items: center; 
+      justify-content: center; 
+      vertical-align: middle; 
+      margin-right: 4px; 
+    }
 
-    /* النوافذ المنبثقة */
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 16px; }
-    .modal-box { background: #fff; width: 100%; max-width: 420px; border-radius: 14px; padding: 18px; max-height: 85vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-    .modal-title { font-size: 1.05rem; font-weight: bold; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
-    .btn-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--muted); }
+    /* النوافذ المنبثقة بنظام Bottom Sheet في الموبايل */
+    .modal-overlay { 
+      position: fixed; 
+      inset: 0; 
+      background: rgba(15, 23, 42, 0.6); 
+      display: none; 
+      justify-content: center; 
+      align-items: center; 
+      z-index: 1000; 
+      padding: 16px; 
+      backdrop-filter: blur(2px);
+    }
+    .modal-box { 
+      background: #fff; 
+      width: 100%; 
+      max-width: 440px; 
+      border-radius: 18px; 
+      padding: 18px; 
+      max-height: 85vh; 
+      overflow-y: auto; 
+      box-shadow: 0 10px 25px rgba(0,0,0,0.25); 
+    }
+
+    @media (max-width: 600px) {
+      .modal-overlay {
+        align-items: flex-end;
+        padding: 0;
+      }
+      .modal-box {
+        max-width: none !important;
+        border-radius: 20px 20px 0 0;
+        padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
+        max-height: 88vh;
+      }
+    }
+
+    .modal-title { 
+      font-size: 1.1rem; 
+      font-weight: 800; 
+      margin-bottom: 14px; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      border-bottom: 1px solid var(--border); 
+      padding-bottom: 8px; 
+    }
+    .btn-close { 
+      background: #f1f5f9; 
+      border: none; 
+      font-size: 1.3rem; 
+      color: var(--muted); 
+      width: 44px;
+      height: 44px;
+      min-height: 44px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
 
     .form-group { margin-bottom: 12px; }
-    .form-group label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
-    .form-control { width: 100%; padding: 9px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; }
+    .form-group label { display: block; font-size: 0.85rem; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
+    .form-control { 
+      width: 100%; 
+      padding: 12px; 
+      border: 1px solid var(--border); 
+      border-radius: 10px; 
+      font-size: 1rem; 
+      min-height: 48px;
+    }
 
     .tab-nav { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
-    .tab-btn { flex: 1; text-align: center; padding: 8px; font-size: 0.85rem; font-weight: 600; border: none; background: none; cursor: pointer; color: var(--muted); }
-    .tab-btn.active { color: var(--primary); border-bottom: 2px solid var(--primary); }
-    .log-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed var(--border); font-size: 0.85rem; }
+    .tab-btn { flex: 1; text-align: center; padding: 10px 8px; font-size: 0.9rem; font-weight: 700; border: none; background: none; color: var(--muted); min-height: 44px; }
+    .tab-btn.active { color: var(--primary); border-bottom: 3px solid var(--primary); }
+    
+    .log-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px dashed var(--border); font-size: 0.9rem; }
     .log-tools { display: flex; gap: 6px; }
-    .btn-log-action { border: none; border-radius: 4px; padding: 3px 6px; font-size: 0.75rem; cursor: pointer; font-weight: bold; }
+    .btn-log-action { border: none; border-radius: 8px; padding: 6px 10px; font-size: 0.8rem; font-weight: 800; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
     .btn-log-edit { background: #e0f2fe; color: #0369a1; }
     .btn-log-del { background: #fee2e2; color: #b91c1c; }
 
-    .btn-block { width: 100%; padding: 10px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; margin-top: 8px; }
+    .btn-block { width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: 800; margin-top: 8px; min-height: 48px; font-size: 1rem; }
     .btn-primary { background: var(--primary); color: #fff; }
-    .btn-danger { background: #ef4444; color: #fff; }
-    .btn-outline { background: #f8fafc; border: 1px solid var(--border); color: #475569; }
+    .btn-danger { background: #dc2626; color: #fff; }
+    .btn-outline { background: #fff; border: 2px solid var(--border); color: #334155; }
+
+    /* شريط التنبيهات Toast العائم */
+    .toast {
+      position: fixed;
+      left: 16px;
+      right: 16px;
+      bottom: calc(20px + env(safe-area-inset-bottom));
+      background: #0f172a;
+      color: #fff;
+      padding: 14px 18px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 800;
+      text-align: center;
+      z-index: 3000;
+      transform: translateY(120px);
+      opacity: 0;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      pointer-events: none;
+    }
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
   </style>
 </head>
 <body>
 
   <!-- شريط الحالة اللحظي -->
-  <div id="syncStatus" class="sync-bar sync-offline">جاري فحص الاتصال...</div>
+  <div id="syncStatus" class="sync-bar sync-offline" role="status" aria-live="polite">جاري فحص الاتصال...</div>
 
   <div class="header">
     <h1>🚰 إدارة مياه المخيم</h1>
     <div class="header-actions">
-      <button class="btn-header" onclick="openMemberLoginModal()">🔍 استعلام عن حصتي</button>
-      <button id="adminBtn" class="btn-header" onclick="toggleAdminModal()">🔒 دخول مسؤول</button>
+      <button class="btn-header" onclick="openMemberLoginModal()">🔍 حصتي</button>
+      <button id="adminBtn" class="btn-header" onclick="toggleAdminModal()">🔒 مسؤول</button>
     </div>
   </div>
 
@@ -165,7 +631,7 @@
     <div class="stats-card">
       <div class="stats-grid">
         <div class="stats-item">
-          <span>الماء المتاح <button class="info-btn" onclick="openWaterInfoModal()" title="تفاصيل سعة الخزان">?</button></span>
+          <span>الماء المتاح <button class="info-btn" onclick="openWaterInfoModal()" aria-label="عرض تفاصيل سعة الخزان">?</button></span>
           <strong id="statNetWater">0 لتر</strong>
         </div>
         <div class="stats-item">
@@ -186,8 +652,8 @@
       </div>
 
       <div class="search-wrapper">
-        <input type="text" id="dispenseSearchInput" class="dispense-input" placeholder="🔍 ابحث بالاسم أو برقم العائلة (مثال: سا أو 4)..." list="familiesDatalist" oninput="handleFamilySearch(this.value)">
-        <button id="clearSearchBtn" class="clear-search-btn" type="button" onclick="clearDispenseSearch()">✕</button>
+        <input type="text" id="dispenseSearchInput" class="dispense-input" placeholder="🔍 ابحث بالاسم أو بالرقم..." list="familiesDatalist" oninput="handleFamilySearch(this.value)">
+        <button id="clearSearchBtn" class="clear-search-btn" type="button" aria-label="مسح خانة البحث" onclick="clearDispenseSearch()">✕</button>
       </div>
       <datalist id="familiesDatalist"></datalist>
 
@@ -201,15 +667,18 @@
           <span>الأفراد: <b id="liveFamMembers">0</b></span>
           <span>الحصة: <b id="liveFamAllotment">0 لتر</b></span>
           <span>المستهلك: <b id="liveFamConsumed">0 لتر</b></span>
-          <span id="liveFamRemainingContainer">المتبقي: <b id="liveFamRemaining" style="color:var(--primary);">0 لتر</b></span>
+        </div>
+        <!-- إبراز المتبقي بوضوح تام للمسؤول -->
+        <div class="live-remaining-highlight">
+          <span id="liveFamRemainingTitle">المتبقي الصافي للعائلة</span>
+          <strong id="liveFamRemaining">0 لتر</strong>
         </div>
       </div>
 
-      <!-- خانة الأوعية: تفتح بكيبورد رقمي ونقطة وتدعم الفاصل بالنقطة أو المسافة -->
-      <input type="text" id="dispenseAmountInput" class="amount-input-box" inputmode="decimal" placeholder="مثال: 18.16.12 أو 18 16 12" oninput="handleLiveAmountPreview(this.value)" onkeydown="if(event.key==='Enter') submitDispense()">
-      <div id="livePreviewBox" class="live-preview">المجموع: 0 لتر</div>
+      <input type="text" id="dispenseAmountInput" class="amount-input-box" inputmode="decimal" placeholder="18.16.12 أو 18 16 12 أو 18+16" oninput="handleLiveAmountPreview(this.value)" onkeydown="if(event.key==='Enter') submitDispense()">
+      <div id="livePreviewBox" class="live-preview" role="status" aria-live="polite">المجموع: 0 لتر</div>
 
-      <button class="btn-dispense-submit" onclick="submitDispense()">➕ إضافة السحب</button>
+      <button id="dispenseSubmitBtn" class="btn-dispense-submit" type="button" onclick="submitDispense()">➕ تسجيل السحب</button>
     </div>
 
     <div id="familiesList"></div>
@@ -244,12 +713,12 @@
     <div class="pump-info-card">
       <div class="pump-card-header">
         <span id="pumpRoundTitle">جولة التحصيل رقم (1)</span>
-        <span id="pumpPaidCount" style="font-size: 0.85rem;">سدد 0 من 0</span>
+        <span id="pumpPaidCount" style="font-size: 0.88rem;">سدد 0 من 0</span>
       </div>
       <div class="pump-card-body">
         <div>
-          <span id="pumpRoundFeeText" style="display:block; font-weight:600;">المبلغ المطلوب: 5 شيكل لكل عائلة</span>
-          <span id="pumpCarryOverText" style="display:block; font-size:0.78rem; color:#b45309; margin-top:2px;">متبقي من الجولة السابقة: 7 ₪</span>
+          <span id="pumpRoundFeeText" style="display:block; font-weight:700;">المبلغ المطلوب: 5 شيكل لكل عائلة</span>
+          <span id="pumpCarryOverText" style="display:block; font-size:0.8rem; color:#b45309; margin-top:2px;">متبقي من الجولة السابقة: 7 ₪</span>
         </div>
       </div>
     </div>
@@ -263,29 +732,32 @@
       <button class="btn-block btn-danger" onclick="closeAndArchivePumpRound()" style="margin-top: 8px;">🔄 إغلاق وبدء جولة جديدة</button>
     </div>
 
-    <h3 style="font-size: 0.95rem; margin-bottom: 8px; color: #1e293b;">📋 كشف التزام وسداد العائلات:</h3>
+    <h3 style="font-size: 1rem; margin-bottom: 8px; color: #1e293b; font-weight: 800;">📋 كشف التزام وسداد العائلات:</h3>
     <div id="pumpFamiliesList"></div>
 
     <div style="display: flex; justify-content: space-between; align-items: center; margin: 18px 0 8px 0;">
-      <h3 style="font-size: 0.95rem; color: #1e293b;">⚡ دفتر مصروفات الكهرباء:</h3>
+      <h3 style="font-size: 1rem; color: #1e293b; font-weight: 800;">⚡ دفتر مصروفات الكهرباء:</h3>
       <button class="btn-log" onclick="openPumpHistoryModal()">📜 أرشيف الجولات</button>
     </div>
     <div id="pumpExpensesList" class="stats-card" style="padding: 10px 14px;"></div>
   </div>
 
-  <!-- النوافذ المنبثقة -->
+  <!-- شريط التنبيهات Toast -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- النوافذ المنبثقة (Bottom Sheets) -->
   <div id="waterInfoModal" class="modal-overlay">
-    <div class="modal-box" style="max-width: 330px;">
-      <div class="modal-title"><span>ℹ️ تفاصيل سعة الخزان</span><button class="btn-close" onclick="closeModal('waterInfoModal')">✕</button></div>
-      <div id="waterInfoContent" style="font-size: 0.9rem; line-height: 1.6; color: var(--text);">
+    <div class="modal-box" style="max-width: 360px;">
+      <div class="modal-title"><span>ℹ️ تفاصيل سعة الخزان</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('waterInfoModal')">✕</button></div>
+      <div id="waterInfoContent" style="font-size: 0.95rem; line-height: 1.7; color: var(--text);">
         جاري التحميل...
       </div>
     </div>
   </div>
 
   <div id="addExpenseModal" class="modal-overlay">
-    <div class="modal-box" style="max-width: 330px;">
-      <div class="modal-title"><span>⚡ صرف كهرباء للمضخة</span><button class="btn-close" onclick="closeModal('addExpenseModal')">✕</button></div>
+    <div class="modal-box" style="max-width: 360px;">
+      <div class="modal-title"><span>⚡ صرف كهرباء للمضخة</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('addExpenseModal')">✕</button></div>
       <div class="form-group">
         <label>المبلغ المصروف (شيكل ₪):</label>
         <input type="text" id="expenseAmountInput" class="form-control" inputmode="decimal" placeholder="مثال: 20">
@@ -300,15 +772,14 @@
 
   <div id="pumpHistoryModal" class="modal-overlay">
     <div class="modal-box">
-      <div class="modal-title"><span>📜 أرشيف جولات الكهرباء السابقة</span><button class="btn-close" onclick="closeModal('pumpHistoryModal')">✕</button></div>
+      <div class="modal-title"><span>📜 أرشيف جولات الكهرباء السابقة</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('pumpHistoryModal')">✕</button></div>
       <div id="pumpHistoryContent"></div>
     </div>
   </div>
 
-  <!-- نافذة استعلام العائلة: كيبورد أرقام مع إخفاء الرمز -->
   <div id="memberLoginModal" class="modal-overlay">
-    <div class="modal-box" style="max-width: 330px;">
-      <div class="modal-title"><span>🔍 استعلام عن حصتي</span><button class="btn-close" onclick="closeModal('memberLoginModal')">✕</button></div>
+    <div class="modal-box" style="max-width: 360px;">
+      <div class="modal-title"><span>🔍 استعلام عن حصتي</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('memberLoginModal')">✕</button></div>
       <div class="form-group">
         <label>اختر اسم العائلة:</label>
         <select id="memberFamilySelect" class="form-control"></select>
@@ -323,12 +794,12 @@
 
   <div id="memberViewModal" class="modal-overlay">
     <div class="modal-box">
-      <div class="modal-title"><span id="memberCardTitle">بطاقتي</span><button class="btn-close" onclick="closeMemberViewModal()">✕ إغلاق</button></div>
+      <div class="modal-title"><span id="memberCardTitle">بطاقتي</span><button class="btn-close" aria-label="إغلاق" onclick="closeMemberViewModal()">✕</button></div>
       
       <div id="memberMetricsBox" class="family-metrics" style="margin-bottom: 12px;"></div>
 
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-        <strong style="font-size: 0.9rem;">📋 سجل سحوباتي:</strong>
+        <strong style="font-size: 0.95rem;">📋 سجل سحوباتي:</strong>
         <button class="btn-log" onclick="openMemberChangePinModal()">🔑 تغيير رمزي السري</button>
       </div>
 
@@ -341,10 +812,9 @@
     </div>
   </div>
 
-  <!-- تغيير PIN العائلة: كيبورد أرقام مع إخفاء الرمز -->
   <div id="memberChangePinModal" class="modal-overlay">
-    <div class="modal-box" style="max-width: 320px;">
-      <div class="modal-title"><span>🔑 تغيير رمز PIN</span><button class="btn-close" onclick="closeModal('memberChangePinModal')">✕</button></div>
+    <div class="modal-box" style="max-width: 340px;">
+      <div class="modal-title"><span>🔑 تغيير رمز PIN</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('memberChangePinModal')">✕</button></div>
       <div class="form-group">
         <label>الرمز السري الجديد:</label>
         <input type="password" id="newMemberPinInput" class="form-control" inputmode="numeric" placeholder="اكتب الرمز الجديد" onkeydown="if(event.key==='Enter') saveNewMemberPin()">
@@ -353,20 +823,18 @@
     </div>
   </div>
 
-  <!-- دخول المسؤول: كيبورد أرقام مع إخفاء الرمز وزر الاسترجاع -->
   <div id="loginModal" class="modal-overlay">
-    <div class="modal-box" style="max-width: 320px; text-align: center;">
-      <div class="modal-title"><span>🔒 رمز دخول المسؤول</span><button class="btn-close" onclick="closeModal('loginModal')">✕</button></div>
-      <input type="password" id="adminPinInput" class="form-control" inputmode="numeric" style="font-size: 1.4rem; text-align: center; letter-spacing: 4px; margin-bottom: 12px;" maxlength="10" placeholder="••••" onkeydown="if(event.key==='Enter') verifyAdminPin()">
+    <div class="modal-box" style="max-width: 340px; text-align: center;">
+      <div class="modal-title"><span>🔒 رمز دخول المسؤول</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('loginModal')">✕</button></div>
+      <input type="password" id="adminPinInput" class="form-control" inputmode="numeric" style="font-size: 1.5rem; text-align: center; letter-spacing: 4px; margin-bottom: 12px;" maxlength="10" placeholder="••••" onkeydown="if(event.key==='Enter') verifyAdminPin()">
       <button class="btn-block btn-primary" onclick="verifyAdminPin()">دخول</button>
-      <div style="margin-top: 12px; font-size: 0.8rem; color: var(--primary); cursor: pointer; text-decoration: underline;" onclick="recoverAdminPin()">نسيت رمز المسؤول؟</div>
+      <div style="margin-top: 14px; font-size: 0.85rem; color: var(--primary); cursor: pointer; text-decoration: underline; font-weight: 700;" onclick="recoverAdminPin()">نسيت رمز المسؤول؟</div>
     </div>
   </div>
 
-  <!-- تغيير PIN المسؤول: كيبورد أرقام مع إخفاء الرمز -->
   <div id="changePinModal" class="modal-overlay">
-    <div class="modal-box" style="max-width: 320px;">
-      <div class="modal-title"><span>🔑 تغيير رمز المسؤول</span><button class="btn-close" onclick="closeModal('changePinModal')">✕</button></div>
+    <div class="modal-box" style="max-width: 340px;">
+      <div class="modal-title"><span>🔑 تغيير رمز المسؤول</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('changePinModal')">✕</button></div>
       <div class="form-group">
         <label>الرمز السري الجديد:</label>
         <input type="password" id="newPinInput" class="form-control" inputmode="numeric" maxlength="10" placeholder="اكتب الرمز الجديد" onkeydown="if(event.key==='Enter') saveNewPin()">
@@ -377,7 +845,7 @@
 
   <div id="logModal" class="modal-overlay">
     <div class="modal-box">
-      <div class="modal-title"><span id="logModalFamilyName">سجل السحب</span><button class="btn-close" onclick="closeModal('logModal')">✕</button></div>
+      <div class="modal-title"><span id="logModalFamilyName">سجل السحب</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('logModal')">✕</button></div>
       <div class="tab-nav">
         <button id="tabCurrentBtn" class="tab-btn active" onclick="switchLogTab('current')">الدورة الحالية</button>
         <button id="tabPrevBtn" class="tab-btn" onclick="switchLogTab('prev')">الدورة السابقة</button>
@@ -388,7 +856,7 @@
 
   <div id="settingsModal" class="modal-overlay">
     <div class="modal-box">
-      <div class="modal-title"><span>⚙ إعدادات التوزيع</span><button class="btn-close" onclick="closeModal('settingsModal')">✕</button></div>
+      <div class="modal-title"><span>⚙ إعدادات التوزيع</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('settingsModal')">✕</button></div>
       <div class="form-group">
         <label>إجمالي المياه المتوفرة (لتر):</label>
         <input type="text" id="settingTotalWater" class="form-control" inputmode="numeric">
@@ -408,7 +876,7 @@
       <div class="form-group">
         <label>التقريب:</label>
         <select id="settingRounding" class="form-control">
-          <option value="none">بدون تقريب</option>
+          <option value="none">بدون تقريب (لأقرب لتر صحيح)</option>
           <option value="5">لأقرب 5 لترات</option>
           <option value="10">لأقرب 10 لترات</option>
         </select>
@@ -454,8 +922,52 @@
     let activeLogTab = 'current';
     let loggedInMemberFamId = null;
     let activeMemberLogTab = 'current';
+    let toastTimer = null;
 
-    // حماية النصوص من الرموز الخاصة
+    // دالة عرض التنبيهات السريعة (Toast)
+    function showToast(message) {
+      const t = document.getElementById('toast');
+      t.textContent = message;
+      t.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        t.classList.remove('show');
+      }, 2300);
+    }
+
+    // إدارة النوافذ المنبثقة مع زر الرجوع في أندرويد
+    function openModal(id) {
+      const m = document.getElementById(id);
+      if (!m) return;
+      m.style.display = 'flex';
+      document.body.classList.add('modal-open');
+      history.pushState({ modalId: id }, '');
+    }
+
+    function closeModal(id, fromPopState = false) {
+      const m = document.getElementById(id);
+      if (m) m.style.display = 'none';
+
+      const anyOpen = Array.from(document.querySelectorAll('.modal-overlay')).some(el => el.style.display === 'flex');
+      if (!anyOpen) {
+        document.body.classList.remove('modal-open');
+      }
+
+      if (!fromPopState && history.state && history.state.modalId === id) {
+        history.back();
+      }
+    }
+
+    // استجابة زر الرجوع في أندرويد
+    window.addEventListener('popstate', function() {
+      document.querySelectorAll('.modal-overlay').forEach(m => {
+        if (m.style.display === 'flex') {
+          m.style.display = 'none';
+        }
+      });
+      document.body.classList.remove('modal-open');
+    });
+
     function escapeHtml(text) {
       if (text === null || text === undefined) return '';
       return String(text)
@@ -466,7 +978,6 @@
         .replace(/'/g, '&#039;');
     }
 
-    // تحويل الأرقام المشرقية (العربية) إلى لاتينية
     function normalizeArabicDigits(value) {
       if (value === null || value === undefined) return '';
       return String(value)
@@ -523,7 +1034,7 @@
       } catch(e) {
         console.error('Local save failed:', e);
         setSyncUI('offline', '⚠️ تحذير: تعذر الحفظ على ذاكرة الهاتف!');
-        alert('تنبيه هام: مساحة تخزين المتصفح/الجهاز ممتلئة. يرجى توفير مساحة لضمان عدم ضياع التعديلات محلياً.');
+        showToast('⚠️ ذاكرة المتصفح ممتلئة! يرجى توفير مساحة.');
       }
     }
 
@@ -548,12 +1059,12 @@
       const adminPumpControls = document.getElementById('adminPumpControls');
 
       if (isAdmin) {
-        adminBtn.textContent = '🔓 خروج مسؤول';
+        adminBtn.textContent = '🔓 خروج';
         dispPanel.style.display = 'block';
         adminControls.style.display = 'block';
         adminPumpControls.style.display = 'block';
       } else {
-        adminBtn.textContent = '🔒 دخول مسؤول';
+        adminBtn.textContent = '🔒 مسؤول';
         dispPanel.style.display = 'none';
         adminControls.style.display = 'none';
         adminPumpControls.style.display = 'none';
@@ -570,7 +1081,7 @@
       if (navigator.onLine && isFirebaseConnected && db) {
         syncPendingToServer();
       } else {
-        setSyncUI('offline', 'تم الحفظ محلياً (أوفلاين)');
+        setSyncUI('pending', '🟠 محفوظ على الهاتف (أوفلاين)');
       }
     }
 
@@ -584,12 +1095,12 @@
       } catch(e) {}
 
       if (!hasPending && pendingHist.length === 0) {
-        setSyncUI('online', 'متصل');
+        setSyncUI('online', '🟢 متصل ومحفوظ');
         return;
       }
 
       isPushing = true;
-      setSyncUI('syncing', 'جاري المزامنة...');
+      setSyncUI('syncing', '🟡 جاري المزامنة...');
 
       const syncTasks = [];
 
@@ -608,11 +1119,11 @@
 
       Promise.all(syncTasks).then(function() {
         isPushing = false;
-        setSyncUI('online', 'متصل');
+        setSyncUI('online', '🟢 متصل ومحفوظ');
       }).catch(function(err) {
         isPushing = false;
         console.error('Sync failed:', err);
-        setSyncUI('offline', 'تم الحفظ محلياً (تعثر الاتصال بالسيرفر)');
+        setSyncUI('pending', '🟠 محفوظ على الهاتف (بانتظار المزامنة)');
       });
     }
 
@@ -622,7 +1133,7 @@
         if (isFirebaseConnected && navigator.onLine) {
           syncPendingToServer();
         } else {
-          setSyncUI('offline', 'وضع عدم الاتصال (أوفلاين)');
+          setSyncUI('offline', '🔴 وضع عدم الاتصال (أوفلاين)');
         }
       });
 
@@ -648,19 +1159,19 @@
         saveLocal();
         render();
         if (isFirebaseConnected && navigator.onLine) {
-          setSyncUI('online', 'متصل');
+          setSyncUI('online', '🟢 متصل ومحفوظ');
         }
       });
     }
 
     window.addEventListener('online', function() {
       if (isFirebaseConnected) syncPendingToServer();
-      else setSyncUI('syncing', 'جاري استعادة الاتصال...');
+      else setSyncUI('syncing', '🟡 استعادة الاتصال...');
     });
 
     window.addEventListener('offline', function() {
       isFirebaseConnected = false;
-      setSyncUI('offline', 'وضع عدم الاتصال (أوفلاين)');
+      setSyncUI('offline', '🔴 وضع عدم الاتصال (أوفلاين)');
     });
 
     function computeAllotments() {
@@ -697,6 +1208,7 @@
           }
         }
 
+        // الحساب الدقيق لأقرب لتر صحيح بدون كسور، أو مضاعفات 5 و 10
         if (rounding === '5') quota = Math.round(quota / 5) * 5;
         else if (rounding === '10') quota = Math.round(quota / 10) * 10;
         else quota = Math.round(quota);
@@ -707,7 +1219,7 @@
       return { allotments: allotments, netWater: netWater };
     }
 
-    // دعم النقطة والمسافة والزائد مع تحويل الأرقام المشرقية
+    // تدعم الفاصل بالنقطة (.)، والمسافة، وعلامة (+) والأرقام المشرقية
     function parseContainers(str) {
       if (!str) return { total: 0, detail: '', items: [] };
       const clean = normalizeArabicDigits(str).replace(/[\.+،,]/g, ' ');
@@ -800,12 +1312,12 @@
                 <strong class="family-name">${safeName}</strong>
               </div>
               <div class="family-meta-admin">
-                <span style="font-size:0.75rem; color:var(--muted);">رقم:</span>
+                <span style="font-size:0.8rem; color:var(--muted); font-weight:700;">رقم:</span>
                 <input type="text" class="mini-input" inputmode="numeric" value="${safeTent}" title="رقم العائلة" onchange="updateTentNumber(${f.id}, this.value)">
                 <input type="text" class="mini-input" inputmode="numeric" value="${f.members}" title="عدد الأفراد" onchange="updateMembers(${f.id}, this.value)">
-                <span style="font-size:0.75rem; color:var(--muted);">فرد</span>
-                <button onclick="resetMemberPinByAdmin(${f.id})" class="btn-log-action" style="background:#fef3c7; color:#92400e;" title="إعادة ضبط PIN إلى رقم العائلة">🔄 ضبط PIN</button>
-                <button onclick="deleteFamily(${f.id})" style="border:none; background:none; cursor:pointer; font-size:0.95rem;">🗑️</button>
+                <span style="font-size:0.8rem; color:var(--muted); font-weight:700;">فرد</span>
+                <button onclick="resetMemberPinByAdmin(${f.id})" class="btn-log-action" style="background:#fef3c7; color:#92400e;" title="إعادة ضبط PIN إلى رقم العائلة">🔄 PIN</button>
+                <button onclick="deleteFamily(${f.id})" class="btn-log-action btn-log-del" title="حذف العائلة">🗑️</button>
               </div>
             </div>
             <div class="family-metrics">
@@ -846,7 +1358,7 @@
           card.className = 'family-card';
           card.innerHTML = `
             <div class="family-header" style="margin-bottom:6px; border-bottom:1px dashed var(--border); padding-bottom:6px;">
-              <strong style="color:var(--primary-dark); font-size:0.92rem;">حصة #${index + 1}</strong>
+              <strong style="color:var(--primary); font-size:0.95rem;">حصة #${index + 1}</strong>
             </div>
             <div class="family-metrics" style="margin-bottom: 8px;">
               <div><span>الحصة المقررة:</span><strong>${quota} لتر</strong></div>
@@ -934,7 +1446,7 @@
       const expenses = fund.expenses || [];
 
       if (expenses.length === 0) {
-        expListEl.innerHTML = '<div style="text-align:center; padding:12px; color:var(--muted); font-size:0.85rem;">لا توجد مصروفات كهرباء مسجلة في هذه الجولة حتى الآن.</div>';
+        expListEl.innerHTML = '<div style="text-align:center; padding:14px; color:var(--muted); font-size:0.9rem;">لا توجد مصروفات كهرباء مسجلة في هذه الجولة حتى الآن.</div>';
       } else {
         expenses.slice().sort((a, b) => b.timestamp - a.timestamp).forEach(exp => {
           const div = document.createElement('div');
@@ -942,7 +1454,7 @@
           div.innerHTML = `
             <div>
               <strong style="color:var(--danger);">${exp.amount} شيكل</strong>
-              <span style="margin-right:6px; font-weight:600;">${escapeHtml(exp.note || 'تشغيل مضخة')}</span>
+              <span style="margin-right:6px; font-weight:700;">${escapeHtml(exp.note || 'تشغيل مضخة')}</span>
               <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${formatLogTimestamp(exp.timestamp)}</div>
             </div>
             ${isAdmin ? `<button class="btn-log-action btn-log-del" onclick="deleteExpenseEntry(${exp.id})">حذف ✕</button>` : ''}
@@ -964,13 +1476,14 @@
         timestamp: Date.now()
       };
       pushState();
+      showToast(!current ? 'تم تسجيل سداد الاشتراك ✓' : 'تم التراجع عن السداد');
     }
 
     function openAddExpenseModal() {
       document.getElementById('expenseAmountInput').value = '';
       document.getElementById('expenseNoteInput').value = '';
-      document.getElementById('addExpenseModal').style.display = 'flex';
-      setTimeout(() => document.getElementById('expenseAmountInput').focus(), 100);
+      openModal('addExpenseModal');
+      setTimeout(() => document.getElementById('expenseAmountInput').focus(), 150);
     }
 
     function submitExpense() {
@@ -993,6 +1506,7 @@
 
       pushState();
       closeModal('addExpenseModal');
+      showToast('تم تسجيل المصروف بنجاح ✓');
     }
 
     function deleteExpenseEntry(expId) {
@@ -1000,6 +1514,7 @@
       if (confirm('هل تريد حذف عملية الصرف هذه وإعادة المبلغ للرصيد؟')) {
         state.pumpFund.expenses = state.pumpFund.expenses.filter(e => e.id !== expId);
         pushState();
+        showToast('تم حذف المصروف وإعادة المبلغ');
       }
     }
 
@@ -1012,6 +1527,7 @@
         if (!isNaN(val) && val > 0) {
           state.pumpFund.feePerFamily = val;
           pushState();
+          showToast(`تم تعديل الاشتراك إلى ${val} ₪`);
         }
       }
     }
@@ -1032,7 +1548,7 @@
 
       state.pumpFund.carryOver = val;
       pushState();
-      alert(`تم تثبيت الرصيد المرحّل بنجاح: ${val} ₪`);
+      showToast(`تم تثبيت الرصيد المرحّل: ${val} ₪`);
     }
 
     function closeAndArchivePumpRound() {
@@ -1085,18 +1601,17 @@
         fund.expenses = [];
 
         pushState();
-        alert(`تمت أرشفة الجولة بنجاح، وبدأت الجولة رقم (${fund.currentRound}) مع ترحيل رصيد (${balance} ₪) ✓`);
+        showToast(`بدأت الجولة رقم (${fund.currentRound}) مع ترحيل (${balance} ₪) ✓`);
       }
     }
 
     function openPumpHistoryModal() {
-      const modal = document.getElementById('pumpHistoryModal');
       const box = document.getElementById('pumpHistoryContent');
       box.innerHTML = '';
 
       const hist = (state.pumpFund && state.pumpFund.history) || [];
       if (hist.length === 0) {
-        box.innerHTML = '<div style="text-align:center; padding:20px; color:var(--muted);">لا توجد جولات سابقة مؤرشفة حتى الآن.</div>';
+        box.innerHTML = '<div style="text-align:center; padding:24px; color:var(--muted); font-size:0.95rem;">لا توجد جولات سابقة مؤرشفة حتى الآن.</div>';
       } else {
         hist.slice().reverse().forEach(h => {
           const div = document.createElement('div');
@@ -1104,45 +1619,44 @@
           div.style.marginBottom = '12px';
           div.innerHTML = `
             <div style="display:flex; justify-content:space-between; margin-bottom:6px; border-bottom:1px dashed var(--border); padding-bottom:4px;">
-              <strong style="color:var(--primary-dark);">تقرير جولة تحصيل رقم (${h.round})</strong>
+              <strong style="color:var(--primary);">تقرير جولة تحصيل رقم (${h.round})</strong>
               <span style="font-size:0.75rem; color:var(--muted);">${h.closedAt}</span>
             </div>
-            <div style="font-size:0.85rem; line-height:1.6;">
+            <div style="font-size:0.88rem; line-height:1.7;">
               <div>• اشتراك العائلة: <b>${h.feePerFamily} ₪</b></div>
               <div>• إجمالي المحصل: <b>${h.totalCollected} ₪</b> | إجمالي المصروف: <b style="color:var(--danger);">${h.totalExpenses} ₪</b></div>
               <div>• الرصيد المرحّل للجولة التالية: <b>${h.surplusCarriedOver} ₪</b></div>
               ${h.unpaidFamilies && h.unpaidFamilies.length > 0 
-                ? `<div style="color:var(--danger); font-size:0.78rem; margin-top:4px;">• لم يسدد في هذه الجولة: ${h.unpaidFamilies.map(escapeHtml).join('، ')}</div>` 
-                : `<div style="color:var(--success); font-size:0.78rem; margin-top:4px;">• سدد الجميع بنسبة 100% ✓</div>`}
+                ? `<div style="color:var(--danger); font-size:0.8rem; margin-top:4px;">• لم يسدد في هذه الجولة: ${h.unpaidFamilies.map(escapeHtml).join('، ')}</div>` 
+                : `<div style="color:var(--success); font-size:0.8rem; margin-top:4px;">• سدد الجميع بنسبة 100% ✓</div>`}
             </div>
           `;
           box.appendChild(div);
         });
       }
 
-      modal.style.display = 'flex';
+      openModal('pumpHistoryModal');
     }
 
     function openWaterInfoModal() {
-      const modal = document.getElementById('waterInfoModal');
       const content = document.getElementById('waterInfoContent');
       const totalW = state.settings.totalWater || 0;
       const reserveW = state.settings.reserveLiters || 0;
       const netW = Math.max(0, totalW - reserveW);
 
       content.innerHTML = `
-        <div style="margin-bottom:8px;">• <b>سعة الخزانات الإجمالية:</b> ${totalW} لتر</div>
-        <div style="margin-bottom:8px;">• <b>الكمية غير القابلة للسحب (تحت المحبس):</b> ${reserveW} لتر</div>
-        <div>• <b>صافي الماء المتاح للتوزيع الفعلي:</b> <b style="color:var(--primary);">${netW} لتر</b></div>
+        <div style="margin-bottom:10px;">• <b>سعة الخزانات الإجمالية:</b> ${totalW} لتر</div>
+        <div style="margin-bottom:10px;">• <b>الكمية غير القابلة للسحب (تحت المحبس):</b> ${reserveW} لتر</div>
+        <div>• <b>صافي الماء المتاح للتوزيع الفعلي:</b> <b style="color:var(--primary); font-size:1.1rem;">${netW} لتر</b></div>
       `;
-      modal.style.display = 'flex';
+      openModal('waterInfoModal');
     }
 
-    // بحث يدعم الأرقام المشرقية والعربية واللاتينية بالكامل
+    // بحث يدعم الأرقام مع انتقال التركيز المباشر لخانة الأوعية
     function handleFamilySearch(query) {
       const clearBtn = document.getElementById('clearSearchBtn');
       if (query && query.trim().length > 0) {
-        clearBtn.style.display = 'block';
+        clearBtn.style.display = 'inline-flex';
       } else {
         clearBtn.style.display = 'none';
       }
@@ -1173,6 +1687,12 @@
         selectedDispenseFamId = match.id;
         const calc = computeAllotments();
         updateLiveFamilyUI(match.id, calc.allotments);
+
+        // Autofocus مباشر لخانة الأوعية لسرعة العمل الميداني
+        setTimeout(() => {
+          const amtInp = document.getElementById('dispenseAmountInput');
+          if (amtInp) amtInp.focus();
+        }, 120);
       } else {
         selectedDispenseFamId = null;
         document.getElementById('liveFamilyCard').style.display = 'none';
@@ -1200,13 +1720,21 @@
       document.getElementById('liveFamAllotment').textContent = quota + ' لتر';
       document.getElementById('liveFamConsumed').textContent = consumed + ' لتر';
 
-      const remContainer = document.getElementById('liveFamRemainingContainer');
+      const remTitle = document.getElementById('liveFamRemainingTitle');
+      const remVal = document.getElementById('liveFamRemaining');
+
       if (diff > 0) {
-        remContainer.innerHTML = `المتبقي: <b style="color:var(--primary);">${diff} لتر</b>`;
+        remTitle.textContent = 'المتبقي الصافي للعائلة';
+        remVal.textContent = diff + ' لتر';
+        remVal.style.color = '#15803d';
       } else if (diff === 0) {
-        remContainer.innerHTML = `المتبقي: <b style="color:var(--muted);">0 لتر (أنهى الحصة)</b>`;
+        remTitle.textContent = 'الحالة الحالية';
+        remVal.textContent = 'أنهى الحصة تماماً';
+        remVal.style.color = '#475569';
       } else {
-        remContainer.innerHTML = `تجاوز الحصة: <b style="color:var(--danger);">${Math.abs(diff)} لتر</b>`;
+        remTitle.textContent = 'تجاوز الحصة بمقدار';
+        remVal.textContent = Math.abs(diff) + ' لتر';
+        remVal.style.color = '#b91c1c';
       }
 
       document.getElementById('liveFamilyCard').style.display = 'block';
@@ -1237,6 +1765,7 @@
       }
     }
 
+    // تسجيل السحب مع منع النقر المزدوج والتأكيد عند التجاوز
     function submitDispense() {
       if (!selectedDispenseFamId) {
         alert('يرجى اختيار العائلة أولاً من خانة البحث');
@@ -1253,6 +1782,24 @@
       const fam = state.families.find(f => f.id === selectedDispenseFamId);
       if (!fam) return;
 
+      const calc = computeAllotments();
+      const quota = calc.allotments[fam.id] || 0;
+      const consumed = parseFloat(fam.consumed) || 0;
+      const remAfter = quota - (consumed + parsed.total);
+
+      // تأكيد مسبق في حال تجاوز الحصة
+      if (remAfter < 0) {
+        const over = Math.abs(remAfter);
+        if (!confirm(`⚠️ تنبيه: هذه العملية ستجعل العائلة تتجاوز حصتها المقررة بمقدار (${over} لتر).\n\nهل تريد تسجيل السحب رغم ذلك؟`)) {
+          return;
+        }
+      }
+
+      // منع الضغط المزدوج
+      const btn = document.getElementById('dispenseSubmitBtn');
+      btn.disabled = true;
+      btn.textContent = '⏳ جاري التسجيل...';
+
       if (!fam.currentLogs) fam.currentLogs = [];
       fam.currentLogs.push({
         id: Date.now(),
@@ -1266,14 +1813,16 @@
       pushState();
 
       inputEl.value = '';
-      const calc = computeAllotments();
       updateLiveFamilyUI(selectedDispenseFamId, calc.allotments);
 
-      document.getElementById('livePreviewBox').innerHTML = '<span style="color:var(--success);">تم تسجيل السحب بنجاح ✓</span>';
+      showToast(`تم تسجيل ${parsed.total} لتر لـ (${fam.name}) ✓`);
+      document.getElementById('livePreviewBox').textContent = 'المجموع: 0 لتر';
+
       setTimeout(function() {
-        document.getElementById('livePreviewBox').textContent = 'المجموع: 0 لتر';
+        btn.disabled = false;
+        btn.textContent = '➕ تسجيل السحب';
         inputEl.focus();
-      }, 1500);
+      }, 1000);
     }
 
     function openLiveFamilyLog() {
@@ -1290,8 +1839,8 @@
         select.appendChild(opt);
       });
       document.getElementById('memberPinInput').value = '';
-      document.getElementById('memberLoginModal').style.display = 'flex';
-      setTimeout(() => document.getElementById('memberFamilySelect').focus(), 100);
+      openModal('memberLoginModal');
+      setTimeout(() => document.getElementById('memberFamilySelect').focus(), 150);
     }
 
     function verifyMemberPin() {
@@ -1344,7 +1893,7 @@
       `;
 
       renderMemberLogs();
-      document.getElementById('memberViewModal').style.display = 'flex';
+      openModal('memberViewModal');
     }
 
     function switchMemberLogTab(tab) {
@@ -1367,7 +1916,7 @@
         : ((fam.previousCycle && fam.previousCycle.logs) || []);
 
       if (logs.length === 0) {
-        logsBox.innerHTML = '<div style="text-align:center; padding:15px; color:var(--muted);">لا توجد سحوبات مسجلة في هذا السجل.</div>';
+        logsBox.innerHTML = '<div style="text-align:center; padding:18px; color:var(--muted); font-size:0.95rem;">لا توجد سحوبات مسجلة في هذا السجل.</div>';
         return;
       }
 
@@ -1377,7 +1926,7 @@
         item.innerHTML = `
           <div>
             <strong>${l.amount} لتر</strong>
-            ${l.detail ? `<span style="font-size:0.75rem; color:var(--muted); margin-right:4px;">(${escapeHtml(l.detail)})</span>` : ''}
+            ${l.detail ? `<span style="font-size:0.8rem; color:var(--muted); margin-right:4px;">(${escapeHtml(l.detail)})</span>` : ''}
             <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${formatLogTimestamp(l.timestamp)}</div>
           </div>
         `;
@@ -1393,8 +1942,8 @@
     function openMemberChangePinModal() {
       if (!loggedInMemberFamId) return;
       document.getElementById('newMemberPinInput').value = '';
-      document.getElementById('memberChangePinModal').style.display = 'flex';
-      setTimeout(() => document.getElementById('newMemberPinInput').focus(), 100);
+      openModal('memberChangePinModal');
+      setTimeout(() => document.getElementById('newMemberPinInput').focus(), 150);
     }
 
     function saveNewMemberPin() {
@@ -1410,7 +1959,7 @@
         fam.pin = p;
         pushState();
         closeModal('memberChangePinModal');
-        alert('تم تغيير رمز PIN الخاص بك بنجاح ✓');
+        showToast('تم تغيير رمز PIN الخاص بك بنجاح ✓');
       }
     }
 
@@ -1420,7 +1969,7 @@
       if (fam && confirm(`هل تريد إعادة ضبط رمز PIN لعائلة (${fam.name}) إلى رقم العائلة (${fam.tent})؟`)) {
         fam.pin = String(fam.tent || "1");
         pushState();
-        alert(`تمت إعادة تعيين PIN بنجاح إلى: ${fam.pin}`);
+        showToast(`تم تعيين PIN بنجاح إلى: ${fam.pin}`);
       }
     }
 
@@ -1445,7 +1994,7 @@
       activeLogFamilyId = famId;
       activeLogTab = 'current';
       renderLogsModal();
-      document.getElementById('logModal').style.display = 'flex';
+      openModal('logModal');
     }
 
     function switchLogTab(tab) {
@@ -1468,7 +2017,7 @@
         : ((fam.previousCycle && fam.previousCycle.logs) || []);
 
       if (logs.length === 0) {
-        listContent.innerHTML = '<div style="text-align:center; padding:20px; color:var(--muted);">لا توجد عمليات مسجلة في هذا السجل</div>';
+        listContent.innerHTML = '<div style="text-align:center; padding:24px; color:var(--muted); font-size:0.95rem;">لا توجد عمليات مسجلة في هذا السجل</div>';
         return;
       }
 
@@ -1479,7 +2028,7 @@
         item.innerHTML = `
           <div>
             <strong>${l.amount} لتر</strong>
-            ${l.detail ? `<span style="font-size:0.75rem; color:var(--muted); margin-right:4px;">(${escapeHtml(l.detail)})</span>` : ''}
+            ${l.detail ? `<span style="font-size:0.8rem; color:var(--muted); margin-right:4px;">(${escapeHtml(l.detail)})</span>` : ''}
             <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${timeStr}</div>
           </div>
           ${(isAdmin && activeLogTab === 'current') ? `
@@ -1501,7 +2050,7 @@
       if (!log) return;
 
       const currentVal = log.detail || log.amount;
-      const newVal = prompt(`تعديل سحب (${fam.name}):\nاكتب الأوعية الجديدة مفصولة بنقطة أو مسافة:`, currentVal);
+      const newVal = prompt(`تعديل سحب (${fam.name}):\nاكتب الأوعية الجديدة:`, currentVal);
       if (newVal === null) return;
 
       const parsed = parseContainers(newVal);
@@ -1517,6 +2066,7 @@
 
       pushState();
       renderLogsModal();
+      showToast('تم تعديل السحب بنجاح ✓');
     }
 
     function deleteLogEntry(logId) {
@@ -1531,6 +2081,7 @@
         fam.consumed = Math.max(0, (parseFloat(fam.consumed) || 0) - removed.amount);
         pushState();
         renderLogsModal();
+        showToast('تم حذف العملية والتراجع عن خصمها');
       }
     }
 
@@ -1552,6 +2103,7 @@
       });
 
       pushState();
+      showToast(`تمت إضافة عائلة (${name.trim()}) بنجاح ✓`);
     }
 
     function deleteFamily(id) {
@@ -1559,6 +2111,7 @@
       if (fam && confirm(`هل تريد بالتأكيد حذف (${fam.name}) نهائياً؟`)) {
         state.families = state.families.filter(f => f.id !== id);
         pushState();
+        showToast(`تم حذف (${fam.name})`);
       }
     }
 
@@ -1609,6 +2162,7 @@
         });
 
         pushState();
+        showToast('تم تصفير الاستهلاك وبدء الدورة الجديدة ✓');
       }
     }
 
@@ -1618,10 +2172,11 @@
         sessionStorage.removeItem(ADMIN_SESSION_KEY);
         updateAdminUI();
         render();
+        showToast('تم الخروج من وضع المسؤول');
       } else {
         document.getElementById('adminPinInput').value = '';
-        document.getElementById('loginModal').style.display = 'flex';
-        setTimeout(() => document.getElementById('adminPinInput').focus(), 100);
+        openModal('loginModal');
+        setTimeout(() => document.getElementById('adminPinInput').focus(), 150);
       }
     }
 
@@ -1637,6 +2192,7 @@
         closeModal('loginModal');
         updateAdminUI();
         render();
+        showToast('تم الدخول بنجاح كمسؤول ✓');
       } else {
         alert('رمز PIN غير صحيح');
       }
@@ -1661,8 +2217,8 @@
     function openChangePinModal() {
       if (!isAdmin) return;
       document.getElementById('newPinInput').value = '';
-      document.getElementById('changePinModal').style.display = 'flex';
-      setTimeout(() => document.getElementById('newPinInput').focus(), 100);
+      openModal('changePinModal');
+      setTimeout(() => document.getElementById('newPinInput').focus(), 150);
     }
 
     function saveNewPin() {
@@ -1679,7 +2235,7 @@
       state.pin = p;
       pushState();
       closeModal('changePinModal');
-      alert('تم تحديث رمز PIN بنجاح');
+      showToast('تم تحديث رمز المسؤول بنجاح ✓');
     }
 
     function openSettingsModal() {
@@ -1687,7 +2243,7 @@
       document.getElementById('settingReserve').value = state.settings.reserveLiters;
       document.getElementById('settingDistMode').value = state.settings.distMode;
       document.getElementById('settingRounding').value = state.settings.roundingMode;
-      document.getElementById('settingsModal').style.display = 'flex';
+      openModal('settingsModal');
     }
 
     function saveSettings() {
@@ -1700,19 +2256,16 @@
       state.settings.roundingMode = document.getElementById('settingRounding').value;
       pushState();
       closeModal('settingsModal');
-    }
-
-    function closeModal(id) {
-      document.getElementById(id).style.display = 'none';
+      showToast('تم حفظ الإعدادات وتحديث الحصص ✓');
     }
 
     window.onload = function() {
       loadLocal();
 
       if (!navigator.onLine) {
-        setSyncUI('offline', 'وضع عدم الاتصال (أوفلاين)');
+        setSyncUI('offline', '🔴 وضع عدم الاتصال (أوفلاين)');
       } else {
-        setSyncUI('syncing', 'جاري فحص الاتصال...');
+        setSyncUI('syncing', '🟡 جاري فحص الاتصال...');
       }
 
       render();
