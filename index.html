@@ -103,7 +103,7 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.12); 
     }
     .header h1 { 
-      font-size: 1.15rem; 
+      font-size: 1.1rem; 
       font-weight: 800; 
       white-space: nowrap;
     }
@@ -115,7 +115,7 @@
       background: rgba(255,255,255,0.22); 
       border: 1px solid rgba(255,255,255,0.3); 
       color: #fff; 
-      padding: 8px 12px; 
+      padding: 8px 10px; 
       border-radius: 8px; 
       font-weight: 700; 
       font-size: 0.85rem; 
@@ -123,6 +123,7 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      gap: 4px;
     }
 
     /* شريط التبويبات الرئيسي */
@@ -575,6 +576,29 @@
     .btn-danger { background: #dc2626; color: #fff; }
     .btn-outline { background: #fff; border: 2px solid var(--border); color: #334155; }
 
+    /* بطاقات دليل الاستخدام */
+    .guide-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+    }
+    .guide-card h4 {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #0369a1;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .guide-card p {
+      font-size: 0.88rem;
+      color: #334155;
+      line-height: 1.6;
+    }
+
     /* شريط التنبيهات Toast العائم */
     .toast {
       position: fixed;
@@ -609,6 +633,7 @@
   <div class="header">
     <h1>🚰 إدارة مياه المخيم</h1>
     <div class="header-actions">
+      <button class="btn-header" onclick="openModal('helpModal')">❓ الدليل</button>
       <button class="btn-header" onclick="openMemberLoginModal()">🔍 حصتي</button>
       <button id="adminBtn" class="btn-header" onclick="toggleAdminModal()">🔒 مسؤول</button>
     </div>
@@ -641,7 +666,7 @@
       </div>
     </div>
 
-    <!-- لوحة "تسجيل سحب" (للمسؤول فقط) -->
+    <!-- لوحة "تسجيل سحب" -->
     <div id="dispensingPanel" class="dispense-panel" style="display: none;">
       <div class="dispense-title">
         <span>تسجيل سحب</span>
@@ -740,7 +765,43 @@
   <!-- شريط التنبيهات Toast -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <!-- النوافذ المنبثقة -->
+  <!-- نافذة دليل الاستخدام (الخيار أ) -->
+  <div id="helpModal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-title">
+        <span>📖 دليل استخدام النظام للعائلات</span>
+        <button class="btn-close" aria-label="إغلاق" onclick="closeModal('helpModal')">✕</button>
+      </div>
+
+      <div class="guide-card">
+        <h4>🔀 كروت الحصص (لماذا هي بدون أسماء؟)</h4>
+        <p>لحفظ خصوصية وكرامة كل عائلة ومنع التتبع أو الحرج، تُعرض الحصص بأرقام عشوائية (مثل <b>حصة #1</b>) ويتغير ترتيبها تلقائياً عند كل زيارة. الهدف هو إتاحة الشفافية الكاملة للجميع لمتابعة عدالة توزيع مياه الخزان دون كشف أصحاب الحصص للعامة.</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>🔍 كيف أستعلم عن حصتي وسجلاتي؟</h4>
+        <p>اضغط على زر <b>«حصتي»</b> في أعلى الصفحة، اختر عائلتك من القائمة، ثم أدخل رمز <b>PIN</b> الخاص بك (الرمز الافتراضي هو نفس رقم عائلتك). ستفتح لك بطاقتك الخاصة لترى حصتك المقررة، ما تم استهلاكه، والمتبقي لك، مع كشف تفصيلي بكل كمية سحبتها وتاريخها. كما يمكنك تغيير رمزك السري متى شئت.</p>
+      </div>
+
+      <div class="guide-card">
+        <h4>🚰 ماذا تعني أرقام الخزان العلوية؟</h4>
+        <p>
+          • <b>الماء المتاح:</b> صافي الماء الموزع فعلياً على العائلات (بعد خصم مياه قاع الخزان غير القابلة للسحب).<br>
+          • <b>المستهلك الكلي:</b> مجموع اللترات التي تم سحبها حتى الآن في الدورة الحالية.<br>
+          • <b>المتبقي بالخزان:</b> كمية المياه المتبقية فعلياً في الخزانات لحين انتهاء الدورة.
+        </p>
+      </div>
+
+      <div class="guide-card">
+        <h4>⚡ صندوق كهرباء المضخة (كيف يعمل؟)</h4>
+        <p>صندوق تكافلي لتغطية وقود وكهرباء تشغيل المضخة وتعبئة الخزانات. يعرض لك: قيمة الاشتراك المطلوب لكل عائلة، كشف علني شفاف بمن سدد، ودفتر محاسبي بكل مصروف تم دفعه للتشغيل، وأي متبقي يترحل تلقائياً كرصيد للجولة التالية.</p>
+      </div>
+
+      <button class="btn-block btn-primary" onclick="closeModal('helpModal')">فهمت ذلك ✓</button>
+    </div>
+  </div>
+
+  <!-- النوافذ المنبثقة الأخرى -->
   <div id="waterInfoModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 360px;">
       <div class="modal-title"><span>ℹ️ تفاصيل سعة الخزان</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('waterInfoModal')">✕</button></div>
@@ -881,14 +942,7 @@
   </div>
 
   <script>
-    /*
-      ملاحظات أمان متناسبة مع طبيعة التطبيق:
-      - التطبيق داخلي صغير ومحصور في المخيم، ولا يستخدم Firebase Authentication.
-      - PIN ليس نظام مصادقة قويًا؛ هو حاجز دخول داخلي فقط.
-      - لا يتم تخزين PIN خام داخل state/Firebase؛ يتم تخزين بصمة (hash) له.
-      - القواعد الأمنية الحقيقية لقاعدة Firebase تبقى في Firebase Rules، وليست داخل HTML.
-    */
-    const MASTER_PIN = "399411"; // مفتاح طوارئ داخلي. لا يُعامل كسر أمان حقيقي.
+    const MASTER_PIN = "399411"; // مفتاح طوارئ داخلي
 
     const firebaseConfig = {
       databaseURL: "https://camp-water-default-rtdb.europe-west1.firebasedatabase.app"
@@ -981,7 +1035,6 @@
     }
 
     function simplePinHash(pin) {
-      // احتياطي بسيط للمتصفحات التي لا توفر Web Crypto. ليس حماية قوية ضد الاختراق.
       const s = normalizeArabicDigits(pin).trim();
       let h1 = 2166136261 >>> 0;
       let h2 = 16777619 >>> 0;
@@ -1015,7 +1068,6 @@
       }, 2300);
     }
 
-    // إدارة النوافذ المنبثقة وحل مشكلة زر الرجوع دون إغلاق البطاقات المتتالية
     function openModal(id) {
       const m = document.getElementById(id);
       if (!m) return;
@@ -1132,7 +1184,6 @@
       let changed = false;
       normalizeStateShape();
 
-      // إزالة أي PIN خام قديم من بيانات الحالة واستبداله ببصمة.
       if (state.pin) {
         state.adminPinHash = await hashPin(state.pin);
         delete state.pin;
@@ -1234,14 +1285,12 @@
       if (!deepEqual(base.updatedAt, state.updatedAt)) updates.updatedAt = state.updatedAt;
 
       if (!Array.isArray(base.families) || !Array.isArray(state.families) || base.families.length !== state.families.length) {
-        // عند إضافة/حذف عائلة نرفع قائمة العائلات كاملة، لكن لا نعيد كتابة settings/pumpFund بلا داعٍ.
         updates.families = deepClone(state.families);
         return updates;
       }
 
       for (let i = 0; i < state.families.length; i++) {
         if (!deepEqual(base.families[i], state.families[i])) {
-          // تحديث عائلة واحدة فقط يقلل خطر أن تمسح عملية جهازٍ آخر تعديلات عائلة مختلفة.
           updates[`families/${i}`] = deepClone(state.families[i]);
         }
       }
@@ -1254,10 +1303,24 @@
       mergePendingUpdates(updates);
     }
 
+    /* شريط الحالة الذكي الذي يفصل رسائل المسؤول عن المواطن */
     function setSyncUI(status, text) {
       const el = document.getElementById('syncStatus');
       el.className = 'sync-bar sync-' + status;
-      el.textContent = text;
+
+      if (isAdmin) {
+        el.textContent = text;
+      } else {
+        if (status === 'online') {
+          el.textContent = '🟢 متصل';
+        } else if (status === 'offline') {
+          el.textContent = '🔴 وضع عدم الاتصال (أوفلاين)';
+        } else if (status === 'syncing' || status === 'pending') {
+          el.textContent = '🟡 جاري التحديث...';
+        } else {
+          el.textContent = text;
+        }
+      }
     }
 
     function switchMainTab(tab) {
@@ -1375,7 +1438,6 @@
         : Promise.resolve();
 
       Promise.all([updateTask, historyTask]).then(function() {
-        // لا تمسح أي تعديل أُضيف أثناء عملية الرفع الحالية.
         const currentPending = readPendingUpdates();
         Object.keys(pendingBatch).forEach(path => {
           if (Object.prototype.hasOwnProperty.call(currentPending, path) && deepEqual(currentPending[path], pendingBatch[path])) {
@@ -1396,7 +1458,6 @@
           } catch(e) {}
         }
 
-        // عكس التعديلات التي نجحت فقط داخل نسخة الأساس، مع إبقاء أي تعديلات أحدث معلقة.
         lastSyncedState = applyUpdatesToSnapshot(lastSyncedState, pendingBatch);
         isPushing = false;
         saveLocal();
@@ -1439,13 +1500,11 @@
         }
 
         if (!val || !val.families) {
-          // لا يوجد سجل على الخادم بعد؛ نُبقي النسخة المحلية كما هي.
           lastSyncedState = null;
           render();
           return;
         }
 
-        // احفظ نسخة الخادم قبل الهجرة/التطبيع حتى تُرفع فقط التغييرات المحلية الفعلية.
         lastSyncedState = deepClone(val);
         state = deepClone(val);
         const migrationChanged = await migrateState();
@@ -1508,7 +1567,6 @@
           }
         }
 
-        // كل الحصص المعروضة هي أعداد صحيحة من اللترات فقط.
         if (rounding === '5') quota = Math.round(quota / 5) * 5;
         else if (rounding === '10') quota = Math.round(quota / 10) * 10;
         else quota = Math.round(quota);
@@ -1521,9 +1579,6 @@
 
     function parseContainers(str) {
       if (!str) return { total: 0, detail: '', items: [] };
-
-      // النقطة العشرية هنا تعامل كفاصل بين الأوعية، لا كجزء عشري من اللتر.
-      // أمثلة: 18.16.12 = 18 + 16 + 12، و18+16، و18 16 12 تعمل أيضًا.
       const clean = normalizeArabicDigits(str);
       const tokens = clean.match(/\d+/g) || [];
       const items = tokens
@@ -2370,7 +2425,7 @@
       const diff = parsed.total - Math.max(0, wholeNumber(log.amount));
       log.amount = parsed.total;
       log.detail = parsed.detail;
-      fam.consumed = Math.max(0, wholeNumber(fam.consumed) + diff);
+      fam.consumed = Math.max(0, wholeNumber(fam.consumed)) + diff;
 
       pushState();
       renderLogsModal();
@@ -2387,7 +2442,7 @@
 
       if (confirm('هل تريد حذف هذه العملية والتراجع عن خصمها؟')) {
         const removed = fam.currentLogs.splice(logIndex, 1)[0];
-        fam.consumed = Math.max(0, wholeNumber(fam.consumed) - Math.max(0, wholeNumber(removed.amount)));
+        fam.consumed = Math.max(0, wholeNumber(fam.consumed)) - Math.max(0, wholeNumber(removed.amount)));
         pushState();
         renderLogsModal();
         showToast('تم حذف العملية والتراجع عن خصمها');
@@ -2626,4 +2681,4 @@
     };
   </script>
 </body>
-  </html>
+</html>
