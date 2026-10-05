@@ -765,7 +765,7 @@
   <!-- شريط التنبيهات Toast -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <!-- نافذة دليل الاستخدام (الخيار أ) -->
+  <!-- نافذة دليل الاستخدام -->
   <div id="helpModal" class="modal-overlay">
     <div class="modal-box">
       <div class="modal-title">
@@ -1051,9 +1051,13 @@
     async function hashPin(pin) {
       const normalized = normalizeArabicDigits(pin).trim();
       if (window.crypto && window.crypto.subtle && window.TextEncoder) {
-        const bytes = new TextEncoder().encode(normalized);
-        const buffer = await window.crypto.subtle.digest('SHA-256', bytes);
-        return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+        try {
+          const bytes = new TextEncoder().encode(normalized);
+          const buffer = await window.crypto.subtle.digest('SHA-256', bytes);
+          return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch (e) {
+          return simplePinHash(normalized);
+        }
       }
       return simplePinHash(normalized);
     }
@@ -1303,7 +1307,6 @@
       mergePendingUpdates(updates);
     }
 
-    /* شريط الحالة الذكي الذي يفصل رسائل المسؤول عن المواطن */
     function setSyncUI(status, text) {
       const el = document.getElementById('syncStatus');
       el.className = 'sync-bar sync-' + status;
@@ -2425,7 +2428,7 @@
       const diff = parsed.total - Math.max(0, wholeNumber(log.amount));
       log.amount = parsed.total;
       log.detail = parsed.detail;
-      fam.consumed = Math.max(0, wholeNumber(fam.consumed)) + diff;
+      fam.consumed = Math.max(0, wholeNumber(fam.consumed) + diff);
 
       pushState();
       renderLogsModal();
@@ -2442,7 +2445,7 @@
 
       if (confirm('هل تريد حذف هذه العملية والتراجع عن خصمها؟')) {
         const removed = fam.currentLogs.splice(logIndex, 1)[0];
-        fam.consumed = Math.max(0, wholeNumber(fam.consumed)) - Math.max(0, wholeNumber(removed.amount)));
+        fam.consumed = Math.max(0, wholeNumber(fam.consumed) - Math.max(0, wholeNumber(removed.amount)));
         pushState();
         renderLogsModal();
         showToast('تم حذف العملية والتراجع عن خصمها');
@@ -2660,9 +2663,13 @@
     }
 
     window.onload = async function() {
-      loadLocal();
-      await migrateState();
-      normalizeStateShape();
+      try {
+        loadLocal();
+        await migrateState();
+        normalizeStateShape();
+      } catch (e) {
+        console.error('Initialization error:', e);
+      }
 
       if (!navigator.onLine) {
         setSyncUI('offline', '🔴 وضع عدم الاتصال (أوفلاين)');
@@ -2670,8 +2677,17 @@
         setSyncUI('syncing', '🟡 جاري فحص الاتصال...');
       }
 
-      render();
-      initFirebase();
+      try {
+        render();
+      } catch (e) {
+        console.error('Render error:', e);
+      }
+
+      try {
+        initFirebase();
+      } catch (e) {
+        console.error('Firebase init error:', e);
+      }
 
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js').catch(function(err) {
