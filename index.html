@@ -267,7 +267,6 @@
       width: 38px;
       height: 38px;
       min-height: 38px;
-      display: inline-flex;
       align-items: center;
       justify-content: center;
     }
@@ -782,7 +781,7 @@
       </div>
       <div class="form-group">
         <label>رمز PIN الخاص بك (الافتراضي هو رقمك):</label>
-        <input type="password" id="memberPinInput" class="form-control" inputmode="numeric" placeholder="اكتب رمز PIN" onkeydown="if(event.key==='Enter') verifyMemberPin()">
+        <input type="password" id="memberPinInput" class="form-control" inputmode="numeric" autocomplete="off" placeholder="اكتب رمز PIN" onkeydown="if(event.key==='Enter') verifyMemberPin()">
       </div>
       <button class="btn-block btn-primary" onclick="verifyMemberPin()">عرض بياناتي</button>
     </div>
@@ -813,7 +812,7 @@
       <div class="modal-title"><span>🔑 تغيير رمز PIN</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('memberChangePinModal')">✕</button></div>
       <div class="form-group">
         <label>الرمز السري الجديد:</label>
-        <input type="password" id="newMemberPinInput" class="form-control" inputmode="numeric" placeholder="اكتب الرمز الجديد" onkeydown="if(event.key==='Enter') saveNewMemberPin()">
+        <input type="password" id="newMemberPinInput" class="form-control" inputmode="numeric" autocomplete="off" placeholder="اكتب الرمز الجديد" onkeydown="if(event.key==='Enter') saveNewMemberPin()">
       </div>
       <button class="btn-block btn-primary" onclick="saveNewMemberPin()">حفظ الرمز</button>
     </div>
@@ -822,7 +821,7 @@
   <div id="loginModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 340px; text-align: center;">
       <div class="modal-title"><span>🔒 رمز دخول المسؤول</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('loginModal')">✕</button></div>
-      <input type="password" id="adminPinInput" class="form-control" inputmode="numeric" style="font-size: 1.5rem; text-align: center; letter-spacing: 4px; margin-bottom: 12px;" maxlength="10" placeholder="••••" onkeydown="if(event.key==='Enter') verifyAdminPin()">
+      <input type="password" id="adminPinInput" class="form-control" inputmode="numeric" autocomplete="off" style="font-size: 1.5rem; text-align: center; letter-spacing: 4px; margin-bottom: 12px;" maxlength="10" placeholder="••••" onkeydown="if(event.key==='Enter') verifyAdminPin()">
       <button class="btn-block btn-primary" onclick="verifyAdminPin()">دخول</button>
       <div style="margin-top: 14px; font-size: 0.85rem; color: var(--primary); cursor: pointer; text-decoration: underline; font-weight: 700;" onclick="recoverAdminPin()">نسيت رمز المسؤول؟</div>
     </div>
@@ -833,7 +832,7 @@
       <div class="modal-title"><span>🔑 تغيير رمز المسؤول</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('changePinModal')">✕</button></div>
       <div class="form-group">
         <label>الرمز السري الجديد:</label>
-        <input type="password" id="newPinInput" class="form-control" inputmode="numeric" maxlength="10" placeholder="اكتب الرمز الجديد" onkeydown="if(event.key==='Enter') saveNewPin()">
+        <input type="password" id="newPinInput" class="form-control" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="اكتب الرمز الجديد" onkeydown="if(event.key==='Enter') saveNewPin()">
       </div>
       <button class="btn-block btn-primary" onclick="saveNewPin()">حفظ الرمز</button>
     </div>
@@ -882,7 +881,14 @@
   </div>
 
   <script>
-    const MASTER_PIN = "399411"; // مفتاح الطوارئ الرئيسي
+    /*
+      ملاحظات أمان متناسبة مع طبيعة التطبيق:
+      - التطبيق داخلي صغير ومحصور في المخيم، ولا يستخدم Firebase Authentication.
+      - PIN ليس نظام مصادقة قويًا؛ هو حاجز دخول داخلي فقط.
+      - لا يتم تخزين PIN خام داخل state/Firebase؛ يتم تخزين بصمة (hash) له.
+      - القواعد الأمنية الحقيقية لقاعدة Firebase تبقى في Firebase Rules، وليست داخل HTML.
+    */
+    const MASTER_PIN = "399411"; // مفتاح طوارئ داخلي. لا يُعامل كسر أمان حقيقي.
 
     const firebaseConfig = {
       databaseURL: "https://camp-water-default-rtdb.europe-west1.firebasedatabase.app"
@@ -891,11 +897,12 @@
     const db = firebase.database();
 
     const STATE_KEY = 'camp_data_state_v1';
-    const PENDING_SYNC_KEY = 'camp_pending_sync_v1';
+    const PENDING_SYNC_KEY = 'camp_pending_sync_v2';
+    const PENDING_HISTORY_KEY = 'camp_pending_history_v1';
     const ADMIN_SESSION_KEY = 'camp_admin_session_v1';
 
-    let state = {
-      pin: MASTER_PIN,
+    const DEFAULT_STATE = {
+      adminPinHash: '',
       settings: { totalWater: 4000, reserveLiters: 1000, distMode: 'per_family', roundingMode: '5', alpha: 0.58 },
       families: [],
       pumpFund: {
@@ -909,10 +916,13 @@
       updatedAt: 0
     };
 
+    let state = deepClone(DEFAULT_STATE);
     let currentMainTab = 'water';
     let isAdmin = (sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true');
     let isPushing = false;
     let isFirebaseConnected = false;
+    let firebaseInitialLoadComplete = false;
+    let lastSyncedState = null;
     let selectedDispenseFamId = null;
     let activeLogFamilyId = null;
     let activeLogTab = 'current';
@@ -920,6 +930,80 @@
     let activeMemberLogTab = 'current';
     let toastTimer = null;
     let isModalPushed = false;
+
+    function deepClone(value) {
+      try { return JSON.parse(JSON.stringify(value)); }
+      catch (e) { return value; }
+    }
+
+    function deepEqual(a, b) {
+      try { return JSON.stringify(a) === JSON.stringify(b); }
+      catch (e) { return a === b; }
+    }
+
+    function wholeNumber(value, fallback = 0) {
+      const n = Number(value);
+      return Number.isFinite(n) ? Math.trunc(n) : fallback;
+    }
+
+    function safeMoney(value, fallback = 0) {
+      const n = Number(value);
+      return Number.isFinite(n) ? Math.round(n * 100) / 100 : fallback;
+    }
+
+    function safeId(value, fallback = 0) {
+      const n = Number(value);
+      return Number.isSafeInteger(n) && n > 0 ? n : fallback;
+    }
+
+    function escapeHtml(text) {
+      if (text === null || text === undefined) return '';
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function normalizeArabicDigits(value) {
+      if (value === null || value === undefined) return '';
+      return String(value)
+        .replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660))
+        .replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06F0));
+    }
+
+    function parseUnsignedIntegerInput(value) {
+      const normalized = normalizeArabicDigits(value).trim();
+      if (!/^\d+$/.test(normalized)) return null;
+      const n = Number(normalized);
+      return Number.isSafeInteger(n) ? n : null;
+    }
+
+    function simplePinHash(pin) {
+      // احتياطي بسيط للمتصفحات التي لا توفر Web Crypto. ليس حماية قوية ضد الاختراق.
+      const s = normalizeArabicDigits(pin).trim();
+      let h1 = 2166136261 >>> 0;
+      let h2 = 16777619 >>> 0;
+      for (let i = 0; i < s.length; i++) {
+        const c = s.charCodeAt(i);
+        h1 ^= c;
+        h1 = Math.imul(h1, 16777619) >>> 0;
+        h2 ^= (c + i) & 0xff;
+        h2 = Math.imul(h2, 2166136261) >>> 0;
+      }
+      return 'fallback:' + h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0');
+    }
+
+    async function hashPin(pin) {
+      const normalized = normalizeArabicDigits(pin).trim();
+      if (window.crypto && window.crypto.subtle && window.TextEncoder) {
+        const bytes = new TextEncoder().encode(normalized);
+        const buffer = await window.crypto.subtle.digest('SHA-256', bytes);
+        return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+      return simplePinHash(normalized);
+    }
 
     function showToast(message) {
       const t = document.getElementById('toast');
@@ -968,52 +1052,109 @@
       document.body.classList.remove('modal-open');
     });
 
-    function escapeHtml(text) {
-      if (text === null || text === undefined) return '';
-      return String(text)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
+    function normalizeStateShape() {
+      if (!state || typeof state !== 'object') state = deepClone(DEFAULT_STATE);
 
-    function normalizeArabicDigits(value) {
-      if (value === null || value === undefined) return '';
-      return String(value)
-        .replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660))
-        .replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06F0));
-    }
+      if (!state.settings || typeof state.settings !== 'object') state.settings = deepClone(DEFAULT_STATE.settings);
+      state.settings.totalWater = Math.max(0, wholeNumber(state.settings.totalWater));
+      state.settings.reserveLiters = Math.max(0, wholeNumber(state.settings.reserveLiters));
+      state.settings.distMode = ['elasticity', 'per_capita', 'per_family'].includes(state.settings.distMode) ? state.settings.distMode : 'per_family';
+      state.settings.roundingMode = ['none', '5', '10'].includes(String(state.settings.roundingMode)) ? String(state.settings.roundingMode) : '5';
+      state.settings.alpha = 0.58;
 
-    function migrateState() {
-      let changed = false;
-      if (state.families && state.families.length > 0) {
-        state.families.forEach((f, idx) => {
-          if (!f.tent) {
-            f.tent = String(idx + 1);
-            changed = true;
-          }
-          if (!f.pin) {
-            f.pin = String(f.tent);
-            changed = true;
-          }
-        });
+      if (!Array.isArray(state.families)) {
+        if (state.families && typeof state.families === 'object') {
+          state.families = Object.keys(state.families)
+            .sort((a, b) => Number(a) - Number(b))
+            .map(k => state.families[k]);
+        } else {
+          state.families = [];
+        }
       }
-      if (!state.pumpFund) {
-        state.pumpFund = {
-          currentRound: 1,
-          feePerFamily: 5,
-          carryOver: 0,
-          payments: {},
-          expenses: [],
-          history: []
-        };
+
+      state.families = state.families.filter(Boolean).map((f, idx) => {
+        const fam = (f && typeof f === 'object') ? f : {};
+        fam.id = safeId(fam.id, Date.now() + idx);
+        fam.name = String(fam.name ?? `عائلة ${idx + 1}`).trim() || `عائلة ${idx + 1}`;
+        fam.tent = normalizeArabicDigits(fam.tent ?? String(idx + 1)).trim() || String(idx + 1);
+        fam.members = Math.max(0, wholeNumber(fam.members));
+        fam.consumed = Math.max(0, wholeNumber(fam.consumed));
+        if (!Array.isArray(fam.currentLogs)) fam.currentLogs = fam.currentLogs && typeof fam.currentLogs === 'object' ? Object.values(fam.currentLogs) : [];
+        fam.currentLogs = fam.currentLogs.filter(Boolean).map((l, li) => ({
+          id: safeId(l.id, Date.now() + idx * 1000 + li),
+          amount: Math.max(0, wholeNumber(l.amount)),
+          detail: String(l.detail || '').trim(),
+          timestamp: wholeNumber(l.timestamp, Date.now())
+        }));
+        if (fam.previousCycle && typeof fam.previousCycle === 'object') {
+          fam.previousCycle.totalConsumed = Math.max(0, wholeNumber(fam.previousCycle.totalConsumed));
+          fam.previousCycle.closedAt = String(fam.previousCycle.closedAt || '');
+          if (!Array.isArray(fam.previousCycle.logs)) fam.previousCycle.logs = fam.previousCycle.logs && typeof fam.previousCycle.logs === 'object' ? Object.values(fam.previousCycle.logs) : [];
+          fam.previousCycle.logs = fam.previousCycle.logs.filter(Boolean).map((l, li) => ({
+            id: safeId(l.id, Date.now() + idx * 1000 + li),
+            amount: Math.max(0, wholeNumber(l.amount)),
+            detail: String(l.detail || '').trim(),
+            timestamp: wholeNumber(l.timestamp, Date.now())
+          }));
+        }
+        return fam;
+      });
+
+      if (!state.pumpFund || typeof state.pumpFund !== 'object') state.pumpFund = deepClone(DEFAULT_STATE.pumpFund);
+      state.pumpFund.currentRound = Math.max(1, wholeNumber(state.pumpFund.currentRound, 1));
+      state.pumpFund.feePerFamily = Math.max(0, safeMoney(state.pumpFund.feePerFamily, 5));
+      state.pumpFund.carryOver = safeMoney(state.pumpFund.carryOver, 0);
+      if (!state.pumpFund.payments || typeof state.pumpFund.payments !== 'object') state.pumpFund.payments = {};
+      if (!Array.isArray(state.pumpFund.expenses)) state.pumpFund.expenses = state.pumpFund.expenses && typeof state.pumpFund.expenses === 'object' ? Object.values(state.pumpFund.expenses) : [];
+      state.pumpFund.expenses = state.pumpFund.expenses.filter(Boolean).map((e, idx) => ({
+        id: safeId(e.id, Date.now() + idx),
+        amount: Math.max(0, safeMoney(e.amount)),
+        note: String(e.note || 'تشغيل كهرباء مضخة').trim(),
+        timestamp: wholeNumber(e.timestamp, Date.now())
+      }));
+      if (!Array.isArray(state.pumpFund.history)) state.pumpFund.history = state.pumpFund.history && typeof state.pumpFund.history === 'object' ? Object.values(state.pumpFund.history) : [];
+      state.pumpFund.history = state.pumpFund.history.filter(Boolean).map(h => ({
+        round: Math.max(1, wholeNumber(h.round, 1)),
+        closedAt: String(h.closedAt || ''),
+        feePerFamily: Math.max(0, safeMoney(h.feePerFamily)),
+        totalCollected: Math.max(0, safeMoney(h.totalCollected)),
+        totalExpenses: Math.max(0, safeMoney(h.totalExpenses)),
+        surplusCarriedOver: safeMoney(h.surplusCarriedOver),
+        expenses: Array.isArray(h.expenses) ? h.expenses : [],
+        unpaidFamilies: Array.isArray(h.unpaidFamilies) ? h.unpaidFamilies.map(x => String(x)) : []
+      }));
+
+      state.updatedAt = Math.max(0, wholeNumber(state.updatedAt));
+      if (!state.adminPinHash) state.adminPinHash = '';
+    }
+
+    async function migrateState() {
+      let changed = false;
+      normalizeStateShape();
+
+      // إزالة أي PIN خام قديم من بيانات الحالة واستبداله ببصمة.
+      if (state.pin) {
+        state.adminPinHash = await hashPin(state.pin);
+        delete state.pin;
+        changed = true;
+      } else if (!state.adminPinHash) {
+        state.adminPinHash = await hashPin(MASTER_PIN);
         changed = true;
       }
-      if (!state.pumpFund.payments) state.pumpFund.payments = {};
-      if (!state.pumpFund.expenses) state.pumpFund.expenses = [];
-      if (!state.pumpFund.history) state.pumpFund.history = [];
-      if (changed) saveLocal();
+
+      for (let i = 0; i < state.families.length; i++) {
+        const f = state.families[i];
+        if (f.pin !== undefined) {
+          f.pinHash = await hashPin(f.pin);
+          delete f.pin;
+          changed = true;
+        } else if (!f.pinHash) {
+          f.pinHash = await hashPin(f.tent || '1');
+          changed = true;
+        }
+      }
+
+      return changed;
     }
 
     function loadLocal() {
@@ -1021,10 +1162,11 @@
         const raw = localStorage.getItem(STATE_KEY);
         if (raw) {
           state = JSON.parse(raw);
-          migrateState();
+          normalizeStateShape();
         }
       } catch(e) {
         console.error('Failed to load local state:', e);
+        state = deepClone(DEFAULT_STATE);
       }
     }
 
@@ -1033,9 +1175,83 @@
         localStorage.setItem(STATE_KEY, JSON.stringify(state));
       } catch(e) {
         console.error('Local save failed:', e);
-        setSyncUI('offline', '⚠️ تحذير: تعذر الحفظ على ذاكرة الهاتف!');
+        setSyncUI('offline', '⚠️ تعذر الحفظ على ذاكرة الهاتف!');
         showToast('⚠️ ذاكرة المتصفح ممتلئة! يرجى توفير مساحة.');
       }
+    }
+
+    function readPendingUpdates() {
+      try {
+        const raw = localStorage.getItem(PENDING_SYNC_KEY);
+        if (!raw) return {};
+        if (raw === 'true') return { __legacy_full_state__: true };
+        const obj = JSON.parse(raw);
+        return (obj && typeof obj === 'object') ? obj : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function writePendingUpdates(updates) {
+      try {
+        if (!updates || Object.keys(updates).length === 0) {
+          localStorage.removeItem(PENDING_SYNC_KEY);
+          return;
+        }
+        localStorage.setItem(PENDING_SYNC_KEY, JSON.stringify(updates));
+      } catch (e) {
+        console.error('Pending sync save failed:', e);
+        setSyncUI('offline', '⚠️ تعذر حفظ العمليات بانتظار المزامنة');
+      }
+    }
+
+    function mergePendingUpdates(updates) {
+      if (!updates || Object.keys(updates).length === 0) return;
+      const current = readPendingUpdates();
+      if (current.__legacy_full_state__) {
+        delete current.__legacy_full_state__;
+      }
+      Object.keys(updates).forEach(path => { current[path] = deepClone(updates[path]); });
+      writePendingUpdates(current);
+    }
+
+    function buildStateUpdates() {
+      const updates = {};
+      const base = lastSyncedState;
+
+      if (!base) {
+        updates.settings = deepClone(state.settings);
+        updates.families = deepClone(state.families);
+        updates.pumpFund = deepClone(state.pumpFund);
+        updates.adminPinHash = state.adminPinHash || '';
+        updates.updatedAt = state.updatedAt;
+        return updates;
+      }
+
+      if (!deepEqual(base.settings, state.settings)) updates.settings = deepClone(state.settings);
+      if (!deepEqual(base.pumpFund, state.pumpFund)) updates.pumpFund = deepClone(state.pumpFund);
+      if (!deepEqual(base.adminPinHash, state.adminPinHash)) updates.adminPinHash = state.adminPinHash || '';
+      if (!deepEqual(base.updatedAt, state.updatedAt)) updates.updatedAt = state.updatedAt;
+
+      if (!Array.isArray(base.families) || !Array.isArray(state.families) || base.families.length !== state.families.length) {
+        // عند إضافة/حذف عائلة نرفع قائمة العائلات كاملة، لكن لا نعيد كتابة settings/pumpFund بلا داعٍ.
+        updates.families = deepClone(state.families);
+        return updates;
+      }
+
+      for (let i = 0; i < state.families.length; i++) {
+        if (!deepEqual(base.families[i], state.families[i])) {
+          // تحديث عائلة واحدة فقط يقلل خطر أن تمسح عملية جهازٍ آخر تعديلات عائلة مختلفة.
+          updates[`families/${i}`] = deepClone(state.families[i]);
+        }
+      }
+
+      return updates;
+    }
+
+    function queueStateChanges() {
+      const updates = buildStateUpdates();
+      mergePendingUpdates(updates);
     }
 
     function setSyncUI(status, text) {
@@ -1072,29 +1288,71 @@
     }
 
     function pushState() {
+      normalizeStateShape();
       state.updatedAt = Date.now();
       saveLocal();
       render();
+      queueStateChanges();
 
-      localStorage.setItem(PENDING_SYNC_KEY, 'true');
-
-      if (navigator.onLine && isFirebaseConnected && db) {
+      const pending = readPendingUpdates();
+      if (navigator.onLine && isFirebaseConnected && db && Object.keys(pending).length > 0) {
         syncPendingToServer();
       } else {
-        setSyncUI('pending', '🟠 محفوظ على الهاتف (أوفلاين)');
+        setSyncUI('pending', '🟠 محفوظ على الهاتف (بانتظار المزامنة)');
       }
+    }
+
+    function saveLegacyFullStateAsPendingIfNeeded() {
+      const pending = readPendingUpdates();
+      if (!pending.__legacy_full_state__) return;
+      delete pending.__legacy_full_state__;
+      pending.settings = deepClone(state.settings);
+      pending.families = deepClone(state.families);
+      pending.pumpFund = deepClone(state.pumpFund);
+      pending.adminPinHash = state.adminPinHash || '';
+      pending.updatedAt = state.updatedAt;
+      writePendingUpdates(pending);
+    }
+
+    function applyUpdatesToSnapshot(snapshot, updates) {
+      const base = snapshot ? deepClone(snapshot) : deepClone(DEFAULT_STATE);
+      if (!Array.isArray(base.families)) base.families = [];
+
+      Object.keys(updates || {}).forEach(path => {
+        const parts = path.split('/');
+        if (parts[0] === 'families' && parts.length === 2) {
+          const index = Number(parts[1]);
+          if (Number.isInteger(index) && index >= 0) base.families[index] = deepClone(updates[path]);
+        } else {
+          base[path] = deepClone(updates[path]);
+        }
+      });
+      return base;
+    }
+
+    function arraysStartWith(full, prefix) {
+      if (!Array.isArray(full) || !Array.isArray(prefix) || full.length < prefix.length) return false;
+      for (let i = 0; i < prefix.length; i++) {
+        if (!deepEqual(full[i], prefix[i])) return false;
+      }
+      return true;
     }
 
     function syncPendingToServer() {
       if (!navigator.onLine || !db || isPushing) return;
 
-      const hasPending = localStorage.getItem(PENDING_SYNC_KEY) === 'true';
+      saveLegacyFullStateAsPendingIfNeeded();
+      const pending = readPendingUpdates();
+      const pendingBatch = deepClone(pending);
+      const pendingKeys = Object.keys(pendingBatch);
       let pendingHist = [];
       try {
-        pendingHist = JSON.parse(localStorage.getItem('camp_pending_history_v1') || '[]');
+        pendingHist = JSON.parse(localStorage.getItem(PENDING_HISTORY_KEY) || '[]');
+        if (!Array.isArray(pendingHist)) pendingHist = [];
       } catch(e) {}
+      const historyBatch = pendingHist.slice();
 
-      if (!hasPending && pendingHist.length === 0) {
+      if (pendingKeys.length === 0 && historyBatch.length === 0) {
         setSyncUI('online', '🟢 متصل ومحفوظ');
         return;
       }
@@ -1102,24 +1360,57 @@
       isPushing = true;
       setSyncUI('syncing', '🟡 جاري المزامنة...');
 
-      const syncTasks = [];
+      const updatePayload = {};
+      pendingKeys.forEach(path => {
+        if (path === '__legacy_full_state__') return;
+        updatePayload['camp_data/' + path] = pendingBatch[path];
+      });
 
-      if (hasPending) {
-        syncTasks.push(db.ref('camp_data').set(state).then(function() {
-          localStorage.setItem(PENDING_SYNC_KEY, 'false');
-        }));
-      }
+      const updateTask = Object.keys(updatePayload).length > 0
+        ? db.ref().update(updatePayload)
+        : Promise.resolve();
 
-      if (pendingHist.length > 0) {
-        const histPromises = pendingHist.map(item => db.ref('camp_history').push(item));
-        syncTasks.push(Promise.all(histPromises).then(function() {
-          localStorage.removeItem('camp_pending_history_v1');
-        }));
-      }
+      const historyTask = historyBatch.length > 0
+        ? Promise.all(historyBatch.map(item => db.ref('camp_history').push(item)))
+        : Promise.resolve();
 
-      Promise.all(syncTasks).then(function() {
+      Promise.all([updateTask, historyTask]).then(function() {
+        // لا تمسح أي تعديل أُضيف أثناء عملية الرفع الحالية.
+        const currentPending = readPendingUpdates();
+        Object.keys(pendingBatch).forEach(path => {
+          if (Object.prototype.hasOwnProperty.call(currentPending, path) && deepEqual(currentPending[path], pendingBatch[path])) {
+            delete currentPending[path];
+          }
+        });
+        delete currentPending.__legacy_full_state__;
+        writePendingUpdates(currentPending);
+
+        if (historyBatch.length > 0) {
+          try {
+            const currentHist = JSON.parse(localStorage.getItem(PENDING_HISTORY_KEY) || '[]');
+            if (arraysStartWith(currentHist, historyBatch)) {
+              const remainingHist = currentHist.slice(historyBatch.length);
+              if (remainingHist.length > 0) localStorage.setItem(PENDING_HISTORY_KEY, JSON.stringify(remainingHist));
+              else localStorage.removeItem(PENDING_HISTORY_KEY);
+            }
+          } catch(e) {}
+        }
+
+        // عكس التعديلات التي نجحت فقط داخل نسخة الأساس، مع إبقاء أي تعديلات أحدث معلقة.
+        lastSyncedState = applyUpdatesToSnapshot(lastSyncedState, pendingBatch);
         isPushing = false;
-        setSyncUI('online', '🟢 متصل ومحفوظ');
+        saveLocal();
+
+        const remainingPending = readPendingUpdates();
+        let remainingHistCount = 0;
+        try { remainingHistCount = JSON.parse(localStorage.getItem(PENDING_HISTORY_KEY) || '[]').length; } catch(e) {}
+
+        if (Object.keys(remainingPending).length > 0 || remainingHistCount > 0) {
+          setSyncUI('syncing', '🟡 يوجد تعديل جديد في قائمة المزامنة...');
+          setTimeout(syncPendingToServer, 0);
+        } else {
+          setSyncUI('online', '🟢 متصل ومحفوظ');
+        }
       }).catch(function(err) {
         isPushing = false;
         console.error('Sync failed:', err);
@@ -1137,28 +1428,35 @@
         }
       });
 
-      db.ref('camp_data').on('value', function(snapshot) {
-        if (isPushing) return;
-
+      db.ref('camp_data').on('value', async function(snapshot) {
         const val = snapshot.val();
-        if (!val || !val.families) return;
+        firebaseInitialLoadComplete = true;
 
-        const hasPending = localStorage.getItem(PENDING_SYNC_KEY) === 'true';
-        if (hasPending) {
+        const pending = readPendingUpdates();
+        if (Object.keys(pending).length > 0) {
           syncPendingToServer();
           return;
         }
 
-        if (state.updatedAt && val.updatedAt && state.updatedAt > val.updatedAt) {
-          syncPendingToServer();
+        if (!val || !val.families) {
+          // لا يوجد سجل على الخادم بعد؛ نُبقي النسخة المحلية كما هي.
+          lastSyncedState = null;
+          render();
           return;
         }
 
-        state = val;
-        migrateState();
+        // احفظ نسخة الخادم قبل الهجرة/التطبيع حتى تُرفع فقط التغييرات المحلية الفعلية.
+        lastSyncedState = deepClone(val);
+        state = deepClone(val);
+        const migrationChanged = await migrateState();
+        normalizeStateShape();
         saveLocal();
         render();
-        if (isFirebaseConnected && navigator.onLine) {
+
+        if (migrationChanged) {
+          queueStateChanges();
+          syncPendingToServer();
+        } else if (isFirebaseConnected && navigator.onLine) {
           setSyncUI('online', '🟢 متصل ومحفوظ');
         }
       });
@@ -1175,9 +1473,11 @@
     });
 
     function computeAllotments() {
-      const netWater = Math.max(0, (state.settings.totalWater || 0) - (state.settings.reserveLiters || 0));
+      const totalWater = Math.max(0, wholeNumber(state.settings.totalWater));
+      const reserveWater = Math.max(0, wholeNumber(state.settings.reserveLiters));
+      const netWater = Math.max(0, totalWater - reserveWater);
       const mode = state.settings.distMode || 'per_family';
-      const alpha = state.settings.alpha || 0.58;
+      const alpha = 0.58;
       const rounding = state.settings.roundingMode || '5';
 
       let totalPop = 0;
@@ -1185,17 +1485,17 @@
       let sumWeights = 0;
 
       state.families.forEach(function(f) {
-        const m = parseInt(f.members) || 0;
+        const m = Math.max(0, wholeNumber(f.members));
         if (m > 0) {
           totalPop += m;
           activeFamiliesCount++;
-          sumWeights += (mode === 'elasticity') ? Math.pow(m, alpha) : 0;
+          if (mode === 'elasticity') sumWeights += Math.pow(m, alpha);
         }
       });
 
       const allotments = {};
       state.families.forEach(function(f) {
-        const m = parseInt(f.members) || 0;
+        const m = Math.max(0, wholeNumber(f.members));
         let quota = 0;
 
         if (m > 0 && netWater > 0) {
@@ -1208,11 +1508,12 @@
           }
         }
 
+        // كل الحصص المعروضة هي أعداد صحيحة من اللترات فقط.
         if (rounding === '5') quota = Math.round(quota / 5) * 5;
         else if (rounding === '10') quota = Math.round(quota / 10) * 10;
         else quota = Math.round(quota);
 
-        allotments[f.id] = quota;
+        allotments[f.id] = Math.max(0, wholeNumber(quota));
       });
 
       return { allotments: allotments, netWater: netWater };
@@ -1220,14 +1521,22 @@
 
     function parseContainers(str) {
       if (!str) return { total: 0, detail: '', items: [] };
-      const clean = normalizeArabicDigits(str).replace(/[\.+،,]/g, ' ');
-      const items = clean.trim().split(/\s+/).map(Number).filter(n => Number.isFinite(n) && n > 0);
+
+      // النقطة العشرية هنا تعامل كفاصل بين الأوعية، لا كجزء عشري من اللتر.
+      // أمثلة: 18.16.12 = 18 + 16 + 12، و18+16، و18 16 12 تعمل أيضًا.
+      const clean = normalizeArabicDigits(str);
+      const tokens = clean.match(/\d+/g) || [];
+      const items = tokens
+        .map(Number)
+        .filter(n => Number.isSafeInteger(n) && n > 0);
       const total = items.reduce((a, b) => a + b, 0);
       return { total: total, detail: items.join(' + '), items: items };
     }
 
     function formatLogTimestamp(ts) {
-      const d = new Date(ts);
+      const time = wholeNumber(ts, 0);
+      const d = new Date(time);
+      if (!Number.isFinite(d.getTime())) return '—';
       const days = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
       const dayName = days[d.getDay()];
       const year = d.getFullYear();
@@ -1246,14 +1555,13 @@
       const arr = array.slice();
       for (let i = arr.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        const temp = arr[i];
-        arr[i] = arr[j];
-        arr[j] = temp;
+        [arr[i], arr[j]] = [arr[j], arr[i]];
       }
       return arr;
     }
 
     function render() {
+      normalizeStateShape();
       updateAdminUI();
 
       const calc = computeAllotments();
@@ -1261,11 +1569,11 @@
       const netWater = calc.netWater;
 
       let totalConsumed = 0;
-      state.families.forEach(f => totalConsumed += (parseFloat(f.consumed) || 0));
+      state.families.forEach(f => totalConsumed += Math.max(0, wholeNumber(f.consumed)));
 
       document.getElementById('statNetWater').textContent = netWater + ' لتر';
-      document.getElementById('statTotalConsumed').textContent = Math.round(totalConsumed) + ' لتر';
-      document.getElementById('statRemainingWater').textContent = Math.max(0, Math.round(netWater - totalConsumed)) + ' لتر';
+      document.getElementById('statTotalConsumed').textContent = totalConsumed + ' لتر';
+      document.getElementById('statRemainingWater').textContent = Math.max(0, netWater - totalConsumed) + ' لتر';
 
       const datalist = document.getElementById('familiesDatalist');
       datalist.innerHTML = '';
@@ -1278,54 +1586,60 @@
       const famContainer = document.getElementById('familiesList');
       famContainer.innerHTML = '';
 
+      const makeStatus = (diff) => {
+        const d = wholeNumber(diff);
+        if (d > 0) {
+          return {
+            badge: `<span class="badge-remaining badge-ok">باقي ${escapeHtml(d)} لتر</span>`,
+            rem: `<div><span>المتبقي:</span><strong style="color:var(--primary);">${escapeHtml(d)} لتر</strong></div>`
+          };
+        }
+        if (d === 0) {
+          return {
+            badge: `<span class="badge-remaining badge-neutral">أنهى الحصة</span>`,
+            rem: `<div><span>المتبقي:</span><strong style="color:var(--muted);">0 لتر</strong></div>`
+          };
+        }
+        const over = Math.abs(d);
+        return {
+          badge: `<span class="badge-remaining badge-warn">تجاوز ${escapeHtml(over)} لتر</span>`,
+          rem: `<div><span>تجاوز الحصة:</span><strong style="color:var(--danger);">${escapeHtml(over)} لتر</strong></div>`
+        };
+      };
+
       if (isAdmin) {
         state.families.forEach(function(f) {
-          const quota = allotments[f.id] || 0;
-          const consumed = parseFloat(f.consumed) || 0;
+          const fid = safeId(f.id);
+          const quota = wholeNumber(allotments[f.id]);
+          const consumed = Math.max(0, wholeNumber(f.consumed));
           const diff = quota - consumed;
-
-          let statusBadge = '';
-          let remDisplay = '';
-
-          if (diff > 0) {
-            statusBadge = `<span class="badge-remaining badge-ok">باقي ${diff} لتر</span>`;
-            remDisplay = `<div><span>المتبقي:</span><strong style="color:var(--primary);">${diff} لتر</strong></div>`;
-          } else if (diff === 0) {
-            statusBadge = `<span class="badge-remaining badge-neutral">أنهى الحصة</span>`;
-            remDisplay = `<div><span>المتبقي:</span><strong style="color:var(--muted);">0 لتر</strong></div>`;
-          } else {
-            const over = Math.abs(diff);
-            statusBadge = `<span class="badge-remaining badge-warn">تجاوز ${over} لتر</span>`;
-            remDisplay = `<div><span>تجاوز الحصة:</span><strong style="color:var(--danger);">${over} لتر</strong></div>`;
-          }
-
+          const status = makeStatus(diff);
           const safeName = escapeHtml(f.name);
           const safeTent = escapeHtml(f.tent || '');
+          const safeMembers = escapeHtml(wholeNumber(f.members));
 
           const card = document.createElement('div');
           card.className = 'family-card';
           card.innerHTML = `
             <div class="family-header">
-              <div>
-                <strong class="family-name">${safeName}</strong>
-              </div>
+              <div><strong class="family-name">${safeName}</strong></div>
               <div class="family-meta-admin">
                 <span style="font-size:0.8rem; color:var(--muted); font-weight:700;">رقم:</span>
-                <input type="text" class="mini-input" inputmode="numeric" value="${safeTent}" title="رقم العائلة" onchange="updateTentNumber(${f.id}, this.value)">
-                <input type="text" class="mini-input" inputmode="numeric" value="${f.members}" title="عدد الأفراد" onchange="updateMembers(${f.id}, this.value)">
+                <input type="text" class="mini-input" inputmode="numeric" value="${safeTent}" title="رقم العائلة" onchange="updateTentNumber(${fid}, this.value)">
+                <input type="text" class="mini-input" inputmode="numeric" value="${safeMembers}" title="عدد الأفراد" onchange="updateMembers(${fid}, this.value)">
                 <span style="font-size:0.8rem; color:var(--muted); font-weight:700;">فرد</span>
-                <button onclick="resetMemberPinByAdmin(${f.id})" class="btn-log-action" style="background:#fef3c7; color:#92400e;" title="إعادة ضبط PIN إلى رقم العائلة">🔄 PIN</button>
-                <button onclick="deleteFamily(${f.id})" class="btn-log-action btn-log-del" title="حذف العائلة">🗑️</button>
+                <button onclick="resetMemberPinByAdmin(${fid})" class="btn-log-action" style="background:#fef3c7; color:#92400e;" title="إعادة ضبط PIN إلى رقم العائلة">🔄 PIN</button>
+                <button onclick="deleteFamily(${fid})" class="btn-log-action btn-log-del" title="حذف العائلة">🗑️</button>
               </div>
             </div>
             <div class="family-metrics">
-              <div><span>الحصة المقررة:</span><strong>${quota} لتر</strong></div>
-              <div><span>المستهلك:</span><strong>${consumed} لتر</strong></div>
-              ${remDisplay}
+              <div><span>الحصة المقررة:</span><strong>${escapeHtml(quota)} لتر</strong></div>
+              <div><span>المستهلك:</span><strong>${escapeHtml(consumed)} لتر</strong></div>
+              ${status.rem}
             </div>
             <div class="family-actions">
-              <button class="btn-log" onclick="openFamilyLog(${f.id})">📋 السجل التفصيلي</button>
-              ${statusBadge}
+              <button class="btn-log" onclick="openFamilyLog(${fid})">📋 السجل التفصيلي</button>
+              ${status.badge}
             </div>
           `;
           famContainer.appendChild(card);
@@ -1333,54 +1647,34 @@
       } else {
         const shuffled = shuffleArray(state.families);
         shuffled.forEach(function(f, index) {
-          const quota = allotments[f.id] || 0;
-          const consumed = parseFloat(f.consumed) || 0;
-          const diff = quota - consumed;
-
-          let statusBadge = '';
-          let remDisplay = '';
-
-          if (diff > 0) {
-            statusBadge = `<span class="badge-remaining badge-ok">باقي ${diff} لتر</span>`;
-            remDisplay = `<div><span>المتبقي:</span><strong style="color:var(--primary);">${diff} لتر</strong></div>`;
-          } else if (diff === 0) {
-            statusBadge = `<span class="badge-remaining badge-neutral">أنهى الحصة</span>`;
-            remDisplay = `<div><span>المتبقي:</span><strong style="color:var(--muted);">0 لتر</strong></div>`;
-          } else {
-            const over = Math.abs(diff);
-            statusBadge = `<span class="badge-remaining badge-warn">تجاوز ${over} لتر</span>`;
-            remDisplay = `<div><span>تجاوز الحصة:</span><strong style="color:var(--danger);">${over} لتر</strong></div>`;
-          }
+          const quota = wholeNumber(allotments[f.id]);
+          const consumed = Math.max(0, wholeNumber(f.consumed));
+          const status = makeStatus(quota - consumed);
 
           const card = document.createElement('div');
           card.className = 'family-card';
           card.innerHTML = `
             <div class="family-header" style="margin-bottom:6px; border-bottom:1px dashed var(--border); padding-bottom:6px;">
-              <strong style="color:var(--primary); font-size:0.95rem;">حصة #${index + 1}</strong>
+              <strong style="color:var(--primary); font-size:0.95rem;">حصة #${escapeHtml(index + 1)}</strong>
             </div>
             <div class="family-metrics" style="margin-bottom: 8px;">
-              <div><span>الحصة المقررة:</span><strong>${quota} لتر</strong></div>
-              <div><span>المستهلك:</span><strong>${consumed} لتر</strong></div>
-              ${remDisplay}
+              <div><span>الحصة المقررة:</span><strong>${escapeHtml(quota)} لتر</strong></div>
+              <div><span>المستهلك:</span><strong>${escapeHtml(consumed)} لتر</strong></div>
+              ${status.rem}
             </div>
-            <div style="display:flex; justify-content:flex-end;">
-              ${statusBadge}
-            </div>
+            <div style="display:flex; justify-content:flex-end;">${status.badge}</div>
           `;
           famContainer.appendChild(card);
         });
       }
 
-      if (selectedDispenseFamId) {
-        updateLiveFamilyUI(selectedDispenseFamId, allotments);
-      }
-
+      if (selectedDispenseFamId) updateLiveFamilyUI(selectedDispenseFamId, allotments);
       renderPumpFund();
     }
 
     function renderPumpFund() {
       const fund = state.pumpFund;
-      const fee = fund.feePerFamily || 5;
+      const fee = Math.max(0, safeMoney(fund.feePerFamily, 5));
 
       let paidFamiliesCount = 0;
       let totalCollected = 0;
@@ -1389,20 +1683,20 @@
         const paymentRecord = fund.payments && fund.payments[f.id];
         if (paymentRecord && paymentRecord.paid) {
           paidFamiliesCount++;
-          totalCollected += (paymentRecord.amount !== undefined ? Number(paymentRecord.amount) : fee);
+          totalCollected += paymentRecord.amount !== undefined ? safeMoney(paymentRecord.amount) : fee;
         }
       });
 
-      const totalExpenses = (fund.expenses || []).reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
-      const carryOver = parseFloat(fund.carryOver) || 0;
-      const balance = carryOver + totalCollected - totalExpenses;
+      const totalExpenses = (fund.expenses || []).reduce((acc, curr) => acc + Math.max(0, safeMoney(curr.amount)), 0);
+      const carryOver = safeMoney(fund.carryOver, 0);
+      const balance = Math.round((carryOver + totalCollected - totalExpenses) * 100) / 100;
 
       document.getElementById('statPumpBalance').textContent = balance + ' ₪';
       document.getElementById('statPumpCollected').textContent = totalCollected + ' ₪';
       document.getElementById('statPumpSpent').textContent = totalExpenses + ' ₪';
 
-      document.getElementById('pumpRoundTitle').textContent = `جولة التحصيل رقم (${fund.currentRound || 1})`;
-      document.getElementById('pumpRoundFeeText').textContent = `المبلغ المطلوب: ${fee} شيكل لكل عائلة`;
+      document.getElementById('pumpRoundTitle').textContent = `جولة التحصيل رقم (${escapeHtml(Math.max(1, wholeNumber(fund.currentRound, 1)))})`;
+      document.getElementById('pumpRoundFeeText').textContent = `المبلغ المطلوب: ${escapeHtml(fee)} شيكل لكل عائلة`;
       
       const carryOverEl = document.getElementById('pumpCarryOverText');
       if (carryOver > 0) {
@@ -1422,18 +1716,15 @@
       pumpListEl.innerHTML = '';
 
       state.families.forEach(f => {
-        const isPaid = fund.payments && fund.payments[f.id] && fund.payments[f.id].paid;
+        const fid = safeId(f.id);
+        const isPaid = !!(fund.payments && fund.payments[f.id] && fund.payments[f.id].paid);
         const item = document.createElement('div');
         item.className = 'pump-list-item';
         item.innerHTML = `
-          <div>
-            <strong>${escapeHtml(f.name)}</strong>
-          </div>
+          <div><strong>${escapeHtml(f.name)}</strong></div>
           <div style="display:flex; align-items:center; gap:8px;">
-            ${isPaid 
-              ? `<span class="pump-badge-paid">تم السداد ✓</span>` 
-              : `<span class="pump-badge-unpaid">متأخر عن السداد (${fee} ₪) ✕</span>`}
-            ${isAdmin ? `<button class="btn-toggle-paid" onclick="togglePumpPayment(${f.id})">${isPaid ? 'تراجع' : 'سدد الآن'}</button>` : ''}
+            ${isPaid ? `<span class="pump-badge-paid">تم السداد ✓</span>` : `<span class="pump-badge-unpaid">متأخر عن السداد (${escapeHtml(fee)} ₪) ✕</span>`}
+            ${isAdmin ? `<button class="btn-toggle-paid" onclick="togglePumpPayment(${fid})">${isPaid ? 'تراجع' : 'سدد الآن'}</button>` : ''}
           </div>
         `;
         pumpListEl.appendChild(item);
@@ -1446,16 +1737,17 @@
       if (expenses.length === 0) {
         expListEl.innerHTML = '<div style="text-align:center; padding:14px; color:var(--muted); font-size:0.9rem;">لا توجد مصروفات كهرباء مسجلة في هذه الجولة حتى الآن.</div>';
       } else {
-        expenses.slice().sort((a, b) => b.timestamp - a.timestamp).forEach(exp => {
+        expenses.slice().sort((a, b) => wholeNumber(b.timestamp) - wholeNumber(a.timestamp)).forEach(exp => {
+          const eid = safeId(exp.id);
           const div = document.createElement('div');
           div.className = 'log-item';
           div.innerHTML = `
             <div>
-              <strong style="color:var(--danger);">${exp.amount} شيكل</strong>
+              <strong style="color:var(--danger);">${escapeHtml(safeMoney(exp.amount))} شيكل</strong>
               <span style="margin-right:6px; font-weight:700;">${escapeHtml(exp.note || 'تشغيل مضخة')}</span>
-              <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${formatLogTimestamp(exp.timestamp)}</div>
+              <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${escapeHtml(formatLogTimestamp(exp.timestamp))}</div>
             </div>
-            ${isAdmin ? `<button class="btn-log-action btn-log-del" onclick="deleteExpenseEntry(${exp.id})">حذف ✕</button>` : ''}
+            ${isAdmin ? `<button class="btn-log-action btn-log-del" onclick="deleteExpenseEntry(${eid})">حذف ✕</button>` : ''}
           `;
           expListEl.appendChild(div);
         });
@@ -1465,8 +1757,8 @@
     function togglePumpPayment(famId) {
       if (!isAdmin) return;
       if (!state.pumpFund.payments) state.pumpFund.payments = {};
-      const current = state.pumpFund.payments[famId] && state.pumpFund.payments[famId].paid;
-      const fee = state.pumpFund.feePerFamily || 5;
+      const current = !!(state.pumpFund.payments[famId] && state.pumpFund.payments[famId].paid);
+      const fee = Math.max(0, safeMoney(state.pumpFund.feePerFamily, 5));
 
       state.pumpFund.payments[famId] = {
         paid: !current,
@@ -1485,11 +1777,12 @@
     }
 
     function submitExpense() {
-      const rawAmt = normalizeArabicDigits(document.getElementById('expenseAmountInput').value);
-      const amt = parseFloat(rawAmt);
+      if (!isAdmin) return;
+      const rawAmt = normalizeArabicDigits(document.getElementById('expenseAmountInput').value).trim();
+      const amt = Number(rawAmt);
       const note = document.getElementById('expenseNoteInput').value.trim();
 
-      if (isNaN(amt) || amt <= 0) {
+      if (!Number.isFinite(amt) || amt <= 0) {
         alert('يرجى إدخال مبلغ صحيح');
         return;
       }
@@ -1497,7 +1790,7 @@
       if (!state.pumpFund.expenses) state.pumpFund.expenses = [];
       state.pumpFund.expenses.push({
         id: Date.now(),
-        amount: amt,
+        amount: safeMoney(amt),
         note: note || 'تشغيل كهرباء مضخة',
         timestamp: Date.now()
       });
@@ -1510,7 +1803,7 @@
     function deleteExpenseEntry(expId) {
       if (!isAdmin) return;
       if (confirm('هل تريد حذف عملية الصرف هذه وإعادة المبلغ للرصيد؟')) {
-        state.pumpFund.expenses = state.pumpFund.expenses.filter(e => e.id !== expId);
+        state.pumpFund.expenses = state.pumpFund.expenses.filter(e => safeId(e.id) !== safeId(expId));
         pushState();
         showToast('تم حذف المصروف وإعادة المبلغ');
       }
@@ -1518,41 +1811,41 @@
 
     function changePumpFee() {
       if (!isAdmin) return;
-      const current = state.pumpFund.feePerFamily || 5;
+      const current = Math.max(0, safeMoney(state.pumpFund.feePerFamily, 5));
       const n = prompt('أدخل مبلغ الاشتراك المطلوب من كل عائلة (شيكل):', current);
       if (n !== null) {
-        const val = parseFloat(normalizeArabicDigits(n));
-        if (!isNaN(val) && val > 0) {
-          state.pumpFund.feePerFamily = val;
+        const val = Number(normalizeArabicDigits(n).trim());
+        if (Number.isFinite(val) && val > 0) {
+          state.pumpFund.feePerFamily = safeMoney(val);
           pushState();
-          showToast(`تم تعديل الاشتراك إلى ${val} ₪`);
+          showToast(`تم تعديل الاشتراك إلى ${safeMoney(val)} ₪`);
+        } else {
+          alert('يرجى إدخال مبلغ صحيح أكبر من صفر.');
         }
       }
     }
 
     function changeCarryOver() {
       if (!isAdmin) return;
-      const current = state.pumpFund.carryOver || 0;
-      const n = prompt('أدخل رصيد الجولة السابقة (شيكل):\n(ملاحظة: اكتب قيمة موجبة للمتبقي، أو قيمة سالبة في حال وجود عجز/دفع مسبق من جيبك)', current);
-      
+      const current = safeMoney(state.pumpFund.carryOver, 0);
+      const n = prompt('أدخل رصيد الجولة السابقة (شيكل):\n(اكتب قيمة موجبة للمتبقي أو سالبة في حال وجود عجز/دفع مسبق من جيبك)', current);
       if (n === null) return;
 
-      const val = parseFloat(normalizeArabicDigits(n).trim());
-
-      if (isNaN(val)) {
+      const val = Number(normalizeArabicDigits(n).trim());
+      if (!Number.isFinite(val)) {
         alert('خطأ: يرجى إدخال رقم صحيح.');
         return;
       }
 
-      state.pumpFund.carryOver = val;
+      state.pumpFund.carryOver = safeMoney(val);
       pushState();
-      showToast(`تم تثبيت الرصيد المرحّل: ${val} ₪`);
+      showToast(`تم تثبيت الرصيد المرحّل: ${safeMoney(val)} ₪`);
     }
 
     function closeAndArchivePumpRound() {
       if (!isAdmin) return;
       const fund = state.pumpFund;
-      const fee = fund.feePerFamily || 5;
+      const fee = Math.max(0, safeMoney(fund.feePerFamily, 5));
 
       let paidCount = 0;
       let totalCollected = 0;
@@ -1562,17 +1855,17 @@
         const p = fund.payments && fund.payments[f.id];
         if (p && p.paid) {
           paidCount++;
-          totalCollected += (p.amount !== undefined ? Number(p.amount) : fee);
+          totalCollected += p.amount !== undefined ? safeMoney(p.amount) : fee;
         } else {
-          unpaidNames.push(f.name);
+          unpaidNames.push(String(f.name));
         }
       });
 
-      const totalExpenses = (fund.expenses || []).reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
-      const carryOver = parseFloat(fund.carryOver) || 0;
-      const balance = carryOver + totalCollected - totalExpenses;
+      const totalExpenses = (fund.expenses || []).reduce((acc, curr) => acc + Math.max(0, safeMoney(curr.amount)), 0);
+      const carryOver = safeMoney(fund.carryOver, 0);
+      const balance = safeMoney(carryOver + totalCollected - totalExpenses);
 
-      const confirmMsg = `هل تريد إغلاق جولة التحصيل رقم (${fund.currentRound || 1})؟\n\n` +
+      const confirmMsg = `هل تريد إغلاق جولة التحصيل رقم (${Math.max(1, wholeNumber(fund.currentRound, 1))})؟\n\n` +
         `• المحصل: ${totalCollected} ₪\n` +
         `• المصروف: ${totalExpenses} ₪\n` +
         `• الرصيد المتبقي الذي سيُرحّل للجولة القادمة: ${balance} ₪\n\n` +
@@ -1580,20 +1873,19 @@
 
       if (confirm(confirmMsg)) {
         const archiveItem = {
-          round: fund.currentRound || 1,
+          round: Math.max(1, wholeNumber(fund.currentRound, 1)),
           closedAt: formatLogTimestamp(Date.now()),
           feePerFamily: fee,
           totalCollected: totalCollected,
           totalExpenses: totalExpenses,
           surplusCarriedOver: balance,
-          expenses: fund.expenses || [],
+          expenses: deepClone(fund.expenses || []),
           unpaidFamilies: unpaidNames
         };
 
         if (!fund.history) fund.history = [];
         fund.history.push(archiveItem);
-
-        fund.currentRound = (fund.currentRound || 1) + 1;
+        fund.currentRound = Math.max(1, wholeNumber(fund.currentRound, 1)) + 1;
         fund.carryOver = balance;
         fund.payments = {};
         fund.expenses = [];
@@ -1615,17 +1907,18 @@
           const div = document.createElement('div');
           div.className = 'family-card';
           div.style.marginBottom = '12px';
+          const unpaid = Array.isArray(h.unpaidFamilies) ? h.unpaidFamilies.map(escapeHtml).join('، ') : '';
           div.innerHTML = `
             <div style="display:flex; justify-content:space-between; margin-bottom:6px; border-bottom:1px dashed var(--border); padding-bottom:4px;">
-              <strong style="color:var(--primary);">تقرير جولة تحصيل رقم (${h.round})</strong>
-              <span style="font-size:0.75rem; color:var(--muted);">${h.closedAt}</span>
+              <strong style="color:var(--primary);">تقرير جولة تحصيل رقم (${escapeHtml(Math.max(1, wholeNumber(h.round, 1)))})</strong>
+              <span style="font-size:0.75rem; color:var(--muted);">${escapeHtml(h.closedAt)}</span>
             </div>
             <div style="font-size:0.88rem; line-height:1.7;">
-              <div>• اشتراك العائلة: <b>${h.feePerFamily} ₪</b></div>
-              <div>• إجمالي المحصل: <b>${h.totalCollected} ₪</b> | إجمالي المصروف: <b style="color:var(--danger);">${h.totalExpenses} ₪</b></div>
-              <div>• الرصيد المرحّل للجولة التالية: <b>${h.surplusCarriedOver} ₪</b></div>
-              ${h.unpaidFamilies && h.unpaidFamilies.length > 0 
-                ? `<div style="color:var(--danger); font-size:0.8rem; margin-top:4px;">• لم يسدد في هذه الجولة: ${h.unpaidFamilies.map(escapeHtml).join('، ')}</div>` 
+              <div>• اشتراك العائلة: <b>${escapeHtml(safeMoney(h.feePerFamily))} ₪</b></div>
+              <div>• إجمالي المحصل: <b>${escapeHtml(safeMoney(h.totalCollected))} ₪</b> | إجمالي المصروف: <b style="color:var(--danger);">${escapeHtml(safeMoney(h.totalExpenses))} ₪</b></div>
+              <div>• الرصيد المرحّل للجولة التالية: <b>${escapeHtml(safeMoney(h.surplusCarriedOver))} ₪</b></div>
+              ${unpaid
+                ? `<div style="color:var(--danger); font-size:0.8rem; margin-top:4px;">• لم يسدد في هذه الجولة: ${unpaid}</div>`
                 : `<div style="color:var(--success); font-size:0.8rem; margin-top:4px;">• سدد الجميع بنسبة 100% ✓</div>`}
             </div>
           `;
@@ -1638,25 +1931,21 @@
 
     function openWaterInfoModal() {
       const content = document.getElementById('waterInfoContent');
-      const totalW = state.settings.totalWater || 0;
-      const reserveW = state.settings.reserveLiters || 0;
+      const totalW = Math.max(0, wholeNumber(state.settings.totalWater));
+      const reserveW = Math.max(0, wholeNumber(state.settings.reserveLiters));
       const netW = Math.max(0, totalW - reserveW);
 
       content.innerHTML = `
-        <div style="margin-bottom:10px;">• <b>سعة الخزانات الإجمالية:</b> ${totalW} لتر</div>
-        <div style="margin-bottom:10px;">• <b>الكمية غير القابلة للسحب (تحت المحبس):</b> ${reserveW} لتر</div>
-        <div>• <b>صافي الماء المتاح للتوزيع الفعلي:</b> <b style="color:var(--primary); font-size:1.1rem;">${netW} لتر</b></div>
+        <div style="margin-bottom:10px;">• <b>سعة الخزانات الإجمالية:</b> ${escapeHtml(totalW)} لتر</div>
+        <div style="margin-bottom:10px;">• <b>الكمية غير القابلة للسحب (تحت المحبس):</b> ${escapeHtml(reserveW)} لتر</div>
+        <div>• <b>صافي الماء المتاح للتوزيع الفعلي:</b> <b style="color:var(--primary); font-size:1.1rem;">${escapeHtml(netW)} لتر</b></div>
       `;
       openModal('waterInfoModal');
     }
 
     function handleFamilySearch(query) {
       const clearBtn = document.getElementById('clearSearchBtn');
-      if (query && query.trim().length > 0) {
-        clearBtn.style.display = 'inline-flex';
-      } else {
-        clearBtn.style.display = 'none';
-      }
+      clearBtn.style.display = (query && query.trim().length > 0) ? 'inline-flex' : 'none';
 
       if (!query || !query.trim()) {
         selectedDispenseFamId = null;
@@ -1668,7 +1957,7 @@
       const qNorm = normalizeArabicDigits(qRaw);
 
       const match = state.families.find(f => {
-        const famName = f.name.toLowerCase();
+        const famName = String(f.name || '').toLowerCase();
         const tentStr = String(f.tent || '').toLowerCase();
         const tentNorm = normalizeArabicDigits(tentStr);
 
@@ -1681,9 +1970,9 @@
       });
 
       if (match) {
-        selectedDispenseFamId = match.id;
+        selectedDispenseFamId = safeId(match.id);
         const calc = computeAllotments();
-        updateLiveFamilyUI(match.id, calc.allotments);
+        updateLiveFamilyUI(selectedDispenseFamId, calc.allotments);
 
         setTimeout(() => {
           const amtInp = document.getElementById('dispenseAmountInput');
@@ -1703,16 +1992,16 @@
     }
 
     function updateLiveFamilyUI(famId, allotments) {
-      const fam = state.families.find(f => f.id === famId);
+      const fam = state.families.find(f => safeId(f.id) === safeId(famId));
       if (!fam) return;
 
-      const quota = allotments[fam.id] || 0;
-      const consumed = parseFloat(fam.consumed) || 0;
+      const quota = wholeNumber(allotments[fam.id]);
+      const consumed = Math.max(0, wholeNumber(fam.consumed));
       const diff = quota - consumed;
 
       document.getElementById('liveFamName').textContent = fam.name;
       document.getElementById('liveFamTent').textContent = fam.tent || '-';
-      document.getElementById('liveFamMembers').textContent = fam.members;
+      document.getElementById('liveFamMembers').textContent = wholeNumber(fam.members);
       document.getElementById('liveFamAllotment').textContent = quota + ' لتر';
       document.getElementById('liveFamConsumed').textContent = consumed + ' لتر';
 
@@ -1746,22 +2035,24 @@
         return;
       }
 
-      const fam = state.families.find(f => f.id === selectedDispenseFamId);
+      const fam = state.families.find(f => safeId(f.id) === safeId(selectedDispenseFamId));
+      if (!fam) return;
       const calc = computeAllotments();
-      const quota = calc.allotments[fam.id] || 0;
-      const consumed = parseFloat(fam.consumed) || 0;
+      const quota = wholeNumber(calc.allotments[fam.id]);
+      const consumed = Math.max(0, wholeNumber(fam.consumed));
       const remAfter = quota - (consumed + parsed.total);
 
       if (remAfter > 0) {
-        prevBox.innerHTML = `المجموع: <b>${parsed.total} لتر</b> | المتبقي بعد السحب: <b>${remAfter} لتر</b>`;
+        prevBox.textContent = `المجموع: ${parsed.total} لتر | المتبقي بعد السحب: ${remAfter} لتر`;
       } else if (remAfter === 0) {
-        prevBox.innerHTML = `المجموع: <b>${parsed.total} لتر</b> | المتبقي بعد السحب: <b>0 لتر (إنهاء الحصة)</b>`;
+        prevBox.textContent = `المجموع: ${parsed.total} لتر | المتبقي بعد السحب: 0 لتر (إنهاء الحصة)`;
       } else {
-        prevBox.innerHTML = `المجموع: <b>${parsed.total} لتر</b> | <span style="color:var(--danger);">تجاوز بعد السحب: <b>${Math.abs(remAfter)} لتر</b></span>`;
+        prevBox.textContent = `المجموع: ${parsed.total} لتر | تجاوز بعد السحب: ${Math.abs(remAfter)} لتر`;
       }
     }
 
     function submitDispense() {
+      if (!isAdmin) return;
       if (!selectedDispenseFamId) {
         alert('يرجى اختيار العائلة أولاً من خانة البحث');
         return;
@@ -1774,39 +2065,38 @@
         return;
       }
 
-      const fam = state.families.find(f => f.id === selectedDispenseFamId);
+      const fam = state.families.find(f => safeId(f.id) === safeId(selectedDispenseFamId));
       if (!fam) return;
 
       const calc = computeAllotments();
-      const quota = calc.allotments[fam.id] || 0;
-      const consumed = parseFloat(fam.consumed) || 0;
+      const quota = wholeNumber(calc.allotments[fam.id]);
+      const consumed = Math.max(0, wholeNumber(fam.consumed));
       const remAfter = quota - (consumed + parsed.total);
 
       if (remAfter < 0) {
         const over = Math.abs(remAfter);
-        if (!confirm(`⚠️ تنبيه: هذه العملية ستجعل العائلة تتجاوز حصتها المقررة بمقدار (${over} لتر).\n\nهل تريد تسجيل السحب رغم ذلك؟`)) {
-          return;
-        }
+        if (!confirm(`⚠️ تنبيه: هذه العملية ستجعل العائلة تتجاوز حصتها المقررة بمقدار (${over} لتر).\n\nهل تريد تسجيل السحب رغم ذلك؟`)) return;
       }
 
       const btn = document.getElementById('dispenseSubmitBtn');
       btn.disabled = true;
       btn.textContent = '⏳ جاري التسجيل...';
 
-      if (!fam.currentLogs) fam.currentLogs = [];
+      if (!Array.isArray(fam.currentLogs)) fam.currentLogs = [];
+      const now = Date.now();
       fam.currentLogs.push({
-        id: Date.now(),
+        id: now,
         amount: parsed.total,
         detail: parsed.detail,
-        timestamp: Date.now()
+        timestamp: now
       });
 
-      fam.consumed = (parseFloat(fam.consumed) || 0) + parsed.total;
+      fam.consumed = Math.max(0, wholeNumber(fam.consumed)) + parsed.total;
 
       pushState();
 
       inputEl.value = '';
-      updateLiveFamilyUI(selectedDispenseFamId, calc.allotments);
+      updateLiveFamilyUI(selectedDispenseFamId, computeAllotments().allotments);
 
       showToast(`تم تسجيل ${parsed.total} لتر لـ (${fam.name}) ✓`);
       document.getElementById('livePreviewBox').textContent = 'المجموع: 0 لتر';
@@ -1815,7 +2105,7 @@
         btn.disabled = false;
         btn.textContent = '➕ تسجيل السحب';
         inputEl.focus();
-      }, 1000);
+      }, 700);
     }
 
     function openLiveFamilyLog() {
@@ -1824,21 +2114,26 @@
 
     function openMemberLoginModal() {
       const select = document.getElementById('memberFamilySelect');
-      select.innerHTML = '<option value="">-- اختر عائلتك من القائمة --</option>';
+      select.innerHTML = '';
+      const first = document.createElement('option');
+      first.value = '';
+      first.textContent = '-- اختر عائلتك من القائمة --';
+      select.appendChild(first);
+
       state.families.forEach(f => {
         const opt = document.createElement('option');
-        opt.value = f.id;
+        opt.value = safeId(f.id);
         opt.textContent = `${f.name} (${f.tent || '-'})`;
         select.appendChild(opt);
       });
+
       document.getElementById('memberPinInput').value = '';
       openModal('memberLoginModal');
       setTimeout(() => document.getElementById('memberFamilySelect').focus(), 150);
     }
 
-    // التحقق والانتقال السلس إلى نافذة البطاقة دون تعارض مع زر الرجوع
-    function verifyMemberPin() {
-      const famId = parseInt(document.getElementById('memberFamilySelect').value);
+    async function verifyMemberPin() {
+      const famId = safeId(document.getElementById('memberFamilySelect').value);
       const rawPin = document.getElementById('memberPinInput').value;
       const pin = normalizeArabicDigits(rawPin).trim();
 
@@ -1846,16 +2141,20 @@
         alert('يرجى اختيار العائلة أولاً');
         return;
       }
-      const fam = state.families.find(f => f.id === famId);
+      const fam = state.families.find(f => safeId(f.id) === famId);
       if (!fam) return;
 
-      const expectedPin = normalizeArabicDigits((fam.pin !== undefined && fam.pin !== null && fam.pin !== '') ? fam.pin : (fam.tent || "1")).trim();
-      
-      if (pin === expectedPin) {
+      if (!pin) {
+        alert('يرجى إدخال رمز PIN');
+        return;
+      }
+
+      const expectedHash = fam.pinHash || await hashPin(fam.tent || '1');
+      const actualHash = await hashPin(pin);
+
+      if (actualHash === expectedHash) {
         loggedInMemberFamId = fam.id;
         activeMemberLogTab = 'current';
-        
-        // إغلاق نافذة الدخول مع الاحتفاظ بسجل التصفح للنافذة التالية
         closeModal('memberLoginModal', true);
         showMemberViewModal(fam.id);
       } else {
@@ -1864,28 +2163,28 @@
     }
 
     function showMemberViewModal(famId) {
-      const fam = state.families.find(f => f.id === famId);
+      const fam = state.families.find(f => safeId(f.id) === safeId(famId));
       if (!fam) return;
 
       const calc = computeAllotments();
-      const quota = calc.allotments[fam.id] || 0;
-      const consumed = parseFloat(fam.consumed) || 0;
+      const quota = wholeNumber(calc.allotments[fam.id]);
+      const consumed = Math.max(0, wholeNumber(fam.consumed));
       const diff = quota - consumed;
 
       document.getElementById('memberCardTitle').textContent = `بطاقة: ${fam.name} (${fam.tent || '-'})`;
-      
+
       let remDisplay = '';
       if (diff > 0) {
-        remDisplay = `<div><span>المتبقي:</span><strong style="color:var(--primary);">${diff} لتر</strong></div>`;
+        remDisplay = `<div><span>المتبقي:</span><strong style="color:var(--primary);">${escapeHtml(diff)} لتر</strong></div>`;
       } else if (diff === 0) {
         remDisplay = `<div><span>المتبقي:</span><strong style="color:var(--muted);">0 لتر (أنهى الحصة)</strong></div>`;
       } else {
-        remDisplay = `<div><span>تجاوز الحصة:</span><strong style="color:var(--danger);">${Math.abs(diff)} لتر</strong></div>`;
+        remDisplay = `<div><span>تجاوز الحصة:</span><strong style="color:var(--danger);">${escapeHtml(Math.abs(diff))} لتر</strong></div>`;
       }
 
       document.getElementById('memberMetricsBox').innerHTML = `
-        <div><span>الحصة المقررة:</span><strong>${quota} لتر</strong></div>
-        <div><span>المستهلك:</span><strong>${consumed} لتر</strong></div>
+        <div><span>الحصة المقررة:</span><strong>${escapeHtml(quota)} لتر</strong></div>
+        <div><span>المستهلك:</span><strong>${escapeHtml(consumed)} لتر</strong></div>
         ${remDisplay}
       `;
 
@@ -1902,29 +2201,27 @@
 
     function renderMemberLogs() {
       if (!loggedInMemberFamId) return;
-      const fam = state.families.find(f => f.id === loggedInMemberFamId);
+      const fam = state.families.find(f => safeId(f.id) === safeId(loggedInMemberFamId));
       if (!fam) return;
 
       const logsBox = document.getElementById('memberLogsContainer');
       logsBox.innerHTML = '';
 
-      const logs = (activeMemberLogTab === 'current')
-        ? (fam.currentLogs || [])
-        : ((fam.previousCycle && fam.previousCycle.logs) || []);
+      const logs = (activeMemberLogTab === 'current') ? (fam.currentLogs || []) : ((fam.previousCycle && fam.previousCycle.logs) || []);
 
       if (logs.length === 0) {
         logsBox.innerHTML = '<div style="text-align:center; padding:18px; color:var(--muted); font-size:0.95rem;">لا توجد سحوبات مسجلة في هذا السجل.</div>';
         return;
       }
 
-      logs.slice().sort((a, b) => b.timestamp - a.timestamp).forEach(l => {
+      logs.slice().sort((a, b) => wholeNumber(b.timestamp) - wholeNumber(a.timestamp)).forEach(l => {
         const item = document.createElement('div');
         item.className = 'log-item';
         item.innerHTML = `
           <div>
-            <strong>${l.amount} لتر</strong>
+            <strong>${escapeHtml(Math.max(0, wholeNumber(l.amount)))} لتر</strong>
             ${l.detail ? `<span style="font-size:0.8rem; color:var(--muted); margin-right:4px;">(${escapeHtml(l.detail)})</span>` : ''}
-            <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${formatLogTimestamp(l.timestamp)}</div>
+            <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${escapeHtml(formatLogTimestamp(l.timestamp))}</div>
           </div>
         `;
         logsBox.appendChild(item);
@@ -1943,48 +2240,62 @@
       setTimeout(() => document.getElementById('newMemberPinInput').focus(), 150);
     }
 
-    function saveNewMemberPin() {
+    async function saveNewMemberPin() {
       if (!loggedInMemberFamId) return;
       const rawPin = document.getElementById('newMemberPinInput').value;
       const p = normalizeArabicDigits(rawPin).trim();
-      if (!p) {
-        alert('يرجى كتابة رمز صحيح');
+      if (!/^\d{4,10}$/.test(p)) {
+        alert('يجب أن يتكون رمز PIN من 4 إلى 10 أرقام');
         return;
       }
-      const fam = state.families.find(f => f.id === loggedInMemberFamId);
+      const fam = state.families.find(f => safeId(f.id) === safeId(loggedInMemberFamId));
       if (fam) {
-        fam.pin = p;
+        fam.pinHash = await hashPin(p);
+        delete fam.pin;
         pushState();
         closeModal('memberChangePinModal');
         showToast('تم تغيير رمز PIN الخاص بك بنجاح ✓');
       }
     }
 
-    function resetMemberPinByAdmin(famId) {
+    async function resetMemberPinByAdmin(famId) {
       if (!isAdmin) return;
-      const fam = state.families.find(f => f.id === famId);
+      const fam = state.families.find(f => safeId(f.id) === safeId(famId));
       if (fam && confirm(`هل تريد إعادة ضبط رمز PIN لعائلة (${fam.name}) إلى رقم العائلة (${fam.tent})؟`)) {
-        fam.pin = String(fam.tent || "1");
+        fam.pinHash = await hashPin(String(fam.tent || '1'));
+        delete fam.pin;
         pushState();
-        showToast(`تم تعيين PIN بنجاح إلى: ${fam.pin}`);
+        showToast('تمت إعادة ضبط PIN بنجاح');
       }
     }
 
     function updateTentNumber(id, val) {
-      const fam = state.families.find(f => f.id === id);
-      if (fam) {
-        fam.tent = normalizeArabicDigits(val).trim();
-        pushState();
+      if (!isAdmin) return;
+      const fam = state.families.find(f => safeId(f.id) === safeId(id));
+      if (!fam) return;
+      const tent = normalizeArabicDigits(val).trim();
+      if (!/^\d+$/.test(tent)) {
+        alert('رقم العائلة يجب أن يتكون من أرقام فقط.');
+        render();
+        return;
       }
+      fam.tent = tent;
+      pushState();
     }
 
     function updateMembers(id, val) {
-      const fam = state.families.find(f => f.id === id);
-      if (fam) {
-        const norm = normalizeArabicDigits(val);
-        fam.members = Math.max(0, parseInt(norm) || 0);
-        pushState();
+      if (!isAdmin) return;
+      const fam = state.families.find(f => safeId(f.id) === safeId(id));
+      if (!fam) return;
+      const norm = normalizeArabicDigits(val).trim();
+      const members = parseUnsignedIntegerInput(norm);
+      if (members === null) {
+        alert('عدد الأفراد يجب أن يكون عددًا صحيحًا غير سالب.');
+        render();
+        return;
       }
+      fam.members = members;
+      pushState();
     }
 
     function openFamilyLog(famId) {
@@ -2002,36 +2313,35 @@
     }
 
     function renderLogsModal() {
-      const fam = state.families.find(f => f.id === activeLogFamilyId);
+      const fam = state.families.find(f => safeId(f.id) === safeId(activeLogFamilyId));
       if (!fam) return;
 
       document.getElementById('logModalFamilyName').textContent = 'سجل سحب: ' + fam.name;
       const listContent = document.getElementById('logListContent');
       listContent.innerHTML = '';
 
-      const logs = (activeLogTab === 'current') 
-        ? (fam.currentLogs || []) 
-        : ((fam.previousCycle && fam.previousCycle.logs) || []);
+      const logs = (activeLogTab === 'current') ? (fam.currentLogs || []) : ((fam.previousCycle && fam.previousCycle.logs) || []);
 
       if (logs.length === 0) {
         listContent.innerHTML = '<div style="text-align:center; padding:24px; color:var(--muted); font-size:0.95rem;">لا توجد عمليات مسجلة في هذا السجل</div>';
         return;
       }
 
-      logs.slice().sort((a, b) => b.timestamp - a.timestamp).forEach(function(l) {
+      logs.slice().sort((a, b) => wholeNumber(b.timestamp) - wholeNumber(a.timestamp)).forEach(function(l) {
+        const lid = safeId(l.id);
         const timeStr = formatLogTimestamp(l.timestamp);
         const item = document.createElement('div');
         item.className = 'log-item';
         item.innerHTML = `
           <div>
-            <strong>${l.amount} لتر</strong>
+            <strong>${escapeHtml(Math.max(0, wholeNumber(l.amount)))} لتر</strong>
             ${l.detail ? `<span style="font-size:0.8rem; color:var(--muted); margin-right:4px;">(${escapeHtml(l.detail)})</span>` : ''}
-            <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${timeStr}</div>
+            <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${escapeHtml(timeStr)}</div>
           </div>
           ${(isAdmin && activeLogTab === 'current') ? `
             <div class="log-tools">
-              <button class="btn-log-action btn-log-edit" onclick="editLogEntry(${l.id})">✏ تعديل</button>
-              <button class="btn-log-action btn-log-del" onclick="deleteLogEntry(${l.id})">✕ تراجع</button>
+              <button class="btn-log-action btn-log-edit" onclick="editLogEntry(${lid})">✏ تعديل</button>
+              <button class="btn-log-action btn-log-del" onclick="deleteLogEntry(${lid})">✕ تراجع</button>
             </div>
           ` : ''}
         `;
@@ -2040,13 +2350,14 @@
     }
 
     function editLogEntry(logId) {
-      const fam = state.families.find(f => f.id === activeLogFamilyId);
+      if (!isAdmin) return;
+      const fam = state.families.find(f => safeId(f.id) === safeId(activeLogFamilyId));
       if (!fam || !fam.currentLogs) return;
 
-      const log = fam.currentLogs.find(l => l.id === logId);
+      const log = fam.currentLogs.find(l => safeId(l.id) === safeId(logId));
       if (!log) return;
 
-      const currentVal = log.detail || log.amount;
+      const currentVal = log.detail || String(Math.max(0, wholeNumber(log.amount)));
       const newVal = prompt(`تعديل سحب (${fam.name}):\nاكتب الأوعية الجديدة:`, currentVal);
       if (newVal === null) return;
 
@@ -2056,10 +2367,10 @@
         return;
       }
 
-      const diff = parsed.total - log.amount;
+      const diff = parsed.total - Math.max(0, wholeNumber(log.amount));
       log.amount = parsed.total;
       log.detail = parsed.detail;
-      fam.consumed = Math.max(0, (parseFloat(fam.consumed) || 0) + diff);
+      fam.consumed = Math.max(0, wholeNumber(fam.consumed) + diff);
 
       pushState();
       renderLogsModal();
@@ -2067,33 +2378,41 @@
     }
 
     function deleteLogEntry(logId) {
-      const fam = state.families.find(f => f.id === activeLogFamilyId);
+      if (!isAdmin) return;
+      const fam = state.families.find(f => safeId(f.id) === safeId(activeLogFamilyId));
       if (!fam || !fam.currentLogs) return;
 
-      const logIndex = fam.currentLogs.findIndex(l => l.id === logId);
+      const logIndex = fam.currentLogs.findIndex(l => safeId(l.id) === safeId(logId));
       if (logIndex === -1) return;
 
       if (confirm('هل تريد حذف هذه العملية والتراجع عن خصمها؟')) {
         const removed = fam.currentLogs.splice(logIndex, 1)[0];
-        fam.consumed = Math.max(0, (parseFloat(fam.consumed) || 0) - removed.amount);
+        fam.consumed = Math.max(0, wholeNumber(fam.consumed) - Math.max(0, wholeNumber(removed.amount)));
         pushState();
         renderLogsModal();
         showToast('تم حذف العملية والتراجع عن خصمها');
       }
     }
 
-    function addNewFamily() {
+    async function addNewFamily() {
+      if (!isAdmin) return;
       const name = prompt('أدخل اسم العائلة الجديدة:');
       if (!name || !name.trim()) return;
 
-      const tentInput = prompt('أدخل رقم العائلة:', String(state.families.length + 1)) || String(state.families.length + 1);
-      const tent = normalizeArabicDigits(tentInput).trim();
+      const defaultTent = String(state.families.length + 1);
+      const tentInput = prompt('أدخل رقم العائلة:', defaultTent);
+      const tent = normalizeArabicDigits((tentInput || defaultTent)).trim();
+      if (!/^\d+$/.test(tent)) {
+        alert('رقم العائلة يجب أن يتكون من أرقام فقط.');
+        return;
+      }
 
+      const id = Date.now();
       state.families.push({
-        id: Date.now(),
+        id: id,
         name: name.trim(),
         tent: tent,
-        pin: tent,
+        pinHash: await hashPin(tent),
         members: 0,
         consumed: 0,
         currentLogs: []
@@ -2104,9 +2423,12 @@
     }
 
     function deleteFamily(id) {
-      const fam = state.families.find(f => f.id === id);
+      if (!isAdmin) return;
+      const fam = state.families.find(f => safeId(f.id) === safeId(id));
       if (fam && confirm(`هل تريد بالتأكيد حذف (${fam.name}) نهائياً؟`)) {
-        state.families = state.families.filter(f => f.id !== id);
+        state.families = state.families.filter(f => safeId(f.id) !== safeId(id));
+        if (state.pumpFund.payments) delete state.pumpFund.payments[id];
+        if (selectedDispenseFamId === id) selectedDispenseFamId = null;
         pushState();
         showToast(`تم حذف (${fam.name})`);
       }
@@ -2121,17 +2443,17 @@
         let totalConsumed = 0;
         let totalPop = 0;
         const archivedFamilies = state.families.map(function(f) {
-          const m = parseInt(f.members) || 0;
-          const c = parseFloat(f.consumed) || 0;
+          const m = Math.max(0, wholeNumber(f.members));
+          const c = Math.max(0, wholeNumber(f.consumed));
           totalPop += m;
           totalConsumed += c;
-          return { id: f.id, name: f.name, tent: f.tent, members: m, consumed: c, logs: f.currentLogs || [] };
+          return { id: safeId(f.id), name: String(f.name), tent: String(f.tent), members: m, consumed: c, logs: deepClone(f.currentLogs || []) };
         });
 
         const archivePayload = {
           cycleTimestamp: now,
           closedAtStr: todayStr,
-          settings: JSON.parse(JSON.stringify(state.settings)),
+          settings: deepClone(state.settings),
           summary: {
             totalPop: totalPop,
             totalConsumed: totalConsumed,
@@ -2143,17 +2465,24 @@
         };
 
         if (db && navigator.onLine && isFirebaseConnected) {
-          db.ref('camp_history').push(archivePayload);
+          db.ref('camp_history').push(archivePayload).catch(err => {
+            console.error('History write failed:', err);
+            try {
+              const pendingHistory = JSON.parse(localStorage.getItem(PENDING_HISTORY_KEY) || '[]');
+              pendingHistory.push(archivePayload);
+              localStorage.setItem(PENDING_HISTORY_KEY, JSON.stringify(pendingHistory));
+            } catch(e) {}
+          });
         } else {
           try {
-            const pendingHistory = JSON.parse(localStorage.getItem('camp_pending_history_v1') || '[]');
+            const pendingHistory = JSON.parse(localStorage.getItem(PENDING_HISTORY_KEY) || '[]');
             pendingHistory.push(archivePayload);
-            localStorage.setItem('camp_pending_history_v1', JSON.stringify(pendingHistory));
+            localStorage.setItem(PENDING_HISTORY_KEY, JSON.stringify(pendingHistory));
           } catch(e) {}
         }
 
         state.families.forEach(function(f) {
-          f.previousCycle = { totalConsumed: f.consumed || 0, closedAt: todayStr, logs: f.currentLogs || [] };
+          f.previousCycle = { totalConsumed: Math.max(0, wholeNumber(f.consumed)), closedAt: todayStr, logs: deepClone(f.currentLogs || []) };
           f.consumed = 0;
           f.currentLogs = [];
         });
@@ -2177,13 +2506,19 @@
       }
     }
 
-    function verifyAdminPin() {
+    async function verifyAdminPin() {
       const rawPin = document.getElementById('adminPinInput').value;
       const pin = normalizeArabicDigits(rawPin).trim();
-      const currentPin = normalizeArabicDigits(state.pin || MASTER_PIN).trim();
-      const master = MASTER_PIN.trim();
+      if (!pin) {
+        alert('يرجى إدخال رمز PIN');
+        return;
+      }
 
-      if (pin === currentPin || pin === master) {
+      const actualHash = await hashPin(pin);
+      const currentHash = state.adminPinHash || await hashPin(MASTER_PIN);
+      const masterHash = await hashPin(MASTER_PIN);
+
+      if (actualHash === currentHash || actualHash === masterHash) {
         isAdmin = true;
         sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
         closeModal('loginModal');
@@ -2195,17 +2530,18 @@
       }
     }
 
-    function recoverAdminPin() {
+    async function recoverAdminPin() {
       const entered = prompt('أدخل رمز الطوارئ الرئيسي (Master PIN) لاستعادة الدخول:');
       if (entered !== null && normalizeArabicDigits(entered).trim() === MASTER_PIN) {
-        state.pin = MASTER_PIN;
+        state.adminPinHash = await hashPin(MASTER_PIN);
+        delete state.pin;
         isAdmin = true;
         sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
         pushState();
         closeModal('loginModal');
         updateAdminUI();
         render();
-        alert(`تم استعادة الدخول وإعادة تعيين رمز PIN الافتراضي بنجاح: ${MASTER_PIN}`);
+        alert('تم استعادة الدخول وإعادة تعيين رمز المسؤول بنجاح.');
       } else if (entered !== null) {
         alert('رمز الطوارئ الرئيسي غير صحيح');
       }
@@ -2218,46 +2554,60 @@
       setTimeout(() => document.getElementById('newPinInput').focus(), 150);
     }
 
-    function saveNewPin() {
+    async function saveNewPin() {
       if (!isAdmin) {
         alert('غير مصرح لك بإجراء هذا التعديل');
         return;
       }
       const rawP = document.getElementById('newPinInput').value;
       const p = normalizeArabicDigits(rawP).trim();
-      if (!p || p.length < 4) {
-        alert('يجب أن يتكون الرمز من 4 أرقام على الأقل');
+      if (!/^\d{4,10}$/.test(p)) {
+        alert('يجب أن يتكون الرمز من 4 إلى 10 أرقام');
         return;
       }
-      state.pin = p;
+      state.adminPinHash = await hashPin(p);
+      delete state.pin;
       pushState();
       closeModal('changePinModal');
       showToast('تم تحديث رمز المسؤول بنجاح ✓');
     }
 
     function openSettingsModal() {
-      document.getElementById('settingTotalWater').value = state.settings.totalWater;
-      document.getElementById('settingReserve').value = state.settings.reserveLiters;
+      document.getElementById('settingTotalWater').value = wholeNumber(state.settings.totalWater);
+      document.getElementById('settingReserve').value = wholeNumber(state.settings.reserveLiters);
       document.getElementById('settingDistMode').value = state.settings.distMode;
       document.getElementById('settingRounding').value = state.settings.roundingMode;
       openModal('settingsModal');
     }
 
     function saveSettings() {
-      const tw = normalizeArabicDigits(document.getElementById('settingTotalWater').value);
-      const res = normalizeArabicDigits(document.getElementById('settingReserve').value);
+      if (!isAdmin) return;
+      const tw = parseUnsignedIntegerInput(document.getElementById('settingTotalWater').value);
+      const res = parseUnsignedIntegerInput(document.getElementById('settingReserve').value);
 
-      state.settings.totalWater = parseFloat(tw) || 0;
-      state.settings.reserveLiters = parseFloat(res) || 0;
+      if (tw === null || res === null) {
+        alert('يرجى إدخال أرقام صحيحة غير سالبة للمياه.');
+        return;
+      }
+      if (res > tw) {
+        alert('الكمية غير القابلة للسحب لا يمكن أن تكون أكبر من إجمالي المياه.');
+        return;
+      }
+
+      state.settings.totalWater = tw;
+      state.settings.reserveLiters = res;
       state.settings.distMode = document.getElementById('settingDistMode').value;
       state.settings.roundingMode = document.getElementById('settingRounding').value;
+      state.settings.alpha = 0.58;
       pushState();
       closeModal('settingsModal');
       showToast('تم حفظ الإعدادات وتحديث الحصص ✓');
     }
 
-    window.onload = function() {
+    window.onload = async function() {
       loadLocal();
+      await migrateState();
+      normalizeStateShape();
 
       if (!navigator.onLine) {
         setSyncUI('offline', '🔴 وضع عدم الاتصال (أوفلاين)');
@@ -2276,4 +2626,4 @@
     };
   </script>
 </body>
-</html>
+  </html>
