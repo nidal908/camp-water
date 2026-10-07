@@ -673,7 +673,7 @@
       </div>
 
       <div class="search-wrapper">
-        <input type="text" id="dispenseSearchInput" class="dispense-input" placeholder="🔍 ابحث بالاسم أو بالرقم..." list="familiesDatalist" oninput="handleFamilySearch(this.value)">
+        <input type="text" id="dispenseSearchInput" class="dispense-input" placeholder="🔍 ابحث بالاسم أو بالرقم..." list="familiesDatalist" oninput="handleFamilySearch(this.value)" onkeydown="handleSearchKeyDown(event)">
         <button id="clearSearchBtn" class="clear-search-btn" type="button" aria-label="مسح خانة البحث" onclick="clearDispenseSearch()">✕</button>
       </div>
       <datalist id="familiesDatalist"></datalist>
@@ -775,7 +775,7 @@
 
       <div class="guide-card">
         <h4>🔀 كروت الحصص (لماذا لا تظهر الأسماء؟)</h4>
-        <p>لخصوصية العائلات، لا تظهر الأسماء في الصفحة بل تُعرض كـ (حصة #1، حصة #2). ترتيب هذه الكروت يتغير تلقائياً عند كل فتح للصفحة دون أن تتغير قيمة حصتك المسجلة. الهدف هو إتاحة الشفافية الكاملة للجميع لمتابعة عدالة توزيع مياه الخزان. يتم توزيع الحصص بين العائلات بحسب النظام المعتمد في المخيم.</p>
+        <p>لخصوصية العائلات، لا تظهر الأسماء في الصفحة بل تُعرض كـ (حصة #2، حصة #3...) باستثناء عائلة المسؤول (حصة #1) المعروضة باسمها وسجلها للشفافية. ترتيب الكروت يتغير تلقائياً عند كل فتح للصفحة دون أن تتغير قيمة حصتك المسجلة. الهدف هو إتاحة الشفافية الكاملة للجميع لمتابعة عدالة توزيع مياه الخزان. يتم توزيع الحصص بين العائلات بحسب النظام المعتمد في المخيم.</p>
       </div>
 
       <div class="guide-card">
@@ -2064,14 +2064,19 @@
         selectedDispenseFamId = safeId(match.id);
         const calc = computeAllotments();
         updateLiveFamilyUI(selectedDispenseFamId, calc.allotments);
-
-        setTimeout(() => {
-          const amtInp = document.getElementById('dispenseAmountInput');
-          if (amtInp) amtInp.focus();
-        }, 120);
       } else {
         selectedDispenseFamId = null;
         document.getElementById('liveFamilyCard').style.display = 'none';
+      }
+    }
+
+    function handleSearchKeyDown(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (selectedDispenseFamId) {
+          const amtInp = document.getElementById('dispenseAmountInput');
+          if (amtInp) amtInp.focus();
+        }
       }
     }
 
@@ -2461,7 +2466,7 @@
       const diff = parsed.total - Math.max(0, wholeNumber(log.amount));
       log.amount = parsed.total;
       log.detail = parsed.detail;
-      fam.consumed = Math.max(0, wholeNumber(fam.consumed) + diff);
+      fam.consumed = Math.max(0, wholeNumber(fam.consumed)) + diff;
 
       pushState();
       renderLogsModal();
