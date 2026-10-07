@@ -765,7 +765,7 @@
   <!-- شريط التنبيهات Toast -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <!-- نافذة دليل الاستخدام (المعدلة والمصقولة) -->
+  <!-- نافذة دليل الاستخدام -->
   <div id="helpModal" class="modal-overlay">
     <div class="modal-box">
       <div class="modal-title">
@@ -781,7 +781,7 @@
       <div class="guide-card">
         <h4>🔍 كيف أعرف رقم عائلتي وأستعلم عن حصتي؟</h4>
         <p>اضغط زر <b>«حصتي»</b> في أعلى الصفحة، واختر اسم عائلتك من القائمة المنسدلة:<br>
-        • <b>مثال:</b> إذا ظهر اسمك بالصيغة: <b>«أبو محمد (15)»</b>، فهذا يعني أن رقم عائلتك هو <b>15</b>، وهو نفسه رمز PIN الافتراضي لدخولك أول مرة.<br>
+        • <b>مثال:</b> إذا ظهر اسمك بالصيغة: <b>«أبو سائد (4)»</b>، فهذا يعني أن رقم عائلتك هو <b>4</b>، وهو نفسه رمز PIN الافتراضي لدخولك أول مرة.<br>
         <i>(تنبيه: ننصحك بتغيير رمزك السري من داخل بطاقتك بعد أول دخول لضمان عدم اطلاع أحد على سجلاتك).</i></p>
       </div>
 
@@ -1704,7 +1704,39 @@
           famContainer.appendChild(card);
         });
       } else {
-        const shuffled = shuffleArray(state.families);
+        // عائلة 1 (المسؤول) ثابتة دائماً في البداية مع إظهار الاسم والسجل
+        const fam1Index = state.families.findIndex(f => String(f.tent || '').trim() === '1');
+        const family1 = fam1Index !== -1 ? state.families[fam1Index] : (state.families.length > 0 ? state.families[0] : null);
+
+        if (family1) {
+          const fid1 = safeId(family1.id);
+          const quota1 = wholeNumber(allotments[family1.id]);
+          const consumed1 = Math.max(0, wholeNumber(family1.consumed));
+          const status1 = makeStatus(quota1 - consumed1);
+          const safeName1 = escapeHtml(family1.name);
+
+          const card1 = document.createElement('div');
+          card1.className = 'family-card';
+          card1.innerHTML = `
+            <div class="family-header" style="margin-bottom:6px; border-bottom:1px dashed var(--border); padding-bottom:6px;">
+              <strong style="color:var(--primary); font-size:0.95rem;">حصة #1: ${safeName1}</strong>
+            </div>
+            <div class="family-metrics" style="margin-bottom: 8px;">
+              <div><span>الحصة المقررة:</span><strong>${escapeHtml(quota1)} لتر</strong></div>
+              <div><span>المستهلك:</span><strong>${escapeHtml(consumed1)} لتر</strong></div>
+              ${status1.rem}
+            </div>
+            <div class="family-actions">
+              <button class="btn-log" onclick="openFamilyLog(${fid1})">📋 السجل التفصيلي</button>
+              ${status1.badge}
+            </div>
+          `;
+          famContainer.appendChild(card1);
+        }
+
+        // باقي الحصص تُخلط عشوائياً وتُرقم من حصة #2 فصاعداً لحفظ خصوصيتها
+        const otherFamilies = family1 ? state.families.filter(f => f !== family1) : state.families.slice();
+        const shuffled = shuffleArray(otherFamilies);
         shuffled.forEach(function(f, index) {
           const quota = wholeNumber(allotments[f.id]);
           const consumed = Math.max(0, wholeNumber(f.consumed));
@@ -1714,7 +1746,7 @@
           card.className = 'family-card';
           card.innerHTML = `
             <div class="family-header" style="margin-bottom:6px; border-bottom:1px dashed var(--border); padding-bottom:6px;">
-              <strong style="color:var(--primary); font-size:0.95rem;">حصة #${escapeHtml(index + 1)}</strong>
+              <strong style="color:var(--primary); font-size:0.95rem;">حصة #${escapeHtml(index + 2)}</strong>
             </div>
             <div class="family-metrics" style="margin-bottom: 8px;">
               <div><span>الحصة المقررة:</span><strong>${escapeHtml(quota)} لتر</strong></div>
@@ -2102,11 +2134,11 @@
       const remAfter = quota - (consumed + parsed.total);
 
       if (remAfter > 0) {
-        prevBox.textContent = `المجموع: ${parsed.total} لتر | المتبقي بعد السحب: ${remAfter} لتر`;
+        prevBox.innerHTML = `المجموع: <b>${parsed.total} لتر</b> | المتبقي بعد السحب: <b>${remAfter} لتر</b>`;
       } else if (remAfter === 0) {
-        prevBox.textContent = `المجموع: ${parsed.total} لتر | المتبقي بعد السحب: 0 لتر (إنهاء الحصة)`;
+        prevBox.innerHTML = `المجموع: <b>${parsed.total} لتر</b> | المتبقي بعد السحب: <b>0 لتر (إنهاء الحصة)</b>`;
       } else {
-        prevBox.textContent = `المجموع: ${parsed.total} لتر | تجاوز بعد السحب: ${Math.abs(remAfter)} لتر`;
+        prevBox.innerHTML = `المجموع: <b>${parsed.total} لتر</b> | <span style="color:var(--danger);">تجاوز بعد السحب: <b>${Math.abs(remAfter)} لتر</b></span>`;
       }
     }
 
