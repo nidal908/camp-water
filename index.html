@@ -291,7 +291,7 @@
     .live-family-header strong { 
       font-size: 1.15rem; 
       color: #0f172a; 
-      font-weight: 800;
+      font-weight: 800; 
     }
     .live-stats { 
       display: flex; 
@@ -779,9 +779,9 @@
       </div>
 
       <div class="guide-card">
-        <h4>🔍 كيف أعرف رقم عائلتي وأستعلم عن حصتي؟</h4>
-        <p>اضغط زر <b>«حصتي»</b> في أعلى الصفحة، واختر اسم عائلتك من القائمة المنسدلة:<br>
-        • <b>مثال:</b> إذا ظهر اسمك بالصيغة: <b>«أبو سائد (4)»</b>، فهذا يعني أن رقم عائلتك هو <b>4</b>، وهو نفسه رمز PIN الافتراضي لدخولك أول مرة.<br>
+        <h4>🔍 كيف أستعلم عن حصتي وسجلاتي؟</h4>
+        <p>اضغط زر <b>«حصتي»</b> في أعلى الصفحة، واختر اسم عائلتك من القائمة المنسدلة، ثم أدخل رمز PIN الخاص بك.<br>
+        • <b>الرمز الافتراضي</b> لجميع العائلات عند أول دخول هو <b>1234</b>.<br>
         <i>(تنبيه: ننصحك بتغيير رمزك السري من داخل بطاقتك بعد أول دخول لضمان عدم اطلاع أحد على سجلاتك).</i></p>
       </div>
 
@@ -841,7 +841,7 @@
         <select id="memberFamilySelect" class="form-control"></select>
       </div>
       <div class="form-group">
-        <label>رمز PIN الخاص بك (الافتراضي هو رقمك):</label>
+        <label>رمز PIN الخاص بك (الافتراضي: 1234):</label>
         <input type="password" id="memberPinInput" class="form-control" inputmode="numeric" autocomplete="off" placeholder="اكتب رمز PIN" onkeydown="if(event.key==='Enter') verifyMemberPin()">
       </div>
       <button class="btn-block btn-primary" onclick="verifyMemberPin()">عرض بياناتي</button>
@@ -943,6 +943,7 @@
 
   <script>
     const MASTER_PIN = "399411"; // مفتاح طوارئ داخلي
+    const DEFAULT_MEMBER_PIN = "1234"; // رمز PIN الافتراضي الموحد للعائلات
 
     const firebaseConfig = {
       databaseURL: "https://camp-water-default-rtdb.europe-west1.firebasedatabase.app"
@@ -1197,15 +1198,30 @@
         changed = true;
       }
 
+      const defaultHash = await hashPin(DEFAULT_MEMBER_PIN);
+
       for (let i = 0; i < state.families.length; i++) {
         const f = state.families[i];
         if (f.pin !== undefined) {
-          f.pinHash = await hashPin(f.pin);
+          const rawPin = String(f.pin).trim();
+          const tentStr = String(f.tent || '').trim();
+          if (rawPin === tentStr || rawPin === '1' || rawPin === DEFAULT_MEMBER_PIN) {
+            f.pinHash = defaultHash;
+          } else {
+            f.pinHash = await hashPin(rawPin);
+          }
           delete f.pin;
           changed = true;
         } else if (!f.pinHash) {
-          f.pinHash = await hashPin(f.tent || '1');
+          f.pinHash = defaultHash;
           changed = true;
+        } else {
+          // ترقية ذكية: إذا كان الهاش الحالي يطابق هاش رقم الخيمة القديم (لم يتم تخصيصه من العائلة) يُحدّث إلى 1234
+          const oldTentHash = await hashPin(f.tent || '1');
+          if (f.pinHash === oldTentHash && oldTentHash !== defaultHash) {
+            f.pinHash = defaultHash;
+            changed = true;
+          }
         }
       }
 
@@ -1687,7 +1703,7 @@
                 <input type="text" class="mini-input" inputmode="numeric" value="${safeTent}" title="رقم العائلة" onchange="updateTentNumber(${fid}, this.value)">
                 <input type="text" class="mini-input" inputmode="numeric" value="${safeMembers}" title="عدد الأفراد" onchange="updateMembers(${fid}, this.value)">
                 <span style="font-size:0.8rem; color:var(--muted); font-weight:700;">فرد</span>
-                <button onclick="resetMemberPinByAdmin(${fid})" class="btn-log-action" style="background:#fef3c7; color:#92400e;" title="إعادة ضبط PIN إلى رقم العائلة">🔄 PIN</button>
+                <button onclick="resetMemberPinByAdmin(${fid})" class="btn-log-action" style="background:#fef3c7; color:#92400e;" title="إعادة ضبط PIN إلى 1234">🔄 PIN</button>
                 <button onclick="deleteFamily(${fid})" class="btn-log-action btn-log-del" title="حذف العائلة">🗑️</button>
               </div>
             </div>
@@ -2057,7 +2073,7 @@
                tentStr === qRaw ||
                tentNorm === qNorm ||
                `${famName} (${tentStr})`.includes(qRaw) ||
-               `${famName} (${tentNorm})`.includes(qNorm);
+               `${famName} (${tentNorm})`.includes(qRaw);
       });
 
       if (match) {
@@ -2245,7 +2261,7 @@
         return;
       }
 
-      const expectedHash = fam.pinHash || await hashPin(fam.tent || '1');
+      const expectedHash = fam.pinHash || await hashPin(DEFAULT_MEMBER_PIN);
       const actualHash = await hashPin(pin);
 
       if (actualHash === expectedHash) {
@@ -2357,11 +2373,11 @@
     async function resetMemberPinByAdmin(famId) {
       if (!isAdmin) return;
       const fam = state.families.find(f => safeId(f.id) === safeId(famId));
-      if (fam && confirm(`هل تريد إعادة ضبط رمز PIN لعائلة (${fam.name}) إلى رقم العائلة (${fam.tent})؟`)) {
-        fam.pinHash = await hashPin(String(fam.tent || '1'));
+      if (fam && confirm(`هل تريد إعادة ضبط رمز PIN لعائلة (${fam.name}) إلى الرمز الافتراضي (${DEFAULT_MEMBER_PIN})؟`)) {
+        fam.pinHash = await hashPin(DEFAULT_MEMBER_PIN);
         delete fam.pin;
         pushState();
-        showToast('تمت إعادة ضبط PIN بنجاح');
+        showToast(`تمت إعادة ضبط PIN إلى ${DEFAULT_MEMBER_PIN}`);
       }
     }
 
@@ -2508,7 +2524,7 @@
         id: id,
         name: name.trim(),
         tent: tent,
-        pinHash: await hashPin(tent),
+        pinHash: await hashPin(DEFAULT_MEMBER_PIN),
         members: 0,
         consumed: 0,
         currentLogs: []
