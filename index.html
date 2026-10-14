@@ -93,23 +93,28 @@
     .sync-syncing { background: #e0f2fe; color: #0369a1; }
     .sync-pending { background: #fef3c7; color: #92400e; }
 
+    /* الشريط العلوي المرن لدعم الخطوط المكبرة */
     .header { 
       background: var(--primary); 
       color: #fff; 
-      padding: 12px 14px; 
+      padding: 10px 12px; 
       display: flex; 
       justify-content: space-between; 
       align-items: center; 
+      flex-wrap: wrap;
+      gap: 8px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.12); 
     }
     .header h1 { 
-      font-size: 1.1rem; 
+      font-size: 1.08rem; 
       font-weight: 800; 
       white-space: nowrap;
     }
     .header-actions { 
       display: flex; 
       gap: 6px; 
+      flex-wrap: wrap;
+      margin-right: auto;
     }
     .btn-header { 
       background: rgba(255,255,255,0.22); 
@@ -347,7 +352,8 @@
       color: #0369a1; 
       text-align: center; 
       margin-bottom: 10px; 
-      min-height: 22px; 
+      min-height: 24px; 
+      line-height: 1.5;
     }
     .btn-dispense-submit { 
       width: 100%; 
@@ -370,11 +376,18 @@
       margin-bottom: 10px; 
       box-shadow: 0 1px 3px rgba(0,0,0,0.04); 
     }
+    /* تمييز بصري هادئ لبطاقة عائلة المسؤول رقم 1 في العرض العام */
+    .family-card-admin-public {
+      border: 2px solid #7dd3fc;
+      background: #f0f9ff;
+    }
     .family-header { 
       display: flex; 
       justify-content: space-between; 
       align-items: center; 
       margin-bottom: 8px; 
+      gap: 8px;
+      flex-wrap: wrap;
     }
     .family-name { 
       font-size: 1.1rem; 
@@ -398,6 +411,7 @@
       border: 1px solid var(--border); 
       border-radius: 8px; 
       padding: 4px; 
+      background: #fff;
     }
 
     .family-metrics { 
@@ -450,7 +464,7 @@
     .badge-warn { background: #fee2e2; color: #b91c1c; }
     .badge-neutral { background: #f1f5f9; color: #475569; }
 
-    /* عناصر صندوق الكهرباء */
+    /* عناصر صندوق الكهرباء مع تمييز جانبي سريع النظر */
     .pump-list-item { 
       background: #fff; 
       border: 1px solid var(--border); 
@@ -460,6 +474,13 @@
       display: flex; 
       justify-content: space-between; 
       align-items: center; 
+      gap: 8px;
+    }
+    .pump-item-paid {
+      border-right: 5px solid var(--success);
+    }
+    .pump-item-unpaid {
+      border-right: 5px solid var(--danger);
     }
     .pump-badge-paid { background: #dcfce7; color: #166534; padding: 6px 10px; border-radius: 8px; font-size: 0.82rem; font-weight: 800; }
     .pump-badge-unpaid { background: #fee2e2; color: #991b1b; padding: 6px 10px; border-radius: 8px; font-size: 0.82rem; font-weight: 800; }
@@ -470,6 +491,7 @@
       font-size: 0.82rem; 
       font-weight: 800; 
       min-height: 44px;
+      background: #f8fafc;
     }
 
     /* زر التلميح */
@@ -490,7 +512,7 @@
       margin-right: 4px; 
     }
 
-    /* النوافذ المنبثقة بنظام Bottom Sheet في الموبايل */
+    /* النوافذ المنبثقة بنظام Bottom Sheet مع تثبيت الرأس Sticky Header */
     .modal-overlay { 
       position: fixed; 
       inset: 0; 
@@ -507,7 +529,7 @@
       width: 100%; 
       max-width: 440px; 
       border-radius: 18px; 
-      padding: 18px; 
+      padding: 0 18px 18px 18px; 
       max-height: 85vh; 
       overflow-y: auto; 
       box-shadow: 0 10px 25px rgba(0,0,0,0.25); 
@@ -521,20 +543,24 @@
       .modal-box {
         max-width: none !important;
         border-radius: 20px 20px 0 0;
-        padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
+        padding: 0 16px calc(20px + env(safe-area-inset-bottom)) 16px;
         max-height: 88vh;
       }
     }
 
     .modal-title { 
+      position: sticky;
+      top: 0;
+      background: #fff;
+      z-index: 10;
       font-size: 1.1rem; 
       font-weight: 800; 
       margin-bottom: 14px; 
+      padding: 16px 0 10px 0;
       display: flex; 
       justify-content: space-between; 
       align-items: center; 
       border-bottom: 1px solid var(--border); 
-      padding-bottom: 8px; 
     }
     .btn-close { 
       background: #f1f5f9; 
@@ -570,6 +596,7 @@
     .btn-log-action { border: none; border-radius: 8px; padding: 6px 10px; font-size: 0.8rem; font-weight: 800; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
     .btn-log-edit { background: #e0f2fe; color: #0369a1; }
     .btn-log-del { background: #fee2e2; color: #b91c1c; }
+    .btn-family-del { margin-right: 6px; border: 1px solid #fecaca; }
 
     .btn-block { width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: 800; margin-top: 8px; min-height: 48px; font-size: 1rem; }
     .btn-primary { background: var(--primary); color: #fff; }
@@ -707,6 +734,11 @@
       <button class="btn-block btn-outline" onclick="addNewFamily()" style="margin-bottom: 8px;">➕ إضافة عائلة جديدة</button>
       <button class="btn-block btn-outline" onclick="openSettingsModal()" style="margin-bottom: 8px;">⚙ إعدادات التوزيع والخزان</button>
       <button class="btn-block btn-outline" onclick="openChangePinModal()" style="margin-bottom: 8px;">🔑 تغيير رمز PIN المسؤول</button>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+        <button class="btn-block btn-outline" onclick="exportBackupJSON()" style="margin-top:0;">📥 تنزيل نسخة احتياطية</button>
+        <button class="btn-block btn-outline" onclick="triggerImportBackup()" style="margin-top:0;">📤 استعادة نسخة</button>
+      </div>
+      <input type="file" id="backupFileInput" accept=".json" style="display:none;" onchange="handleImportBackupFile(event)">
       <button class="btn-block btn-danger" onclick="resetAllConsumption()">🔄 تصفير الاستهلاك للدورة الجديدة</button>
     </div>
   </div>
@@ -745,11 +777,12 @@
 
     <div id="adminPumpControls" style="display: none; margin-bottom: 14px;">
       <button class="btn-block btn-primary" onclick="openAddExpenseModal()" style="margin-bottom: 8px;">➕ تسجيل مصروف كهرباء جديد</button>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
         <button class="btn-block btn-outline" onclick="changePumpFee()" style="margin-top:0;">⚙ تعديل الاشتراك</button>
         <button class="btn-block btn-outline" onclick="changeCarryOver()" style="margin-top:0;">💰 ضبط المرحّل</button>
       </div>
-      <button class="btn-block btn-danger" onclick="closeAndArchivePumpRound()" style="margin-top: 8px;">🔄 إغلاق وبدء جولة جديدة</button>
+      <button class="btn-block btn-outline" onclick="copyPumpWhatsAppReport()" style="margin-top:0; margin-bottom: 8px; border-color:#86efac; background:#f0fdf4; color:#166534;">📋 نسخ تقرير الواتساب للجولة</button>
+      <button class="btn-block btn-danger" onclick="closeAndArchivePumpRound()" style="margin-top: 0;">🔄 إغلاق وبدء جولة جديدة</button>
     </div>
 
     <h3 style="font-size: 1rem; margin-bottom: 8px; color: #1e293b; font-weight: 800;">📋 كشف التزام وسداد العائلات:</h3>
@@ -944,6 +977,7 @@
   <script>
     const MASTER_PIN = "399411"; // مفتاح طوارئ داخلي
     const DEFAULT_MEMBER_PIN = "1234"; // رمز PIN الافتراضي الموحد للعائلات
+    const MAX_NORMAL_CONTAINER_LITERS = 50; // سقف التنبيه للوعاء المنفرد لمنع التصاق الأرقام
 
     const firebaseConfig = {
       databaseURL: "https://camp-water-default-rtdb.europe-west1.firebasedatabase.app"
@@ -955,6 +989,7 @@
     const PENDING_SYNC_KEY = 'camp_pending_sync_v2';
     const PENDING_HISTORY_KEY = 'camp_pending_history_v1';
     const ADMIN_SESSION_KEY = 'camp_admin_session_v1';
+    const LAST_MEMBER_FAM_KEY = 'camp_last_member_fam_v1';
 
     const DEFAULT_STATE = {
       adminPinHash: '',
@@ -985,6 +1020,8 @@
     let activeMemberLogTab = 'current';
     let toastTimer = null;
     let isModalPushed = false;
+    let lastSyncStatus = 'offline';
+    let lastSyncText = 'جاري فحص الاتصال...';
 
     function deepClone(value) {
       try { return JSON.parse(JSON.stringify(value)); }
@@ -1070,7 +1107,7 @@
       clearTimeout(toastTimer);
       toastTimer = setTimeout(() => {
         t.classList.remove('show');
-      }, 2300);
+      }, 2400);
     }
 
     function openModal(id) {
@@ -1216,7 +1253,6 @@
           f.pinHash = defaultHash;
           changed = true;
         } else {
-          // ترقية ذكية: إذا كان الهاش الحالي يطابق هاش رقم الخيمة القديم (لم يتم تخصيصه من العائلة) يُحدّث إلى 1234
           const oldTentHash = await hashPin(f.tent || '1');
           if (f.pinHash === oldTentHash && oldTentHash !== defaultHash) {
             f.pinHash = defaultHash;
@@ -1323,22 +1359,26 @@
       mergePendingUpdates(updates);
     }
 
-    /* شريط الحالة الذي يفصل رسائل المسؤول عن المواطن العادي */
+    /* شريط الحالة الذكي مع تحديث فوري عند دخول أو خروج المسؤول */
     function setSyncUI(status, text) {
+      if (status) lastSyncStatus = status;
+      if (text) lastSyncText = text;
+
       const el = document.getElementById('syncStatus');
-      el.className = 'sync-bar sync-' + status;
+      if (!el) return;
+      el.className = 'sync-bar sync-' + lastSyncStatus;
 
       if (isAdmin) {
-        el.textContent = text;
+        el.textContent = lastSyncText;
       } else {
-        if (status === 'online') {
+        if (lastSyncStatus === 'online') {
           el.textContent = '🟢 متصل';
-        } else if (status === 'offline') {
+        } else if (lastSyncStatus === 'offline') {
           el.textContent = '🔴 وضع عدم الاتصال (أوفلاين)';
-        } else if (status === 'syncing' || status === 'pending') {
+        } else if (lastSyncStatus === 'syncing' || lastSyncStatus === 'pending') {
           el.textContent = '🟡 جاري التحديث...';
         } else {
-          el.textContent = text;
+          el.textContent = lastSyncText;
         }
       }
     }
@@ -1368,6 +1408,7 @@
         adminControls.style.display = 'none';
         adminPumpControls.style.display = 'none';
       }
+      setSyncUI(lastSyncStatus, lastSyncText);
     }
 
     function pushState() {
@@ -1598,14 +1639,15 @@
     }
 
     function parseContainers(str) {
-      if (!str) return { total: 0, detail: '', items: [] };
+      if (!str) return { total: 0, detail: '', items: [], oversized: [] };
       const clean = normalizeArabicDigits(str);
       const tokens = clean.match(/\d+/g) || [];
       const items = tokens
         .map(Number)
         .filter(n => Number.isSafeInteger(n) && n > 0);
       const total = items.reduce((a, b) => a + b, 0);
-      return { total: total, detail: items.join(' + '), items: items };
+      const oversized = items.filter(n => n > MAX_NORMAL_CONTAINER_LITERS);
+      return { total: total, detail: items.join(' + '), items: items, oversized: oversized };
     }
 
     function formatLogTimestamp(ts) {
@@ -1704,7 +1746,7 @@
                 <input type="text" class="mini-input" inputmode="numeric" value="${safeMembers}" title="عدد الأفراد" onchange="updateMembers(${fid}, this.value)">
                 <span style="font-size:0.8rem; color:var(--muted); font-weight:700;">فرد</span>
                 <button onclick="resetMemberPinByAdmin(${fid})" class="btn-log-action" style="background:#fef3c7; color:#92400e;" title="إعادة ضبط PIN إلى 1234">🔄 PIN</button>
-                <button onclick="deleteFamily(${fid})" class="btn-log-action btn-log-del" title="حذف العائلة">🗑️</button>
+                <button onclick="deleteFamily(${fid})" class="btn-log-action btn-log-del btn-family-del" title="حذف العائلة">🗑️</button>
               </div>
             </div>
             <div class="family-metrics">
@@ -1720,7 +1762,7 @@
           famContainer.appendChild(card);
         });
       } else {
-        // عائلة 1 (المسؤول) ثابتة دائماً في البداية مع إظهار الاسم والسجل
+        // عائلة 1 (المسؤول) ثابتة دائماً في البداية مع إظهار الاسم والسجل وتمييز الإطار
         const fam1Index = state.families.findIndex(f => String(f.tent || '').trim() === '1');
         const family1 = fam1Index !== -1 ? state.families[fam1Index] : (state.families.length > 0 ? state.families[0] : null);
 
@@ -1732,18 +1774,19 @@
           const safeName1 = escapeHtml(family1.name);
 
           const card1 = document.createElement('div');
-          card1.className = 'family-card';
+          card1.className = 'family-card family-card-admin-public';
           card1.innerHTML = `
-            <div class="family-header" style="margin-bottom:6px; border-bottom:1px dashed var(--border); padding-bottom:6px;">
-              <strong style="color:var(--primary); font-size:0.95rem;">حصة #1: ${safeName1}</strong>
+            <div class="family-header" style="margin-bottom:6px; border-bottom:1px dashed #bae6fd; padding-bottom:6px;">
+              <strong style="color:var(--primary-dark); font-size:0.98rem;">حصة #1: ${safeName1}</strong>
+              <span style="font-size:0.75rem; background:#e0f2fe; color:#0369a1; padding:3px 8px; border-radius:6px; font-weight:700;">عائلة المسؤول</span>
             </div>
-            <div class="family-metrics" style="margin-bottom: 8px;">
+            <div class="family-metrics" style="margin-bottom: 8px; background:#fff;">
               <div><span>الحصة المقررة:</span><strong>${escapeHtml(quota1)} لتر</strong></div>
               <div><span>المستهلك:</span><strong>${escapeHtml(consumed1)} لتر</strong></div>
               ${status1.rem}
             </div>
             <div class="family-actions">
-              <button class="btn-log" onclick="openFamilyLog(${fid1})">📋 السجل التفصيلي</button>
+              <button class="btn-log" style="background:#fff;" onclick="openFamilyLog(${fid1})">📋 السجل التفصيلي</button>
               ${status1.badge}
             </div>
           `;
@@ -1826,7 +1869,7 @@
         const fid = safeId(f.id);
         const isPaid = !!(fund.payments && fund.payments[f.id] && fund.payments[f.id].paid);
         const item = document.createElement('div');
-        item.className = 'pump-list-item';
+        item.className = 'pump-list-item ' + (isPaid ? 'pump-item-paid' : 'pump-item-unpaid');
         item.innerHTML = `
           <div><strong>${escapeHtml(f.name)}</strong></div>
           <div style="display:flex; align-items:center; gap:8px;">
@@ -1874,6 +1917,59 @@
       };
       pushState();
       showToast(!current ? 'تم تسجيل سداد الاشتراك ✓' : 'تم التراجع عن السداد');
+    }
+
+    function copyPumpWhatsAppReport() {
+      if (!isAdmin) return;
+      const fund = state.pumpFund;
+      const fee = Math.max(0, safeMoney(fund.feePerFamily, 5));
+      const roundNum = Math.max(1, wholeNumber(fund.currentRound, 1));
+      const carryOver = safeMoney(fund.carryOver, 0);
+
+      let paidCount = 0;
+      let totalCollected = 0;
+      const unpaidNames = [];
+
+      state.families.forEach(f => {
+        const p = fund.payments && fund.payments[f.id];
+        if (p && p.paid) {
+          paidCount++;
+          totalCollected += p.amount !== undefined ? safeMoney(p.amount) : fee;
+        } else {
+          unpaidNames.push(f.name);
+        }
+      });
+
+      const totalExpenses = (fund.expenses || []).reduce((acc, curr) => acc + Math.max(0, safeMoney(curr.amount)), 0);
+      const balance = safeMoney(carryOver + totalCollected - totalExpenses);
+
+      let report = `⚡ *تقرير صندوق كهرباء المضخة - جولة (${roundNum})*\n`;
+      report += `━━━━━━━━━━━━━━\n`;
+      report += `• قيمة الاشتراك: *${fee} ₪* لكل عائلة\n`;
+      if (carryOver !== 0) {
+        report += `• رصيد مرحّل من الجولة السابقة: *${carryOver} ₪*\n`;
+      }
+      report += `• إجمالي المُحصّل (${paidCount}/${state.families.length}): *${totalCollected} ₪*\n`;
+      report += `• إجمالي المصروف للكهرباء: *${totalExpenses} ₪*\n`;
+      report += `• *الرصيد المتاح حالياً بالصندوق: ${balance} ₪*\n`;
+      report += `━━━━━━━━━━━━━━\n`;
+
+      if (unpaidNames.length === 0) {
+        report += `✅ *تم السداد من جميع العائلات بالكامل، بارك الله فيكم.*`;
+      } else {
+        report += `⏳ *لم يتم السداد بعد (${unpaidNames.length}):*\n`;
+        report += unpaidNames.map(n => `- ${n}`).join('\n');
+      }
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(report).then(() => {
+          showToast('تم نسخ تقرير الواتساب إلى الحافظة ✓');
+        }).catch(() => {
+          prompt('انسخ التقرير التالي:', report);
+        });
+      } else {
+        prompt('انسخ التقرير التالي:', report);
+      }
     }
 
     function openAddExpenseModal() {
@@ -2050,6 +2146,7 @@
       openModal('waterInfoModal');
     }
 
+    /* البحث الذكي: أولوية مطلقة لرقم العائلة والاختيار من القائمة دون خطف المؤشر أثناء كتابة الحروف */
     function handleFamilySearch(query) {
       const clearBtn = document.getElementById('clearSearchBtn');
       clearBtn.style.display = (query && query.trim().length > 0) ? 'inline-flex' : 'none';
@@ -2063,23 +2160,42 @@
       const qRaw = query.trim().toLowerCase();
       const qNorm = normalizeArabicDigits(qRaw);
 
-      const match = state.families.find(f => {
+      // 1. فحص هل المستخدم لمس خياراً جاهزاً كاملاً من القائمة المنسدلة (datalist)
+      let exactDatalistMatch = state.families.find(f => {
         const famName = String(f.name || '').toLowerCase();
-        const tentStr = String(f.tent || '').toLowerCase();
-        const tentNorm = normalizeArabicDigits(tentStr);
-
-        return famName.includes(qRaw) ||
-               famName.includes(qNorm) ||
-               tentStr === qRaw ||
-               tentNorm === qNorm ||
-               `${famName} (${tentStr})`.includes(qRaw) ||
-               `${famName} (${tentNorm})`.includes(qRaw);
+        const tentNorm = normalizeArabicDigits(String(f.tent || '').toLowerCase());
+        return `${famName} (${tentNorm})` === qNorm || `${famName} (${String(f.tent || '').toLowerCase()})` === qRaw;
       });
+
+      // 2. إذا لم يكن خياراً كاملاً، نفحص التطابق التام لرقم العائلة أولاً (لكي لا يطابق رقم 2 عائلة 12)
+      let match = exactDatalistMatch;
+      if (!match) {
+        match = state.families.find(f => {
+          const tentNorm = normalizeArabicDigits(String(f.tent || '').toLowerCase());
+          return tentNorm === qNorm;
+        });
+      }
+
+      // 3. إذا لم يطابق رقم عائلة، نبحث في أسماء العائلات
+      if (!match) {
+        match = state.families.find(f => {
+          const famName = String(f.name || '').toLowerCase();
+          return famName.includes(qRaw) || famName.includes(qNorm);
+        });
+      }
 
       if (match) {
         selectedDispenseFamId = safeId(match.id);
         const calc = computeAllotments();
         updateLiveFamilyUI(selectedDispenseFamId, calc.allotments);
+
+        // إذا اختار العائلة باللمس من القائمة المنسدلة مباشرة، ينتقل المؤشر للأوعية تلقائياً
+        if (exactDatalistMatch) {
+          setTimeout(() => {
+            const amtInp = document.getElementById('dispenseAmountInput');
+            if (amtInp) amtInp.focus();
+          }, 80);
+        }
       } else {
         selectedDispenseFamId = null;
         document.getElementById('liveFamilyCard').style.display = 'none';
@@ -2142,8 +2258,16 @@
       const parsed = parseContainers(val);
       const prevBox = document.getElementById('livePreviewBox');
 
+      const formulaPrefix = parsed.items.length > 1
+        ? `الأوعية: (${escapeHtml(parsed.detail)}) = <b>${escapeHtml(parsed.total)} لتر</b>`
+        : `المجموع: <b>${escapeHtml(parsed.total)} لتر</b>`;
+
+      const oversizeWarning = parsed.oversized.length > 0
+        ? `<div style="color:var(--danger); font-size:0.82rem; margin-top:2px;">⚠️ تنبيه: يوجد وعاء أكبر من ${MAX_NORMAL_CONTAINER_LITERS} لتر (${escapeHtml(parsed.oversized.join('، '))} لتر) — تأكد من الفاصلة!</div>`
+        : '';
+
       if (!selectedDispenseFamId) {
-        prevBox.textContent = `المجموع: ${parsed.total} لتر (يرجى اختيار العائلة)`;
+        prevBox.innerHTML = `${formulaPrefix} (يرجى اختيار العائلة)${oversizeWarning}`;
         return;
       }
 
@@ -2155,11 +2279,11 @@
       const remAfter = quota - (consumed + parsed.total);
 
       if (remAfter > 0) {
-        prevBox.innerHTML = `المجموع: <b>${parsed.total} لتر</b> | المتبقي بعد السحب: <b>${remAfter} لتر</b>`;
+        prevBox.innerHTML = `${formulaPrefix} | المتبقي بعد السحب: <b>${escapeHtml(remAfter)} لتر</b>${oversizeWarning}`;
       } else if (remAfter === 0) {
-        prevBox.innerHTML = `المجموع: <b>${parsed.total} لتر</b> | المتبقي بعد السحب: <b>0 لتر (إنهاء الحصة)</b>`;
+        prevBox.innerHTML = `${formulaPrefix} | المتبقي بعد السحب: <b>0 لتر (إنهاء الحصة)</b>${oversizeWarning}`;
       } else {
-        prevBox.innerHTML = `المجموع: <b>${parsed.total} لتر</b> | <span style="color:var(--danger);">تجاوز بعد السحب: <b>${Math.abs(remAfter)} لتر</b></span>`;
+        prevBox.innerHTML = `${formulaPrefix} | <span style="color:var(--danger);">تجاوز بعد السحب: <b>${escapeHtml(Math.abs(remAfter))} لتر</b></span>${oversizeWarning}`;
       }
     }
 
@@ -2175,6 +2299,15 @@
       if (parsed.total <= 0) {
         alert('يرجى إدخال أوعية صحيحة');
         return;
+      }
+
+      // تنبيه الحماية عند تجاوز أي وعاء منفرد 50 لتر
+      if (parsed.oversized.length > 0) {
+        const bigStr = parsed.oversized.join('، ');
+        if (!confirm(`⚠️ تنبيه هام:\nيوجد وعاء مسجل بحجم أكبر من ${MAX_NORMAL_CONTAINER_LITERS} لتر (${bigStr} لتر).\n\nهل نسيت وضع النقطة الفاصلة بين الأرقام، أم أن حجم الوعاء (${bigStr} لتر) صحيح وتود الاستمرار؟`)) {
+          inputEl.focus();
+          return;
+        }
       }
 
       const fam = state.families.find(f => safeId(f.id) === safeId(selectedDispenseFamId));
@@ -2232,16 +2365,30 @@
       first.textContent = '-- اختر عائلتك من القائمة --';
       select.appendChild(first);
 
+      const savedFamId = safeId(localStorage.getItem(LAST_MEMBER_FAM_KEY));
+      let foundSaved = false;
+
       state.families.forEach(f => {
+        const fid = safeId(f.id);
         const opt = document.createElement('option');
-        opt.value = safeId(f.id);
+        opt.value = fid;
         opt.textContent = `${f.name} (${f.tent || '-'})`;
+        if (savedFamId && fid === savedFamId) {
+          opt.selected = true;
+          foundSaved = true;
+        }
         select.appendChild(opt);
       });
 
       document.getElementById('memberPinInput').value = '';
       openModal('memberLoginModal');
-      setTimeout(() => document.getElementById('memberFamilySelect').focus(), 150);
+      setTimeout(() => {
+        if (foundSaved) {
+          document.getElementById('memberPinInput').focus();
+        } else {
+          select.focus();
+        }
+      }, 150);
     }
 
     async function verifyMemberPin() {
@@ -2267,6 +2414,7 @@
       if (actualHash === expectedHash) {
         loggedInMemberFamId = fam.id;
         activeMemberLogTab = 'current';
+        try { localStorage.setItem(LAST_MEMBER_FAM_KEY, String(fam.id)); } catch(e) {}
         closeModal('memberLoginModal', true);
         showMemberViewModal(fam.id);
       } else {
@@ -2479,10 +2627,17 @@
         return;
       }
 
+      if (parsed.oversized.length > 0) {
+        const bigStr = parsed.oversized.join('، ');
+        if (!confirm(`⚠️ تنبيه: يوجد وعاء مسجل بحجم أكبر من ${MAX_NORMAL_CONTAINER_LITERS} لتر (${bigStr} لتر).\nهل الرقم صحيح؟`)) {
+          return;
+        }
+      }
+
       const diff = parsed.total - Math.max(0, wholeNumber(log.amount));
       log.amount = parsed.total;
       log.detail = parsed.detail;
-      fam.consumed = Math.max(0, wholeNumber(fam.consumed)) + diff;
+      fam.consumed = Math.max(0, wholeNumber(fam.consumed) + diff);
 
       pushState();
       renderLogsModal();
@@ -2544,6 +2699,90 @@
         pushState();
         showToast(`تم حذف (${fam.name})`);
       }
+    }
+
+    /* تصدير واستعادة النسخة الاحتياطية الخاصة بصفحة التوزيع (100% أوفلاين) */
+    function exportBackupJSON() {
+      if (!isAdmin) return;
+      normalizeStateShape();
+
+      let pendingHistory = [];
+      try {
+        pendingHistory = JSON.parse(localStorage.getItem(PENDING_HISTORY_KEY) || '[]');
+        if (!Array.isArray(pendingHistory)) pendingHistory = [];
+      } catch(e) {}
+
+      const backupPayload = {
+        app: 'camp_water_distribution_v1',
+        exportedAt: new Date().toISOString(),
+        state: deepClone(state),
+        pendingHistory: pendingHistory
+      };
+
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const blob = new Blob([JSON.stringify(backupPayload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `camp_water_backup_${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showToast('تم تنزيل ملف النسخة الاحتياطية بنجاح ✓');
+    }
+
+    function triggerImportBackup() {
+      if (!isAdmin) return;
+      const fileInp = document.getElementById('backupFileInput');
+      fileInp.value = '';
+      fileInp.click();
+    }
+
+    function handleImportBackupFile(event) {
+      if (!isAdmin) return;
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          const importedState = (parsed && parsed.state && Array.isArray(parsed.state.families))
+            ? parsed.state
+            : (parsed && Array.isArray(parsed.families) ? parsed : null);
+
+          if (!importedState) {
+            alert('ملف النسخة الاحتياطية غير صالح أو لا يحتوي على بيانات العائلات.');
+            return;
+          }
+
+          if (!confirm(`هل تريد استعادة هذه النسخة الاحتياطية (${importedState.families.length} عائلة)؟\nسيتم استبدال بيانات التوزيع الحالية بالنسخة المستعادة.`)) {
+            return;
+          }
+
+          state = deepClone(importedState);
+          await migrateState();
+          normalizeStateShape();
+
+          if (parsed && Array.isArray(parsed.pendingHistory) && parsed.pendingHistory.length > 0) {
+            try {
+              localStorage.setItem(PENDING_HISTORY_KEY, JSON.stringify(parsed.pendingHistory));
+            } catch(err) {}
+          }
+
+          // تصفير خط الأساس لضمان رفع كامل حالة النسخة المستعادة إلى السيرفر
+          lastSyncedState = null;
+          writePendingUpdates({});
+          pushState();
+          showToast('تمت استعادة النسخة الاحتياطية بنجاح ✓');
+        } catch (err) {
+          console.error('Import error:', err);
+          alert('تعذر قراءة ملف النسخة الاحتياطية. تأكد من أنه ملف JSON سليم.');
+        }
+      };
+      reader.readAsText(file);
     }
 
     function resetAllConsumption() {
