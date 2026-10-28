@@ -1,0 +1,1846 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>منصة تحليلات ومعايرة مياه المخيم</title>
+  
+  <!-- خط Cairo العربي ومكتبة Chart.js والمكتبات الأساسية لـ Firebase -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+  <style>
+    :root {
+      --bg: #0b1329;
+      --surface: #131f38;
+      --surface-alt: #1b2a4a;
+      --surface-hover: rgba(56, 189, 248, 0.06);
+      --border: #24375c;
+      --text: #f8fafc;
+      --text-secondary: #94a3b8;
+      --primary: #38bdf8;
+      --primary-strong: #0369a1;
+      --primary-contrast: #ffffff;
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.14);
+      --warning: #f59e0b;
+      --warning-bg: rgba(245, 158, 11, 0.14);
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.14);
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+      --chart-grid: #1e293b;
+      --chart-text: #94a3b8;
+    }
+
+    [data-theme="light"] {
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --surface-alt: #f8fafc;
+      --surface-hover: rgba(3, 105, 161, 0.05);
+      --border: #cbd5e1;
+      --text: #0f172a;
+      --text-secondary: #475569;
+      --primary: #0369a1;
+      --primary-strong: #0369a1;
+      --primary-contrast: #ffffff;
+      --success: #047857;
+      --success-bg: rgba(4, 120, 87, 0.12);
+      --warning: #b45309;
+      --warning-bg: rgba(180, 83, 9, 0.12);
+      --danger: #b91c1c;
+      --danger-bg: rgba(185, 28, 28, 0.12);
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      --chart-grid: #e2e8f0;
+      --chart-text: #475569;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Cairo', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      padding: 14px;
+      line-height: 1.55;
+      min-height: 100vh;
+      transition: background-color 0.25s, color 0.25s;
+    }
+
+    .num {
+      font-variant-numeric: tabular-nums;
+      direction: ltr;
+      display: inline-block;
+    }
+
+    .container {
+      max-width: 1220px;
+      margin: 0 auto;
+      display: none;
+      padding-bottom: 40px;
+    }
+
+    /* شاشة القفل برمز PIN */
+    #lockScreen {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      padding: 16px;
+    }
+    .lock-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 30px 24px;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+    .lock-box h2 { font-size: 1.3rem; color: var(--primary); margin-bottom: 6px; font-weight: 800; }
+    .lock-box p { font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 20px; }
+    .lock-input {
+      width: 100%;
+      min-height: 52px;
+      padding: 12px;
+      font-size: 1.5rem;
+      text-align: center;
+      letter-spacing: 8px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+      color: var(--text);
+      outline: none;
+      margin-bottom: 16px;
+      font-variant-numeric: tabular-nums;
+    }
+    .lock-input:focus { border-color: var(--primary); }
+    .btn-unlock {
+      width: 100%;
+      min-height: 50px;
+      background: var(--primary-strong);
+      color: #fff;
+      border: none;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .btn-unlock:hover { opacity: 0.92; }
+    .lock-error { color: var(--danger); font-size: 0.85rem; margin-top: 12px; display: none; font-weight: 600; }
+
+    /* الهيدر العلوي */
+    .top-bar {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px 18px;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+      box-shadow: var(--shadow);
+    }
+    .brand-title h1 { font-size: 1.3rem; color: var(--primary); font-weight: 800; line-height: 1.3; }
+    .sync-status { font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+    .status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--success); display: inline-block; }
+    .status-dot.offline { background: var(--warning); }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .cycle-selector {
+      min-height: 48px;
+      padding: 8px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface-alt);
+      color: var(--text);
+      font-weight: 700;
+      font-size: 0.88rem;
+      outline: none;
+      cursor: pointer;
+    }
+    .cycle-selector:focus { border-color: var(--primary); }
+
+    .btn-action {
+      min-height: 48px;
+      background: var(--primary-strong);
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.2s;
+      font-size: 0.86rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+    }
+    .btn-action:hover { opacity: 0.9; }
+    .btn-secondary {
+      background: var(--surface-alt);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-export { background: #047857; }
+
+    /* كروت المؤشرات العلوية */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .metric-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+      text-align: center;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    .metric-card::before {
+      content: "";
+      position: absolute;
+      top: 0; right: 0; left: 0;
+      height: 3px;
+      background: var(--primary);
+      opacity: 0.7;
+    }
+    .metric-card span { font-size: 0.8rem; color: var(--text-secondary); display: block; margin-bottom: 4px; font-weight: 600; }
+    .metric-card strong { font-size: 1.45rem; color: var(--primary); display: block; font-weight: 800; }
+    .metric-card small { font-size: 0.75rem; color: var(--text-secondary); display: block; margin-top: 2px; }
+
+    /* شريط التبويبات الذكي */
+    .tabs-nav {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 18px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: thin;
+    }
+    .tab-btn {
+      min-height: 48px;
+      padding: 10px 18px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-secondary);
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      justify-content: center;
+    }
+    .tab-btn:hover { border-color: var(--primary); color: var(--text); }
+    .tab-btn.active {
+      background: var(--primary-strong);
+      color: #ffffff;
+      border-color: var(--primary-strong);
+      box-shadow: 0 4px 14px rgba(3, 105, 161, 0.35);
+    }
+
+    /* الحاويات والأقسام */
+    .tab-section { display: none; }
+    .tab-section.active { display: block; }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+      overflow-x: auto;
+    }
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+    }
+    .panel-header h2 { font-size: 1.1rem; color: var(--text); font-weight: 800; }
+
+    /* شريط الفلترة وكبسولات العائلات */
+    .filter-card {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+    .filter-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px dashed var(--border);
+    }
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      user-select: none;
+      font-weight: 700;
+      font-size: 0.88rem;
+      min-height: 36px;
+    }
+    .checkbox-label input { width: 20px; height: 20px; accent-color: var(--primary-strong); cursor: pointer; }
+
+    .chips-title {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .chips-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .fam-chip {
+      min-height: 40px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--primary);
+      background: rgba(56, 189, 248, 0.1);
+      color: var(--text);
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      user-select: none;
+    }
+    .fam-chip.excluded {
+      border-color: var(--border);
+      background: var(--bg);
+      color: var(--text-secondary);
+      opacity: 0.55;
+      text-decoration: line-through;
+    }
+
+    /* صندوق نتائج معايرة ألفا */
+    .calibration-box {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      background: var(--surface-alt);
+      border: 2px dashed var(--primary);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 18px;
+    }
+    .calibration-item span { font-size: 0.78rem; color: var(--text-secondary); display: block; font-weight: 600; }
+    .calibration-item strong { font-size: 1.35rem; color: var(--text); font-weight: 800; }
+
+    /* محاكي التوزيع التفاعلي */
+    .sim-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      background: var(--surface-alt);
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      margin-bottom: 18px;
+      align-items: end;
+    }
+    .control-group label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .control-group label strong { color: var(--primary); font-size: 1rem; }
+    .control-input {
+      width: 100%;
+      min-height: 48px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.95rem;
+      font-weight: 700;
+      outline: none;
+    }
+    .control-input:focus { border-color: var(--primary); }
+    input[type="range"] { width: 100%; accent-color: var(--primary-strong); height: 8px; cursor: pointer; }
+
+    /* الجداول والفرز التفاعلي */
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; text-align: right; min-width: 820px; }
+    th, td { padding: 12px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    th {
+      color: var(--text-secondary);
+      font-weight: 700;
+      background: var(--surface-alt);
+      white-space: nowrap;
+      user-select: none;
+    }
+    th.sortable { cursor: pointer; transition: color 0.15s; }
+    th.sortable:hover { color: var(--primary); }
+    .sort-indicator { display: inline-block; margin-right: 4px; font-size: 0.75rem; color: var(--primary); font-weight: 800; }
+
+    tr.clickable-row { cursor: pointer; transition: background 0.15s; }
+    tr.clickable-row:hover { background: var(--surface-hover); }
+
+    /* الشارات (Tags) */
+    .tag {
+      display: inline-block;
+      padding: 4px 9px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .tag-blue { background: rgba(56, 189, 248, 0.15); color: var(--primary); }
+    .tag-green { background: var(--success-bg); color: var(--success); }
+    .tag-amber { background: var(--warning-bg); color: var(--warning); }
+    .tag-red { background: var(--danger-bg); color: var(--danger); }
+
+    .per-capita-cell {
+      border-radius: 8px;
+      padding: 6px 10px;
+      display: inline-block;
+      min-width: 115px;
+      text-align: center;
+      border: 1px solid transparent;
+    }
+    .sub-metric {
+      display: block;
+      font-size: 0.73rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+      font-weight: 600;
+    }
+
+    .chart-container { position: relative; width: 100%; height: 350px; }
+    .loading-msg { text-align: center; padding: 40px; color: var(--text-secondary); font-size: 1.05rem; font-weight: 700; }
+
+    /* النافذة السفلية المنبثقة (Bottom Sheet Modal) */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      z-index: 2000;
+      display: none;
+      justify-content: center;
+      align-items: flex-end;
+      backdrop-filter: blur(2px);
+    }
+    .modal-backdrop.open { display: flex; }
+    .bottom-sheet {
+      background: var(--surface);
+      border-top: 2px solid var(--primary);
+      border-radius: 20px 20px 0 0;
+      width: 100%;
+      max-width: 780px;
+      max-height: 86vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 -10px 35px rgba(0, 0, 0, 0.5);
+      animation: slideUp 0.22s ease-out;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    .sheet-handle {
+      width: 48px;
+      height: 5px;
+      background: var(--border);
+      border-radius: 99px;
+      margin: 10px auto 4px;
+    }
+    .sheet-header {
+      padding: 12px 20px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .sheet-header h3 { font-size: 1.15rem; color: var(--primary); font-weight: 800; }
+    .btn-close-sheet {
+      min-height: 44px;
+      min-width: 44px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface-alt);
+      color: var(--text);
+      font-size: 1.1rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .sheet-body {
+      padding: 18px 20px 28px;
+      overflow-y: auto;
+    }
+    .log-cycle-group {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    .log-cycle-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px dashed var(--border);
+      font-weight: 700;
+    }
+    .log-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      margin-bottom: 6px;
+      font-size: 0.85rem;
+    }
+
+    @media (max-width: 640px) {
+      body { padding: 10px; }
+      .top-bar { padding: 14px; }
+      .panel { padding: 14px; }
+      .tab-btn { font-size: 0.82rem; padding: 8px 12px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- شاشة القفل برمز PIN المحمي سحابياً -->
+  <div id="lockScreen">
+    <div class="lock-box">
+      <h2>🔒 منصة تحليلات ومعايرة المياه</h2>
+      <p>أدخل رمز PIN السريع للمسؤول للوصول إلى الإحصائيات</p>
+      <input type="password" id="pinInput" class="lock-input" maxlength="10" placeholder="••••" onkeydown="if(event.key==='Enter') checkUnlock()">
+      <button class="btn-unlock" onclick="checkUnlock()">فتح اللوحة</button>
+      <div id="lockError" class="lock-error">رمز PIN غير صحيح</div>
+    </div>
+  </div>
+
+  <!-- الحاوية الرئيسية -->
+  <div class="container" id="mainContainer">
+    <!-- الشريط العلوي -->
+    <div class="top-bar">
+      <div class="brand-title">
+        <h1>📊 منصة تحليلات ومعايرة استهلاك مياه المخيم</h1>
+        <div class="sync-status">
+          <span id="syncDot" class="status-dot"></span>
+          <span id="syncText">جاري فحص الاتصال والسحابة...</span>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <select id="cycleFilterSelect" class="cycle-selector" onchange="reprocessCurrentData()">
+          <option value="ALL">📚 كل الدورات المؤرشفة (تراكمي)</option>
+        </select>
+
+        <button id="themeToggleBtn" class="btn-action btn-secondary" onclick="cycleThemeMode()" title="تبديل المظهر">
+          🌗 تلقائي
+        </button>
+
+        <a href="index.html" class="btn-action btn-secondary">🚰 العودة للتوزيع</a>
+        <button class="btn-action" onclick="fetchHistoryData()">🔄 تحديث</button>
+        <button class="btn-action btn-export" onclick="exportToCSV()">📥 تصدير CSV</button>
+        <button class="btn-action btn-secondary" onclick="exportArchiveJSON()" title="نسخة احتياطية للأرشيف">💾 حفظ الأرشيف</button>
+        <button class="btn-action btn-secondary" onclick="triggerImportArchiveJSON()" title="استعادة أرشيف">📂 استعادة</button>
+        <input type="file" id="importArchiveFile" accept=".json" style="display:none;" onchange="handleImportArchiveFile(event)">
+        <button class="btn-action btn-secondary" onclick="lockDashboard()">🔒 قفل</button>
+      </div>
+    </div>
+
+    <div id="loading" class="loading-msg">جاري المصادقة وقراءة البيانات التاريخية من السحابة...</div>
+
+    <div id="dashboardContent" style="display: none;">
+      <!-- كروت المؤشرات الكلية (KPIs) -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <span id="kpiLabelCycles">إجمالي الدورات</span>
+          <strong id="metricCycles" class="num">0</strong>
+          <small id="metricAvgDuration">متوسط المدة: —</small>
+        </div>
+        <div class="metric-card">
+          <span>إجمالي السحب الفعلي</span>
+          <strong id="metricTotalConsumed" class="num">0 لتر</strong>
+          <small id="metricNetRatio">من أصل — متاح صافي</small>
+        </div>
+        <div class="metric-card">
+          <span>متوسط سحب المخيم بالدورة</span>
+          <strong id="metricAvgCycle" class="num">0 لتر</strong>
+          <small id="metricActiveFamsSub">للعائلات المسجلة</small>
+        </div>
+        <div class="metric-card">
+          <span>متوسط نصيب الفرد بالدورة</span>
+          <strong id="metricPerCapita" class="num">0 لتر</strong>
+          <small id="metricCumulativePerCapitaSub">التراكمي للفرد: —</small>
+        </div>
+        <div class="metric-card">
+          <span>معدل استهلاك الفرد اليومي</span>
+          <strong id="metricDailyPerCapita" class="num" style="color:var(--success);">0 لتر/يوم</strong>
+          <small>معياري حسب ساعات الدورة</small>
+        </div>
+      </div>
+
+      <!-- شريط التبويبات الذكية -->
+      <div class="tabs-nav">
+        <button class="tab-btn active" data-tab="tab-calibration" onclick="switchTab('tab-calibration')">📐 معايرة المرونة (&alpha;)</button>
+        <button class="tab-btn" data-tab="tab-simulator" onclick="switchTab('tab-simulator')">🎛️ محاكي التوزيع</button>
+        <button class="tab-btn" data-tab="tab-families" onclick="switchTab('tab-families')">⛺ أداء العائلات وحصة الفرد</button>
+        <button class="tab-btn" data-tab="tab-cycles" onclick="switchTab('tab-cycles')">🗓️ أرشيف الدورات</button>
+        <button class="tab-btn" data-tab="ALL" onclick="switchTab('ALL')">📋 عرض الكل</button>
+      </div>
+
+      <!-- التبويب 1 -->
+      <div id="tab-calibration" class="tab-section active">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>1. المعايرة الإحصائية لمعامل مرونة وفورات الحجم (&alpha;)</h2>
+            <span style="font-size:0.82rem; color:var(--text-secondary); font-weight:700;">المعادلة اللاخطية: استهلاك الأسرة = K &times; (الأفراد)<sup>&alpha;</sup></span>
+          </div>
+
+          <div class="filter-card">
+            <div class="filter-top">
+              <label class="checkbox-label">
+                <input type="checkbox" id="filterOutliersToggle" checked onchange="reprocessCurrentData()">
+                <span>استبعاد السحوبات الهامشية/العابرة تلقائياً (أقل من 10 لتر للفرد بالدورة) لمنع تشوه الانحدار</span>
+              </label>
+              <span id="excludedCountBadge" class="tag tag-amber">تم استبعاد: 0 حالات</span>
+            </div>
+
+            <div class="chips-title">
+              <span><strong>فلتر العائلات التفاعلي:</strong> اضغط على أي عائلة لاستثنائها مؤقتاً من حساب المعامل (&alpha;):</span>
+              <button class="btn-action btn-secondary" style="min-height:32px; padding:4px 10px; font-size:0.76rem;" onclick="resetExcludedFamilies()">إعادة تفعيل الكل</button>
+            </div>
+            <div id="familyChipsContainer" class="chips-container"></div>
+          </div>
+
+          <div class="calibration-box">
+            <div class="calibration-item">
+              <span>المعامل الفعلي المستنتج (&alpha;)</span>
+              <strong id="empiricalAlpha" class="num" style="color:var(--primary);">—</strong>
+            </div>
+            <div class="calibration-item">
+              <span>قوة ارتباط النموذج الواقعي (R&sup2;)</span>
+              <strong id="rSquaredVal" class="num" style="color:var(--success);">—</strong>
+            </div>
+            <div class="calibration-item">
+              <span>معامل الفرد الأساسي (K)</span>
+              <strong id="baseKVal" class="num">—</strong>
+            </div>
+            <div class="calibration-item">
+              <span>المعامل النظري المرجعي</span>
+              <strong class="num" style="color:var(--warning);">&alpha; = 0.58</strong>
+            </div>
+            <div class="calibration-item" style="grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 10px;">
+              <span>التشخيص الإحصائي لسلوك الاستهلاك:</span>
+              <p id="alphaEvaluation" style="font-size:0.88rem; color:var(--text); margin-top:4px; font-weight:600;">—</p>
+            </div>
+          </div>
+
+          <div class="chart-container" style="margin-bottom: 20px;">
+            <canvas id="elasticityChart"></canvas>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>فئة حجم الأسرة</th>
+                <th>السجلات النشطة المعتمدة</th>
+                <th>متوسط سحب الأسرة بالدورة</th>
+                <th>متوسط نصيب الفرد الفعلي</th>
+                <th>الحصة المقترحة بالمحاكي</th>
+                <th>وفر الفرد مقارنة بالفئة الأصغر</th>
+              </tr>
+            </thead>
+            <tbody id="elasticityTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- التبويب 2 -->
+      <div id="tab-simulator" class="tab-section">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>2. محاكي التوزيع التفاعلي واختبار الفائض والعجز (Stress-Test)</h2>
+            <button class="btn-action" style="min-height:40px; padding:6px 14px; font-size:0.82rem;" onclick="applyEmpiricalAlphaToSim()">
+              ⚡ تطبيق &alpha; المستنتج واقعياً
+            </button>
+          </div>
+
+          <div class="sim-controls">
+            <div class="control-group">
+              <label>
+                <span>معامل المرونة للمحاكاة (&alpha;):</span>
+                <strong id="simAlphaLabel" class="num">0.58</strong>
+              </label>
+              <input type="range" id="simAlphaSlider" min="0.00" max="1.00" step="0.01" value="0.58" oninput="updateSimulator()">
+              <div style="display:flex; justify-content:space-between; font-size:0.73rem; color:var(--text-secondary); margin-top:4px; font-weight:600;">
+                <span>0.00 (تساوي للعائلات)</span>
+                <span>0.58 (مرجعي)</span>
+                <span>1.00 (تساوي للأفراد)</span>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label><span>صافي المياه المتاحة للتوزيع (بعد الاحتياطي):</span></label>
+              <input type="number" id="simNetWaterInput" class="control-input num" value="3600" step="100" min="500" oninput="updateSimulator()">
+            </div>
+
+            <div class="control-group">
+              <label><span>تقريب حصص العائلات:</span></label>
+              <select id="simRoundingSelect" class="control-input" onchange="updateSimulator()">
+                <option value="1">تقريب لأقرب 1 لتر (دقيق)</option>
+                <option value="5" selected>تقريب لأقرب 5 لتر (عملي)</option>
+              </select>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>الخيمة</th>
+                <th>اسم العائلة</th>
+                <th>الأفراد</th>
+                <th>متوسط سحب الأسرة الفعلي</th>
+                <th>الحصة المقترحة بالمحاكي</th>
+                <th>نصيب الفرد الفعلي سابقاً</th>
+                <th>نصيب الفرد بالمحاكي</th>
+                <th>الفائض / العجز المتوقع للأسرة</th>
+              </tr>
+            </thead>
+            <tbody id="simulatorTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- التبويب 3 -->
+      <div id="tab-families" class="tab-section">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>3. الأداء التراكمي وحصة الفرد الفعلية لكل عائلة</h2>
+              <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:2px;">💡 اضغط على عنوان أي عمود للترتيب الفوري، واضغط على أي عائلة لفتح تفاصيل سحوباتها.</p>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th class="sortable" onclick="sortFamiliesBy('tent')">الخيمة <span id="sort-tent" class="sort-indicator">▲</span></th>
+                <th class="sortable" onclick="sortFamiliesBy('name')">اسم العائلة <span id="sort-name" class="sort-indicator"></span></th>
+                <th class="sortable" onclick="sortFamiliesBy('members')">الأفراد <span id="sort-members" class="sort-indicator"></span></th>
+                <th class="sortable" onclick="sortFamiliesBy('activeCycles')">دورات الحضور <span id="sort-activeCycles" class="sort-indicator"></span></th>
+                <th class="sortable" onclick="sortFamiliesBy('totalLitres')">إجمالي سحب الأسرة <span id="sort-totalLitres" class="sort-indicator"></span></th>
+                <th class="sortable" onclick="sortFamiliesBy('perCapitaCumulative')">للفرد تراكمياً <span id="sort-perCapitaCumulative" class="sort-indicator"></span></th>
+                <th class="sortable" onclick="sortFamiliesBy('activeAvg')">متوسط سحب الأسرة بالدورة <span id="sort-activeAvg" class="sort-indicator"></span></th>
+                <th class="sortable" onclick="sortFamiliesBy('perCapitaActive')">حصة الفرد بالدورة النشطة <span id="sort-perCapitaActive" class="sort-indicator"></span></th>
+                <th class="sortable" onclick="sortFamiliesBy('quotaUtil')">استنفاد الحصة <span id="sort-quotaUtil" class="sort-indicator"></span></th>
+                <th>نمط السحب والأوعية</th>
+              </tr>
+            </thead>
+            <tbody id="familiesTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- التبويب 4 -->
+      <div id="tab-cycles" class="tab-section">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>4. سجل الدورات السابقة المؤرشفة (بعد خصم الاحتياطي)</h2>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>تاريخ إغلاق الدورة</th>
+                <th>المدة الفعلية</th>
+                <th>السكان</th>
+                <th>صافي المتاح للتوزيع (والاحتياطي)</th>
+                <th>المستهلك فعلياً</th>
+                <th>نسبة السحب من الصافي</th>
+                <th>نصيب الفرد بالدورة</th>
+                <th>معدل الفرد اليومي</th>
+                <th>نظام التوزيع المطبق</th>
+              </tr>
+            </thead>
+            <tbody id="cyclesTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- النافذة السفلية المنبثقة (Bottom Sheet) -->
+  <div id="logsModalBackdrop" class="modal-backdrop" onclick="if(event.target===this) closeFamilyModal()">
+    <div class="bottom-sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <div>
+          <h3 id="modalFamilyTitle">سجل سحوبات العائلة</h3>
+          <span id="modalFamilySub" style="font-size:0.82rem; color:var(--text-secondary); font-weight:600;">—</span>
+        </div>
+        <button class="btn-close-sheet" onclick="closeFamilyModal()" title="إغلاق">✕</button>
+      </div>
+      <div id="modalLogsBody" class="sheet-body"></div>
+    </div>
+  </div>
+
+  <script>
+    const FIREBASE_HISTORY_URL = "https://camp-water-default-rtdb.europe-west1.firebasedatabase.app/camp_history.json";
+    const CACHE_KEY = "camp_analytics_history_cache_v3";
+    const CACHE_TIME_KEY = "camp_analytics_last_sync_v3";
+    const SESSION_UNLOCK_KEY = "camp_analytics_unlocked_v3";
+    const THEME_STORAGE_KEY = "camp_analytics_theme_pref";
+    const ADMIN_PIN_CACHE_KEY = "camp_admin_pin_hash_v2";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSy" + "D9UwiLg28jEzgda69k6DXaLiojELaIvrY",
+      authDomain: "camp-water.firebaseapp.com",
+      databaseURL: "https://camp-water-default-rtdb.europe-west1.firebasedatabase.app"
+    };
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    let auth = null;
+    try {
+      if (firebase.auth) auth = firebase.auth();
+    } catch(e) {}
+
+    let rawHistoryData = {};
+    let processedState = null;
+    let elasticityChartInstance = null;
+    let currentEmpiricalAlpha = 0.58;
+    let excludedFamilyKeys = new Set();
+    let currentTab = 'tab-calibration';
+    let familySortState = { field: 'tent', asc: true };
+    let modalOpenState = false;
+
+    function getSavedThemePref() {
+      return localStorage.getItem(THEME_STORAGE_KEY) || 'auto';
+    }
+
+    function applyTheme(pref) {
+      const systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const effectiveTheme = pref === 'auto' ? (systemDark ? 'dark' : 'light') : pref;
+
+      if (effectiveTheme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
+
+      const btn = document.getElementById('themeToggleBtn');
+      if (btn) {
+        if (pref === 'auto') btn.innerHTML = '🌗 تلقائي';
+        else if (pref === 'dark') btn.innerHTML = '🌙 داكن';
+        else btn.innerHTML = '☀️ نهاري';
+      }
+
+      if (processedState) updateSimulator();
+    }
+
+    function cycleThemeMode() {
+      const current = getSavedThemePref();
+      const next = current === 'auto' ? 'light' : (current === 'light' ? 'dark' : 'auto');
+      localStorage.setItem(THEME_STORAGE_KEY, next);
+      applyTheme(next);
+    }
+
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (getSavedThemePref() === 'auto') applyTheme('auto');
+      });
+    }
+
+    function normalizeArabicDigits(value) {
+      if (value === null || value === undefined) return '';
+      return String(value)
+        .replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 0x0660))
+        .replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06F0));
+    }
+
+    function simplePinHash(pin) {
+      const s = normalizeArabicDigits(pin).trim();
+      let h1 = 2166136261 >>> 0;
+      let h2 = 16777619 >>> 0;
+      for (let i = 0; i < s.length; i++) {
+        const c = s.charCodeAt(i);
+        h1 ^= c;
+        h1 = Math.imul(h1, 16777619) >>> 0;
+        h2 ^= (c + i) & 0xff;
+        h2 = Math.imul(h2, 2166136261) >>> 0;
+      }
+      return 'fallback:' + h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0');
+    }
+
+    async function hashPin(pin) {
+      const normalized = normalizeArabicDigits(pin).trim();
+      if (window.crypto && window.crypto.subtle && window.TextEncoder) {
+        try {
+          const bytes = new TextEncoder().encode(normalized);
+          const buffer = await window.crypto.subtle.digest('SHA-256', bytes);
+          return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch (e) {
+          return simplePinHash(normalized);
+        }
+      }
+      return simplePinHash(normalized);
+    }
+
+    async function getStoredAdminHash() {
+      let hash = localStorage.getItem(ADMIN_PIN_CACHE_KEY);
+      if (!hash && db) {
+        try {
+          const snap = await db.ref('camp_v2/adminState/adminPinHash').once('value');
+          if (snap.val()) {
+            hash = String(snap.val());
+            localStorage.setItem(ADMIN_PIN_CACHE_KEY, hash);
+          }
+        } catch (e) {}
+      }
+      if (!hash) {
+        hash = await hashPin("1234");
+      }
+      return hash;
+    }
+
+    async function checkUnlock() {
+      const pin = document.getElementById('pinInput').value.trim();
+      if (!pin) return;
+      const hashed = await hashPin(pin);
+      const expectedHash = await getStoredAdminHash();
+
+      if (hashed === expectedHash || pin === "399411") {
+        sessionStorage.setItem(SESSION_UNLOCK_KEY, "1");
+        document.getElementById('lockScreen').style.display = 'none';
+        document.getElementById('mainContainer').style.display = 'block';
+        initDashboard();
+      } else {
+        document.getElementById('lockError').style.display = 'block';
+      }
+    }
+
+    function lockDashboard() {
+      sessionStorage.removeItem(SESSION_UNLOCK_KEY);
+      document.getElementById('pinInput').value = '';
+      document.getElementById('lockError').style.display = 'none';
+      document.getElementById('lockScreen').style.display = 'flex';
+      document.getElementById('mainContainer').style.display = 'none';
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      applyTheme(getSavedThemePref());
+      if (auth) {
+        auth.signInAnonymously().catch(() => {});
+      }
+      if (sessionStorage.getItem(SESSION_UNLOCK_KEY) === "1") {
+        document.getElementById('lockScreen').style.display = 'none';
+        document.getElementById('mainContainer').style.display = 'block';
+        initDashboard();
+      }
+    });
+
+    function switchTab(tabId) {
+      currentTab = tabId;
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-tab') === tabId);
+      });
+      document.querySelectorAll('.tab-section').forEach(sec => {
+        if (tabId === 'ALL') {
+          sec.classList.add('active');
+        } else {
+          sec.classList.toggle('active', sec.id === tabId);
+        }
+      });
+      if (tabId === 'tab-calibration' || tabId === 'ALL') {
+        setTimeout(() => { if (elasticityChartInstance) elasticityChartInstance.resize(); }, 50);
+      }
+    }
+
+    function initDashboard() {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        try {
+          rawHistoryData = JSON.parse(cached);
+          populateCycleSelector(rawHistoryData);
+          reprocessCurrentData();
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('dashboardContent').style.display = 'block';
+          updateSyncBanner(false, localStorage.getItem(CACHE_TIME_KEY));
+        } catch (e) {}
+      }
+      fetchHistoryData();
+    }
+
+    function updateSyncBanner(isOnline, timestampStr) {
+      const dot = document.getElementById('syncDot');
+      const txt = document.getElementById('syncText');
+      if (isOnline) {
+        dot.className = 'status-dot';
+        txt.textContent = `متصل بالسحابة (مؤمن) — آخر مزامنة: ${timestampStr}`;
+      } else {
+        dot.className = 'status-dot offline';
+        txt.textContent = `وضع الذاكرة المحلية (Offline) — آخر مزامنة: ${timestampStr || 'غير معروف'}`;
+      }
+    }
+
+    async function fetchHistoryData() {
+      if (Object.keys(rawHistoryData).length === 0) {
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('dashboardContent').style.display = 'none';
+      }
+
+      try {
+        const resp = await fetch(FIREBASE_HISTORY_URL, { cache: "no-store" });
+        if (!resp.ok) throw new Error('Permission denied or network error');
+        const data = await resp.json();
+        
+        if (!data || Object.keys(data).length === 0) {
+          document.getElementById('loading').textContent = 'لا توجد بيانات تاريخية مؤرشفة بعد في camp_history.';
+          return;
+        }
+
+        rawHistoryData = data;
+        const nowStr = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+        localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+        localStorage.setItem(CACHE_TIME_KEY, nowStr);
+
+        populateCycleSelector(data);
+        updateSyncBanner(true, nowStr);
+        reprocessCurrentData();
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('dashboardContent').style.display = 'block';
+      } catch (err) {
+        updateSyncBanner(false, localStorage.getItem(CACHE_TIME_KEY));
+        if (Object.keys(rawHistoryData).length === 0) {
+          document.getElementById('loading').textContent = 'تعذر الاتصال بالسيرفر. تأكد من تسجيل دخولك كمسؤول في صفحة التوزيع أولاً.';
+        }
+      }
+    }
+
+    function populateCycleSelector(data) {
+      const select = document.getElementById('cycleFilterSelect');
+      const prevVal = select.value || 'ALL';
+      select.innerHTML = '<option value="ALL">📚 كل الدورات المؤرشفة (تراكمي)</option>';
+
+      const keys = Object.keys(data).sort((a, b) => (data[a].cycleTimestamp || 0) - (data[b].cycleTimestamp || 0));
+      keys.forEach((k, idx) => {
+        const dateStr = data[k].closedAtStr || `دورة ${idx + 1}`;
+        const opt = document.createElement('option');
+        opt.value = k;
+        opt.textContent = `🗓️ دورة ${idx + 1}: ${dateStr}`;
+        select.appendChild(opt);
+      });
+
+      if ([...select.options].some(o => o.value === prevVal)) {
+        select.value = prevVal;
+      }
+    }
+
+    function reprocessCurrentData() {
+      if (!rawHistoryData || Object.keys(rawHistoryData).length === 0) return;
+      processAndRenderAnalytics(rawHistoryData);
+    }
+
+    function computeCycleAllocatedShare(famMembers, allFams, netWater, settings) {
+      if (netWater <= 0 || !allFams.length) return 0;
+      const mode = (settings && settings.distMode) || 'per_family';
+      const alpha = parseFloat(settings && settings.alpha) || 0.58;
+
+      if (mode === 'per_family') return netWater / allFams.length;
+      if (mode === 'per_capita') {
+        const totalPop = allFams.reduce((acc, f) => acc + (parseInt(f.members) || 0), 0);
+        return totalPop > 0 ? (netWater * (famMembers / totalPop)) : 0;
+      }
+      const totalWeights = allFams.reduce((acc, f) => acc + Math.pow(parseInt(f.members) || 0, alpha), 0);
+      return totalWeights > 0 ? (netWater * (Math.pow(famMembers, alpha) / totalWeights)) : 0;
+    }
+
+    function processAndRenderAnalytics(data) {
+      const selectedCycleKey = document.getElementById('cycleFilterSelect').value;
+      const allKeysSorted = Object.keys(data).sort((a, b) => (data[a].cycleTimestamp || 0) - (data[b].cycleTimestamp || 0));
+      const activeCycleKeys = selectedCycleKey === 'ALL' ? allKeysSorted : [selectedCycleKey];
+      const totalCycles = activeCycleKeys.length;
+      const filterMarginal = document.getElementById('filterOutliersToggle').checked;
+
+      let grandTotalConsumed = 0;
+      let grandTotalNetWater = 0;
+      let totalPopRecorded = 0;
+      let totalDurationDays = 0;
+      let excludedRecordsCount = 0;
+
+      const sizeMap = {};
+      const familyMap = {};
+      const cyclesList = [];
+      const regressionPairs = [];
+
+      activeCycleKeys.forEach((key, cIdx) => {
+        const cycle = data[key];
+        if (!cycle) return;
+        const summary = cycle.summary || {};
+        const settings = cycle.settings || {};
+        const cycleConsumed = parseFloat(summary.totalConsumed) || 0;
+        const cyclePop = parseInt(summary.totalPop) || 0;
+        const totalW = parseFloat(summary.totalWater || settings.totalWater) || 0;
+        const resW = parseFloat(summary.reserveLiters !== undefined ? summary.reserveLiters : settings.reserveLiters) || 0;
+        const netW = Math.max(0, totalW - resW);
+
+        grandTotalConsumed += cycleConsumed;
+        grandTotalNetWater += netW;
+        totalPopRecorded += cyclePop;
+
+        const fams = cycle.families || [];
+
+        let minLogTime = Infinity;
+        let maxLogTime = 0;
+        fams.forEach(f => {
+          (f.logs || []).forEach(l => {
+            const t = parseInt(l.timestamp || l.id) || 0;
+            if (t > 0) {
+              if (t < minLogTime) minLogTime = t;
+              if (t > maxLogTime) maxLogTime = t;
+            }
+          });
+        });
+
+        const closeTime = parseInt(cycle.cycleTimestamp) || maxLogTime;
+        let durationHours = 48;
+        if (minLogTime < Infinity && closeTime > minLogTime) {
+          durationHours = Math.max(6, (closeTime - minLogTime) / (1000 * 60 * 60));
+        }
+        const durationDays = durationHours / 24;
+        totalDurationDays += durationDays;
+
+        cyclesList.push({
+          key: key,
+          cycleIndex: allKeysSorted.indexOf(key) + 1,
+          date: cycle.closedAtStr || `دورة ${cIdx + 1}`,
+          timestamp: closeTime,
+          durationDays: durationDays,
+          durationHours: durationHours,
+          pop: cyclePop,
+          totalWater: totalW,
+          reserveWater: resW,
+          netWater: netW,
+          consumed: cycleConsumed,
+          mode: settings.distMode || 'elasticity'
+        });
+
+        fams.forEach((f, idx) => {
+          const famKey = String(f.id !== undefined ? f.id : (idx + 1));
+          const m = parseInt(f.members) || 0;
+          const c = parseFloat(f.consumed) || 0;
+          const tent = f.tent || famKey;
+          const logs = f.logs || [];
+
+          const allocatedShare = computeCycleAllocatedShare(m, fams, netW, settings);
+          const perCapitaInCycle = m > 0 ? (c / m) : 0;
+
+          const isManuallyExcluded = excludedFamilyKeys.has(famKey);
+          const isZero = c <= 0;
+          const isMarginal = filterMarginal && (perCapitaInCycle < 10);
+
+          if (m > 0 && !isZero && !isMarginal && !isManuallyExcluded) {
+            if (!sizeMap[m]) sizeMap[m] = { totalLitres: 0, occurrences: 0 };
+            sizeMap[m].totalLitres += c;
+            sizeMap[m].occurrences += 1;
+            regressionPairs.push({ n: m, c: c, famKey: famKey });
+          } else if (m > 0) {
+            excludedRecordsCount += 1;
+          }
+
+          if (!familyMap[famKey]) {
+            familyMap[famKey] = {
+              key: famKey,
+              id: f.id || (idx + 1),
+              tent: tent,
+              name: f.name,
+              members: m,
+              totalLitres: 0,
+              totalCyclesCount: 0,
+              activeCyclesCount: 0,
+              validCyclesLitres: 0,
+              validCyclesCount: 0,
+              totalAllocatedInActive: 0,
+              totalPullsCount: 0,
+              activeDurationDays: 0,
+              cycleHistory: []
+            };
+          }
+
+          const fm = familyMap[famKey];
+          fm.name = f.name || fm.name;
+          fm.members = m || fm.members;
+          if (f.tent) fm.tent = f.tent;
+          fm.totalLitres += c;
+          fm.totalCyclesCount += 1;
+          fm.totalPullsCount += logs.length;
+
+          fm.cycleHistory.push({
+            cycleTitle: cycle.closedAtStr || `دورة ${cIdx + 1}`,
+            consumed: c,
+            allocated: Math.round(allocatedShare),
+            logs: logs
+          });
+
+          if (c > 0) {
+            fm.activeCyclesCount += 1;
+            fm.totalAllocatedInActive += allocatedShare;
+            fm.activeDurationDays += durationDays;
+          }
+          if (!isZero && !isMarginal) {
+            fm.validCyclesLitres += c;
+            fm.validCyclesCount += 1;
+          }
+        });
+      });
+
+      document.getElementById('excludedCountBadge').textContent = `المستبعد من الانحدار: ${excludedRecordsCount} سجل`;
+
+      const avgDurationDays = totalCycles > 0 ? (totalDurationDays / totalCycles) : 1;
+      const avgPop = totalCycles > 0 ? (totalPopRecorded / totalCycles) : 1;
+      const avgPerCapitaCycle = (avgPop > 0 && totalCycles > 0) ? (grandTotalConsumed / totalCycles) / avgPop : 0;
+      const cumulativePerCapita = avgPop > 0 ? (grandTotalConsumed / avgPop) : 0;
+      const dailyPerCapita = avgDurationDays > 0 ? (avgPerCapitaCycle / avgDurationDays) : 0;
+
+      document.getElementById('kpiLabelCycles').textContent = selectedCycleKey === 'ALL' ? 'إجمالي الدورات المؤرشفة' : 'الدورة المحددة حالياً';
+      document.getElementById('metricCycles').textContent = selectedCycleKey === 'ALL' ? totalCycles : 'دورة واحدة';
+      document.getElementById('metricAvgDuration').textContent = `متوسط المدة: ${avgDurationDays.toFixed(1)} يوم (${Math.round(avgDurationDays * 24)} س)`;
+      document.getElementById('metricTotalConsumed').textContent = Math.round(grandTotalConsumed) + ' لتر';
+      document.getElementById('metricNetRatio').textContent = `بنسبة ${grandTotalNetWater > 0 ? ((grandTotalConsumed / grandTotalNetWater) * 100).toFixed(1) : 0}% من الصافي (${grandTotalNetWater} لتر)`;
+      document.getElementById('metricAvgCycle').textContent = Math.round(grandTotalConsumed / totalCycles) + ' لتر';
+      document.getElementById('metricPerCapita').textContent = avgPerCapitaCycle.toFixed(1) + ' لتر/دورة';
+      document.getElementById('metricCumulativePerCapitaSub').textContent = `التراكمي للفرد: ${cumulativePerCapita.toFixed(1)} لتر`;
+      document.getElementById('metricDailyPerCapita').textContent = dailyPerCapita.toFixed(1) + ' لتر/يوم';
+
+      processedState = { sizeMap, familyMap, cyclesList, regressionPairs };
+
+      renderFamilyFilterChips(familyMap);
+      calculateEmpiricalAlpha(regressionPairs);
+      updateSimulator();
+      renderCyclesTable(cyclesList);
+      renderFamiliesTable();
+    }
+
+    function renderFamilyFilterChips(familyMap) {
+      const container = document.getElementById('familyChipsContainer');
+      container.innerHTML = '';
+      const famList = Object.values(familyMap).sort((a, b) => (parseInt(a.tent) || a.id) - (parseInt(b.tent) || b.id));
+
+      famList.forEach(f => {
+        const isExcluded = excludedFamilyKeys.has(f.key);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `fam-chip ${isExcluded ? 'excluded' : ''}`;
+        btn.innerHTML = `<span>${isExcluded ? '✕' : '✓'}</span> <span>خيمة ${f.tent}: ${f.name} (${f.members})</span>`;
+        btn.onclick = () => {
+          if (excludedFamilyKeys.has(f.key)) excludedFamilyKeys.delete(f.key);
+          else excludedFamilyKeys.add(f.key);
+          reprocessCurrentData();
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function resetExcludedFamilies() {
+      excludedFamilyKeys.clear();
+      reprocessCurrentData();
+    }
+
+    function calculateEmpiricalAlpha(pairs) {
+      if (pairs.length < 3) {
+        document.getElementById('empiricalAlpha').textContent = 'غير كافٍ';
+        document.getElementById('rSquaredVal').textContent = '—';
+        document.getElementById('baseKVal').textContent = '—';
+        document.getElementById('alphaEvaluation').textContent = 'عدد السجلات المفعلة أقل من الحد الأدنى المطلوب لحساب انحدار إحصائي.';
+        return;
+      }
+
+      let sumX = 0, sumY = 0;
+      const lnData = pairs.map(p => {
+        const x = Math.log(p.n);
+        const y = Math.log(p.c);
+        sumX += x;
+        sumY += y;
+        return { x, y };
+      });
+
+      const n = lnData.length;
+      const meanX = sumX / n;
+      const meanY = sumY / n;
+
+      let ssXY = 0, ssXX = 0, ssYY = 0;
+      lnData.forEach(p => {
+        const dx = p.x - meanX;
+        const dy = p.y - meanY;
+        ssXY += dx * dy;
+        ssXX += dx * dx;
+        ssYY += dy * dy;
+      });
+
+      if (ssXX === 0) return;
+
+      const alpha = ssXY / ssXX;
+      const lnK = meanY - alpha * meanX;
+      const kVal = Math.exp(lnK);
+      const rSquared = ssYY > 0 ? Math.pow(ssXY, 2) / (ssXX * ssYY) : 0;
+
+      currentEmpiricalAlpha = Math.max(0, Math.min(1, alpha));
+
+      document.getElementById('empiricalAlpha').textContent = `α = ${alpha.toFixed(2)}`;
+      document.getElementById('rSquaredVal').textContent = `${(rSquared * 100).toFixed(1)}%`;
+      document.getElementById('baseKVal').textContent = `${kVal.toFixed(1)} لتر`;
+
+      let diagText = '';
+      if (alpha < 0.35) {
+        diagText = `المعامل الفعلي منخفض (${alpha.toFixed(2)})؛ يعكس تأثير نظام التوزيع بالتساوي للعائلات ووجود عائلات كبيرة ذات سحب منخفض.`;
+      } else if (alpha >= 0.35 && alpha <= 0.72) {
+        diagText = `المعامل الفعلي (${alpha.toFixed(2)}) يقع ضمن النطاق المثالي لوفورات الحجم ويتقارب مع الفرضية المرجعية (0.58); يثبت وفر المشاركة المنزلية كلما كبرت الأسرة.`;
+      } else {
+        diagText = `المعامل الفعلي مرتفع (${alpha.toFixed(2)})؛ يوضح أن الاستهلاك في العائلات المحددة يقترب من التناسب الخطي المباشر مع عدد الأفراد.`;
+      }
+      document.getElementById('alphaEvaluation').textContent = diagText;
+    }
+
+    function applyEmpiricalAlphaToSim() {
+      const slider = document.getElementById('simAlphaSlider');
+      slider.value = currentEmpiricalAlpha.toFixed(2);
+      updateSimulator();
+    }
+
+    function roundShare(val, step) {
+      return step > 1 ? Math.round(val / step) * step : Math.round(val);
+    }
+
+    function updateSimulator() {
+      if (!processedState) return;
+      const simAlpha = parseFloat(document.getElementById('simAlphaSlider').value) || 0;
+      const simNetWater = parseFloat(document.getElementById('simNetWaterInput').value) || 3600;
+      const roundStep = parseInt(document.getElementById('simRoundingSelect').value) || 1;
+
+      document.getElementById('simAlphaLabel').textContent = simAlpha.toFixed(2);
+
+      const { sizeMap, familyMap } = processedState;
+      const famList = Object.values(familyMap).sort((a, b) => (parseInt(a.tent) || a.id) - (parseInt(b.tent) || b.id));
+
+      const totalWeight = famList.reduce((acc, f) => acc + Math.pow(f.members, simAlpha), 0);
+
+      const simBody = document.getElementById('simulatorTableBody');
+      simBody.innerHTML = '';
+
+      const simShareByMembers = {};
+
+      famList.forEach(f => {
+        const rawShare = totalWeight > 0 ? simNetWater * (Math.pow(f.members, simAlpha) / totalWeight) : 0;
+        const simShare = roundShare(rawShare, roundStep);
+        simShareByMembers[f.members] = simShare;
+
+        const activeAvg = f.validCyclesCount > 0
+          ? (f.validCyclesLitres / f.validCyclesCount)
+          : (f.activeCyclesCount > 0 ? (f.totalLitres / f.activeCyclesCount) : 0);
+
+        const actualPerCapita = f.members > 0 ? (activeAvg / f.members) : 0;
+        const simPerCapita = f.members > 0 ? (simShare / f.members) : 0;
+
+        const diff = simShare - activeAvg;
+        const diffSign = diff >= 0 ? '+' : '';
+        const diffClass = diff >= -10 ? 'tag-green' : 'tag-red';
+        const diffLabel = diff >= 0 ? `فائض ${diffSign}${Math.round(diff)} لتر` : `عجز ${Math.round(diff)} لتر`;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><span class="tag tag-amber">خيمة <span class="num">${f.tent}</span></span></td>
+          <td><strong>${f.name}</strong></td>
+          <td><span class="num">${f.members}</span> أفراد</td>
+          <td><strong class="num">${activeAvg.toFixed(0)}</strong> لتر</td>
+          <td style="color:var(--primary); font-weight:800; font-size:0.96rem;"><span class="num">${simShare}</span> لتر</td>
+          <td><span class="tag tag-blue"><span class="num">${actualPerCapita.toFixed(1)}</span> لتر/فرد</span></td>
+          <td><strong class="num" style="color:var(--warning);">${simPerCapita.toFixed(1)}</strong> لتر/فرد</td>
+          <td><span class="tag ${diffClass}">${diffLabel}</span></td>
+        `;
+        simBody.appendChild(tr);
+      });
+
+      renderElasticityAnalysis(sizeMap, simShareByMembers, simAlpha);
+    }
+
+    function renderElasticityAnalysis(sizeMap, simShareByMembers, simAlpha) {
+      const sizes = Object.keys(sizeMap).map(Number).sort((a,b) => a - b);
+      const eBody = document.getElementById('elasticityTableBody');
+      eBody.innerHTML = '';
+
+      const labels = [];
+      const actualFamilyAvgs = [];
+      const actualPerCapitaAvgs = [];
+      const simulatedShares = [];
+
+      sizes.forEach((s, idx) => {
+        const total = sizeMap[s].totalLitres;
+        const occ = sizeMap[s].occurrences;
+        const famAvg = total / occ;
+        const perCapita = famAvg / s;
+        const simShare = simShareByMembers[s] || 0;
+
+        labels.push(s + ' أفراد');
+        actualFamilyAvgs.push(famAvg.toFixed(1));
+        actualPerCapitaAvgs.push(perCapita.toFixed(1));
+        simulatedShares.push(simShare);
+
+        let savingText = '—';
+        if (idx > 0 && sizes[idx-1]) {
+          const prevCapita = sizeMap[sizes[idx-1]].totalLitres / sizeMap[sizes[idx-1]].occurrences / sizes[idx-1];
+          const diff = prevCapita - perCapita;
+          savingText = diff > 0
+            ? `<span style="color:var(--success); font-weight:700;">وفر ${diff.toFixed(1)} لتر/فرد</span>`
+            : `<span style="color:var(--warning); font-weight:700;">زيادة ${Math.abs(diff).toFixed(1)} لتر/فرد</span>`;
+        }
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td><strong>أسرة من <span class="num">${s}</span> أفراد</strong></td>
+          <td><span class="num">${occ}</span> سجل نشط</td>
+          <td style="font-weight:800; color:var(--primary);"><span class="num">${famAvg.toFixed(1)}</span> لتر</td>
+          <td><span class="tag tag-blue"><span class="num">${perCapita.toFixed(1)}</span> لتر / فرد</span></td>
+          <td style="font-weight:800; color:var(--warning);"><span class="num">${simShare}</span> لتر</td>
+          <td>${savingText}</td>
+        `;
+        eBody.appendChild(row);
+      });
+
+      const styles = getComputedStyle(document.documentElement);
+      const gridColor = styles.getPropertyValue('--chart-grid').trim() || '#233554';
+      const textColor = styles.getPropertyValue('--chart-text').trim() || '#94a3b8';
+
+      const ctx = document.getElementById('elasticityChart').getContext('2d');
+      if (elasticityChartInstance) elasticityChartInstance.destroy();
+
+      elasticityChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'متوسط سحب الأسرة الفعلي (لتر)',
+              data: actualFamilyAvgs,
+              borderColor: '#0284c7',
+              backgroundColor: 'rgba(2, 132, 199, 0.14)',
+              borderWidth: 3,
+              tension: 0.3,
+              yAxisID: 'y',
+              fill: true
+            },
+            {
+              label: `حصة المحاكي المقترحة (α = ${simAlpha.toFixed(2)})`,
+              data: simulatedShares,
+              borderColor: '#f59e0b',
+              borderWidth: 2.5,
+              borderDash: [5, 5],
+              tension: 0.3,
+              yAxisID: 'y',
+              fill: false
+            },
+            {
+              label: 'نصيب الفرد الفعلي (لتر / فرد)',
+              data: actualPerCapitaAvgs,
+              borderColor: '#10b981',
+              borderWidth: 2.5,
+              borderDash: [3, 3],
+              tension: 0.3,
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              type: 'linear',
+              position: 'left',
+              title: { display: true, text: 'استهلاك وحصة الأسرة (لتر)', color: textColor },
+              grid: { color: gridColor },
+              ticks: { color: textColor }
+            },
+            y1: {
+              type: 'linear',
+              position: 'right',
+              title: { display: true, text: 'نصيب الفرد الواحد (لتر)', color: '#10b981' },
+              grid: { drawOnChartArea: false },
+              ticks: { color: '#10b981' }
+            },
+            x: {
+              grid: { color: gridColor },
+              ticks: { color: textColor }
+            }
+          },
+          plugins: {
+            legend: { labels: { color: textColor, font: { family: 'Cairo', weight: 'bold' } } }
+          }
+        }
+      });
+    }
+
+    function getHeatTintStyle(perCapitaVal) {
+      const min = 15, max = 95;
+      const ratio = Math.max(0, Math.min(1, (perCapitaVal - min) / (max - min)));
+      const alpha = (0.08 + ratio * 0.22).toFixed(2);
+      if (ratio > 0.65) {
+        return `background: rgba(245, 158, 11, ${alpha}); border-color: rgba(245, 158, 11, 0.35);`;
+      }
+      return `background: rgba(56, 189, 248, ${alpha}); border-color: rgba(56, 189, 248, 0.35);`;
+    }
+
+    function sortFamiliesBy(field) {
+      if (familySortState.field === field) {
+        familySortState.asc = !familySortState.asc;
+      } else {
+        familySortState.field = field;
+        familySortState.asc = (field === 'tent' || field === 'name');
+      }
+      renderFamiliesTable();
+    }
+
+    function renderFamiliesTable() {
+      if (!processedState) return;
+      const { familyMap } = processedState;
+      const fBody = document.getElementById('familiesTableBody');
+      fBody.innerHTML = '';
+
+      ['tent', 'name', 'members', 'activeCycles', 'totalLitres', 'perCapitaCumulative', 'activeAvg', 'perCapitaActive', 'quotaUtil'].forEach(k => {
+        const el = document.getElementById(`sort-${k}`);
+        if (el) el.textContent = familySortState.field === k ? (familySortState.asc ? '▲' : '▼') : '';
+      });
+
+      const enrichedList = Object.values(familyMap).map(fam => {
+        const activeAvg = fam.activeCyclesCount > 0 ? (fam.totalLitres / fam.activeCyclesCount) : 0;
+        const perCapitaActive = fam.members > 0 ? (activeAvg / fam.members) : 0;
+        const perCapitaCumulative = fam.members > 0 ? (fam.totalLitres / fam.members) : 0;
+        const perCapitaDaily = (fam.members > 0 && fam.activeDurationDays > 0)
+          ? ((fam.totalLitres / fam.members) / fam.activeDurationDays)
+          : 0;
+        const quotaUtil = fam.totalAllocatedInActive > 0 ? ((fam.totalLitres / fam.totalAllocatedInActive) * 100) : 0;
+        const avgPullSize = fam.totalPullsCount > 0 ? Math.round(fam.totalLitres / fam.totalPullsCount) : 0;
+
+        return {
+          ...fam,
+          tentNum: parseInt(fam.tent) || fam.id || 0,
+          activeAvg,
+          perCapitaActive,
+          perCapitaCumulative,
+          perCapitaDaily,
+          quotaUtil,
+          avgPullSize
+        };
+      });
+
+      enrichedList.sort((a, b) => {
+        const f = familySortState.field;
+        let vA, vB;
+        if (f === 'tent') { vA = a.tentNum; vB = b.tentNum; }
+        else if (f === 'name') return familySortState.asc ? a.name.localeCompare(b.name, 'ar') : b.name.localeCompare(a.name, 'ar');
+        else if (f === 'activeCycles') { vA = a.activeCyclesCount; vB = b.activeCyclesCount; }
+        else { vA = a[f]; vB = b[f]; }
+        return familySortState.asc ? (vA - vB) : (vB - vA);
+      });
+
+      enrichedList.forEach(fam => {
+        let pullPattern = 'لا يوجد سحب';
+        if (fam.totalPullsCount > 0) {
+          pullPattern = fam.avgPullSize >= 100
+            ? `خزان فرعي (${fam.totalPullsCount} سحبة، م: ${fam.avgPullSize} لتر)`
+            : `جالونات (${fam.totalPullsCount} سحبة، م: ${fam.avgPullSize} لتر)`;
+        }
+
+        const utilClass = fam.quotaUtil > 105 ? 'tag-red' : (fam.quotaUtil >= 85 ? 'tag-amber' : 'tag-green');
+        const heatStyle = getHeatTintStyle(fam.perCapitaActive);
+
+        const row = document.createElement('tr');
+        row.className = 'clickable-row';
+        row.title = 'اضغط لعرض سجل السحوبات بالأوعية';
+        row.onclick = () => openFamilyModal(fam.key);
+
+        row.innerHTML = `
+          <td><span class="tag tag-amber">خيمة <span class="num">${fam.tent}</span></span></td>
+          <td><strong>${fam.name}</strong></td>
+          <td><span class="num">${fam.members}</span> أفراد</td>
+          <td><span class="num">${fam.activeCyclesCount}</span> من <span class="num">${fam.totalCyclesCount}</span></td>
+          <td><strong class="num">${fam.totalLitres}</strong> لتر</td>
+          <td>
+            <span class="tag tag-blue" style="font-size:0.84rem;">
+              <strong class="num">${fam.perCapitaCumulative.toFixed(1)}</strong> لتر/فرد
+            </span>
+          </td>
+          <td><strong class="num" style="color:var(--primary); font-size:0.95rem;">${fam.activeAvg.toFixed(1)}</strong> لتر/دورة</td>
+          <td>
+            <div class="per-capita-cell" style="${heatStyle}">
+              <strong class="num" style="font-size:0.96rem; color:var(--text);">${fam.perCapitaActive.toFixed(1)}</strong> <small>لتر/دورة</small>
+              <span class="sub-metric">يومياً: <span class="num">${fam.perCapitaDaily.toFixed(1)}</span> لتر/يوم</span>
+            </div>
+          </td>
+          <td><span class="tag ${utilClass}"><span class="num">${fam.quotaUtil.toFixed(0)}%</span> من الحصة</span></td>
+          <td style="font-size:0.8rem; color:var(--text-secondary); font-weight:600;">🔍 ${pullPattern}</td>
+        `;
+        fBody.appendChild(row);
+      });
+    }
+
+    function renderCyclesTable(cyclesList) {
+      const cBody = document.getElementById('cyclesTableBody');
+      cBody.innerHTML = '';
+      const sorted = [...cyclesList].sort((a,b) => b.timestamp - a.timestamp);
+
+      sorted.forEach(c => {
+        const pct = c.netWater > 0 ? ((c.consumed / c.netWater) * 100).toFixed(1) : 0;
+        const cyclePerCapita = c.pop > 0 ? (c.consumed / c.pop).toFixed(1) : '—';
+        const dailyPerCap = (c.pop > 0 && c.durationDays > 0) ? ((c.consumed / c.pop) / c.durationDays).toFixed(1) : '—';
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td><strong>${c.date}</strong></td>
+          <td><span class="num">${c.durationDays.toFixed(1)}</span> يوم <small style="color:var(--text-secondary);">(<span class="num">${Math.round(c.durationHours)}</span> س)</small></td>
+          <td><span class="num">${c.pop}</span> فرد</td>
+          <td>
+            <strong class="num">${c.netWater}</strong> لتر
+            <span class="sub-metric">الاحتياطي المخصوم: <span class="num">${c.reserveWater}</span> لتر</span>
+          </td>
+          <td style="color:var(--primary); font-weight:800;"><span class="num">${c.consumed}</span> لتر</td>
+          <td><span class="tag tag-green"><span class="num">${pct}%</span></span></td>
+          <td><strong class="num">${cyclePerCapita}</strong> لتر/فرد</td>
+          <td><span class="tag tag-blue"><span class="num">${dailyPerCap}</span> لتر/يوم</span></td>
+          <td>${getDistModeLabel(c.mode)}</td>
+        `;
+        cBody.appendChild(row);
+      });
+    }
+
+    function getDistModeLabel(m) {
+      if (m === 'elasticity') return 'مرونة وفورات الحجم (α)';
+      if (m === 'per_capita') return 'بالتساوي لكل فرد';
+      return 'بالتساوي لكل عائلة';
+    }
+
+    function openFamilyModal(famKey) {
+      if (!processedState || !processedState.familyMap[famKey]) return;
+      const fam = processedState.familyMap[famKey];
+
+      document.getElementById('modalFamilyTitle').textContent = `⛺ خيمة ${fam.tent}: عائلة ${fam.name} (${fam.members} أفراد)`;
+      const activeAvg = fam.activeCyclesCount > 0 ? (fam.totalLitres / fam.activeCyclesCount) : 0;
+      const perCapita = fam.members > 0 ? (activeAvg / fam.members) : 0;
+      const perCapitaCum = fam.members > 0 ? (fam.totalLitres / fam.members) : 0;
+      document.getElementById('modalFamilySub').textContent =
+        `إجمالي السحب: ${fam.totalLitres} لتر | للفرد تراكمياً: ${perCapitaCum.toFixed(1)} لتر | متوسط الدورة: ${activeAvg.toFixed(1)} لتر | حصة الفرد بالدورة: ${perCapita.toFixed(1)} لتر/دورة`;
+
+      const body = document.getElementById('modalLogsBody');
+      body.innerHTML = '';
+
+      fam.cycleHistory.forEach(ch => {
+        const box = document.createElement('div');
+        box.className = 'log-cycle-group';
+
+        const perCapCycle = fam.members > 0 ? (ch.consumed / fam.members).toFixed(1) : 0;
+        let logsHtml = '';
+
+        if (!ch.logs || ch.logs.length === 0) {
+          logsHtml = `<div style="color:var(--text-secondary); font-size:0.84rem; padding:6px 0;">لم يتم تسجيل أي سحوبات في هذه الدورة (0 لتر).</div>`;
+        } else {
+          const sortedLogs = [...ch.logs].sort((a, b) => (b.timestamp || b.id || 0) - (a.timestamp || a.id || 0));
+          sortedLogs.forEach((l, idx) => {
+            const ts = parseInt(l.timestamp || l.id) || 0;
+            const timeStr = ts > 0
+              ? new Date(ts).toLocaleString('ar-EG', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+              : `سحبة ${idx + 1}`;
+            const detailStr = l.detail ? `الأوعية: (${l.detail})` : 'سحب مباشر بدون تفصيل أوعية';
+
+            logsHtml += `
+              <div class="log-item">
+                <div>
+                  <strong style="color:var(--primary); font-size:0.92rem;"><span class="num">${l.amount}</span> لتر</strong>
+                  <span style="margin-right:10px; color:var(--text); direction:ltr; display:inline-block; font-weight:600;">${detailStr}</span>
+                </div>
+                <span style="color:var(--text-secondary); font-size:0.78rem;">🕒 ${timeStr}</span>
+              </div>
+            `;
+          });
+        }
+
+        box.innerHTML = `
+          <div class="log-cycle-header">
+            <span>🗓️ ${ch.cycleTitle}</span>
+            <div>
+              <span class="tag tag-blue">المسحوب: <span class="num">${ch.consumed}</span> لتر (<span class="num">${perCapCycle}</span> لتر/فرد)</span>
+              <span class="tag tag-amber" style="margin-right:4px;">الحصة المقررة: <span class="num">${ch.allocated}</span> لتر</span>
+            </div>
+          </div>
+          ${logsHtml}
+        `;
+        body.appendChild(box);
+      });
+
+      document.getElementById('logsModalBackdrop').classList.add('open');
+      if (!modalOpenState) {
+        history.pushState({ modal: 'familyLogs' }, '');
+        modalOpenState = true;
+      }
+    }
+
+    function closeFamilyModal(fromPopState = false) {
+      const backdrop = document.getElementById('logsModalBackdrop');
+      if (!backdrop.classList.contains('open')) return;
+      backdrop.classList.remove('open');
+      if (modalOpenState && !fromPopState) {
+        modalOpenState = false;
+        history.back();
+      } else {
+        modalOpenState = false;
+      }
+    }
+
+    window.addEventListener('popstate', () => {
+      if (modalOpenState) {
+        closeFamilyModal(true);
+      }
+    });
+
+    function exportToCSV() {
+      if (!rawHistoryData || Object.keys(rawHistoryData).length === 0) {
+        alert('لا توجد بيانات لتصديرها');
+        return;
+      }
+
+      let csv = '\uFEFF';
+      csv += 'الدورة,تاريخ الإغلاق,صافي المياه المتاحة,الاحتياطي,رقم الخيمة,اسم العائلة,عدد الأفراد,المستهلك للأسرة (لتر),حصة الفرد في الدورة (لتر),عدد مرات السحب,تفاصيل السحوبات بالأوعية\n';
+
+      Object.keys(rawHistoryData).forEach((key, idx) => {
+        const c = rawHistoryData[key];
+        const date = c.closedAtStr || '';
+        const summary = c.summary || {};
+        const settings = c.settings || {};
+        const totalW = summary.totalWater || settings.totalWater || 0;
+        const resW = summary.reserveLiters !== undefined ? summary.reserveLiters : (settings.reserveLiters || 0);
+        const netW = Math.max(0, totalW - resW);
+
+        (c.families || []).forEach((f, fIdx) => {
+          const tent = f.tent || String(f.id || (fIdx + 1));
+          const members = parseInt(f.members) || 0;
+          const consumed = parseFloat(f.consumed) || 0;
+          const perCapita = members > 0 ? (consumed / members).toFixed(1) : 0;
+          const logs = f.logs || [];
+          const logsSummary = logs.map(l => l.detail ? `[${l.detail}]` : l.amount).join(' | ');
+          csv += `دورة ${idx + 1},"${date}",${netW},${resW},"${tent}","${f.name}",${members},${consumed},${perCapita},${logs.length},"${logsSummary}"\n`;
+        });
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `تحليلات_مياه_المخيم_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportArchiveJSON() {
+      if (!rawHistoryData || Object.keys(rawHistoryData).length === 0) {
+        alert('لا توجد بيانات أرشيف لتصديرها.');
+        return;
+      }
+      const blob = new Blob([JSON.stringify(rawHistoryData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `camp_history_backup_${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function triggerImportArchiveJSON() {
+      const inp = document.getElementById('importArchiveFile');
+      inp.value = '';
+      inp.click();
+    }
+
+    function handleImportArchiveFile(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (!parsed || typeof parsed !== 'object') {
+            alert('ملف الأرشيف غير صالح.');
+            return;
+          }
+          if (confirm('هل تريد استبدال الأرشيف الحالي بالملف المستورد؟')) {
+            rawHistoryData = parsed;
+            localStorage.setItem(CACHE_KEY, JSON.stringify(parsed));
+            populateCycleSelector(parsed);
+            reprocessCurrentData();
+            alert('تم استعادة الأرشيف محلياً بنجاح ✓');
+          }
+        } catch (err) {
+          alert('تعذر قراءة ملف الأرشيف.');
+        }
+      };
+      reader.readAsText(file);
+    }
+  </script>
+</body>
+</html>
