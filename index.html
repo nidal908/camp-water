@@ -8,8 +8,9 @@
   <link rel="icon" type="image/png" href="icon.png">
   <meta name="theme-color" content="#0369a1">
 
-  <!-- مكتبات Firebase الأساسية -->
+  <!-- مكتبات Firebase الأساسية شاملة نظام المصادقة Auth -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
   <style>
@@ -376,7 +377,6 @@
       margin-bottom: 10px; 
       box-shadow: 0 1px 3px rgba(0,0,0,0.04); 
     }
-    /* تمييز بصري هادئ لبطاقة عائلة المسؤول رقم 1 في العرض العام */
     .family-card-admin-public {
       border: 2px solid #7dd3fc;
       background: #f0f9ff;
@@ -389,10 +389,28 @@
       gap: 8px;
       flex-wrap: wrap;
     }
+    .family-name-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
     .family-name { 
       font-size: 1.1rem; 
       font-weight: 800; 
       color: #1e293b; 
+    }
+    .btn-edit-name {
+      background: #f1f5f9;
+      border: 1px solid var(--border);
+      color: #0369a1;
+      border-radius: 8px;
+      width: 36px;
+      height: 36px;
+      min-height: 36px;
+      font-size: 0.85rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
     
     .family-meta-admin { 
@@ -464,7 +482,7 @@
     .badge-warn { background: #fee2e2; color: #b91c1c; }
     .badge-neutral { background: #f1f5f9; color: #475569; }
 
-    /* عناصر صندوق الكهرباء مع تمييز جانبي سريع النظر */
+    /* عناصر صندوق الكهرباء */
     .pump-list-item { 
       background: #fff; 
       border: 1px solid var(--border); 
@@ -576,7 +594,7 @@
       justify-content: center;
     }
 
-    .form-group { margin-bottom: 12px; }
+    .form-group { margin-bottom: 12px; text-align: right; }
     .form-group label { display: block; font-size: 0.85rem; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
     .form-control { 
       width: 100%; 
@@ -700,7 +718,7 @@
       </div>
 
       <div class="search-wrapper">
-        <input type="text" id="dispenseSearchInput" class="dispense-input" placeholder="🔍 ابحث بالاسم أو بالرقم..." list="familiesDatalist" oninput="handleFamilySearch(this.value)" onkeydown="handleSearchKeyDown(event)">
+        <input type="text" id="dispenseSearchInput" class="dispense-input" maxlength="50" placeholder="🔍 ابحث بالاسم أو بالرقم..." list="familiesDatalist" oninput="handleFamilySearch(this.value)" onkeydown="handleSearchKeyDown(event)">
         <button id="clearSearchBtn" class="clear-search-btn" type="button" aria-label="مسح خانة البحث" onclick="clearDispenseSearch()">✕</button>
       </div>
       <datalist id="familiesDatalist"></datalist>
@@ -722,7 +740,7 @@
         </div>
       </div>
 
-      <input type="text" id="dispenseAmountInput" class="amount-input-box" inputmode="decimal" placeholder="18.16.12 أو 18 16 12 أو 18+16" oninput="handleLiveAmountPreview(this.value)" onkeydown="if(event.key==='Enter') submitDispense()">
+      <input type="text" id="dispenseAmountInput" class="amount-input-box" inputmode="decimal" maxlength="60" placeholder="18.16.12 أو 18 16 12 أو 18+16" oninput="handleLiveAmountPreview(this.value)" onkeydown="if(event.key==='Enter') submitDispense()">
       <div id="livePreviewBox" class="live-preview" role="status" aria-live="polite">المجموع: 0 لتر</div>
 
       <button id="dispenseSubmitBtn" class="btn-dispense-submit" type="button" onclick="submitDispense()">➕ تسجيل السحب</button>
@@ -733,12 +751,14 @@
     <div id="adminControls" style="display: none; margin-top: 16px;">
       <button class="btn-block btn-outline" onclick="addNewFamily()" style="margin-bottom: 8px;">➕ إضافة عائلة جديدة</button>
       <button class="btn-block btn-outline" onclick="openSettingsModal()" style="margin-bottom: 8px;">⚙ إعدادات التوزيع والخزان</button>
-      <button class="btn-block btn-outline" onclick="openChangePinModal()" style="margin-bottom: 8px;">🔑 تغيير رمز PIN المسؤول</button>
+      <button class="btn-block btn-outline" onclick="openChangePinModal()" style="margin-bottom: 8px;">🔑 تغيير رمز PIN السريع للمسؤول</button>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
         <button class="btn-block btn-outline" onclick="exportBackupJSON()" style="margin-top:0;">📥 تنزيل نسخة احتياطية</button>
         <button class="btn-block btn-outline" onclick="triggerImportBackup()" style="margin-top:0;">📤 استعادة نسخة</button>
       </div>
       <input type="file" id="backupFileInput" accept=".json" style="display:none;" onchange="handleImportBackupFile(event)">
+      <button class="btn-block btn-outline" onclick="manualMigrateFromV1()" style="margin-bottom: 8px; border-color:#93c5fd; color:#0369a1;">🔄 استيراد/ترحيل من القاعدة القديمة (camp_data)</button>
+      <button id="cloudLogoutBtn" class="btn-block btn-outline" onclick="signOutFirebaseAdmin()" style="margin-bottom: 8px; display:none;">🚪 تسجيل خروج نهائي من الحساب السحابي</button>
       <button class="btn-block btn-danger" onclick="resetAllConsumption()">🔄 تصفير الاستهلاك للدورة الجديدة</button>
     </div>
   </div>
@@ -849,11 +869,11 @@
       <div class="modal-title"><span>⚡ صرف كهرباء للمضخة</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('addExpenseModal')">✕</button></div>
       <div class="form-group">
         <label>المبلغ المصروف (شيكل ₪):</label>
-        <input type="text" id="expenseAmountInput" class="form-control" inputmode="decimal" placeholder="مثال: 20">
+        <input type="text" id="expenseAmountInput" class="form-control" inputmode="decimal" maxlength="12" placeholder="مثال: 20">
       </div>
       <div class="form-group">
         <label>البيان / ملاحظة الصرف:</label>
-        <input type="text" id="expenseNoteInput" class="form-control" placeholder="مثال: تشغيل المضخة لتعبئة 4 كوب">
+        <input type="text" id="expenseNoteInput" class="form-control" maxlength="100" placeholder="مثال: تشغيل المضخة لتعبئة 4 كوب">
       </div>
       <button class="btn-block btn-primary" onclick="submitExpense()">تأكيد الصرف والخصم</button>
     </div>
@@ -875,7 +895,7 @@
       </div>
       <div class="form-group">
         <label>رمز PIN الخاص بك (الافتراضي: 1234):</label>
-        <input type="password" id="memberPinInput" class="form-control" inputmode="numeric" autocomplete="off" placeholder="اكتب رمز PIN" onkeydown="if(event.key==='Enter') verifyMemberPin()">
+        <input type="password" id="memberPinInput" class="form-control" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="اكتب رمز PIN" onkeydown="if(event.key==='Enter') verifyMemberPin()">
       </div>
       <button class="btn-block btn-primary" onclick="verifyMemberPin()">عرض بياناتي</button>
     </div>
@@ -905,27 +925,51 @@
     <div class="modal-box" style="max-width: 340px;">
       <div class="modal-title"><span>🔑 تغيير رمز PIN</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('memberChangePinModal')">✕</button></div>
       <div class="form-group">
-        <label>الرمز السري الجديد:</label>
-        <input type="password" id="newMemberPinInput" class="form-control" inputmode="numeric" autocomplete="off" placeholder="اكتب الرمز الجديد" onkeydown="if(event.key==='Enter') saveNewMemberPin()">
+        <label>الرمز السري الجديد (4 إلى 10 أرقام):</label>
+        <input type="password" id="newMemberPinInput" class="form-control" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="اكتب الرمز الجديد" onkeydown="if(event.key==='Enter') saveNewMemberPin()">
       </div>
       <button class="btn-block btn-primary" onclick="saveNewMemberPin()">حفظ الرمز</button>
     </div>
   </div>
 
+  <!-- نافذة دخول المسؤول المتطورة (PIN سريع + حساب Firebase الرسمي) -->
   <div id="loginModal" class="modal-overlay">
-    <div class="modal-box" style="max-width: 340px; text-align: center;">
-      <div class="modal-title"><span>🔒 رمز دخول المسؤول</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('loginModal')">✕</button></div>
-      <input type="password" id="adminPinInput" class="form-control" inputmode="numeric" autocomplete="off" style="font-size: 1.5rem; text-align: center; letter-spacing: 4px; margin-bottom: 12px;" maxlength="10" placeholder="••••" onkeydown="if(event.key==='Enter') verifyAdminPin()">
-      <button class="btn-block btn-primary" onclick="verifyAdminPin()">دخول</button>
-      <div style="margin-top: 14px; font-size: 0.85rem; color: var(--primary); cursor: pointer; text-decoration: underline; font-weight: 700;" onclick="recoverAdminPin()">نسيت رمز المسؤول؟</div>
+    <div class="modal-box" style="max-width: 370px; text-align: center;">
+      <div class="modal-title"><span>🔒 دخول المسؤول</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('loginModal')">✕</button></div>
+
+      <div class="tab-nav">
+        <button id="authTabPinBtn" class="tab-btn active" onclick="switchAuthTab('pin')">⚡ رمز PIN السريع</button>
+        <button id="authTabEmailBtn" class="tab-btn" onclick="switchAuthTab('email')">📧 الحساب السحابي</button>
+      </div>
+
+      <!-- الوضع 1: الدخول الميداني السريع برمز PIN -->
+      <div id="authPinSection">
+        <input type="password" id="adminPinInput" class="form-control" inputmode="numeric" autocomplete="off" style="font-size: 1.5rem; text-align: center; letter-spacing: 4px; margin-bottom: 12px;" maxlength="12" placeholder="••••" onkeydown="if(event.key==='Enter') verifyAdminPin()">
+        <button class="btn-block btn-primary" onclick="verifyAdminPin()">دخول سريع</button>
+        <div style="margin-top: 14px; font-size: 0.85rem; color: var(--primary); cursor: pointer; text-decoration: underline; font-weight: 700;" onclick="recoverAdminPin()">نسيت رمز المسؤول؟</div>
+      </div>
+
+      <!-- الوضع 2: المصادقة الخادمية الرسمية عبر البريد الإلكتروني -->
+      <div id="authEmailSection" style="display: none;">
+        <div class="form-group">
+          <label>البريد الإلكتروني للمسؤول:</label>
+          <input type="email" id="adminEmailInput" class="form-control" autocomplete="email" placeholder="admin@example.com">
+        </div>
+        <div class="form-group">
+          <label>كلمة المرور:</label>
+          <input type="password" id="adminPasswordInput" class="form-control" autocomplete="current-password" placeholder="••••••••" onkeydown="if(event.key==='Enter') loginWithFirebaseEmail()">
+        </div>
+        <button class="btn-block btn-primary" onclick="loginWithFirebaseEmail()">تسجيل الدخول الرسمي</button>
+        <div style="margin-top: 14px; font-size: 0.85rem; color: var(--primary); cursor: pointer; text-decoration: underline; font-weight: 700;" onclick="sendAdminPasswordReset()">📧 إرسال رابط استعادة كلمة المرور للبريد</div>
+      </div>
     </div>
   </div>
 
   <div id="changePinModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 340px;">
-      <div class="modal-title"><span>🔑 تغيير رمز المسؤول</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('changePinModal')">✕</button></div>
+      <div class="modal-title"><span>🔑 تغيير رمز المسؤول السريع</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('changePinModal')">✕</button></div>
       <div class="form-group">
-        <label>الرمز السري الجديد:</label>
+        <label>الرمز السري الجديد (4 إلى 10 أرقام):</label>
         <input type="password" id="newPinInput" class="form-control" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="اكتب الرمز الجديد" onkeydown="if(event.key==='Enter') saveNewPin()">
       </div>
       <button class="btn-block btn-primary" onclick="saveNewPin()">حفظ الرمز</button>
@@ -948,19 +992,23 @@
       <div class="modal-title"><span>⚙ إعدادات التوزيع</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('settingsModal')">✕</button></div>
       <div class="form-group">
         <label>إجمالي المياه المتوفرة (لتر):</label>
-        <input type="text" id="settingTotalWater" class="form-control" inputmode="numeric">
+        <input type="text" id="settingTotalWater" class="form-control" inputmode="numeric" maxlength="7">
       </div>
       <div class="form-group">
         <label>الكمية غير القابلة للسحب (لتر):</label>
-        <input type="text" id="settingReserve" class="form-control" inputmode="numeric">
+        <input type="text" id="settingReserve" class="form-control" inputmode="numeric" maxlength="7">
       </div>
       <div class="form-group">
         <label>طريقة التوزيع:</label>
-        <select id="settingDistMode" class="form-control">
-          <option value="elasticity">وفورات الحجم بالمرونة (α = 0.58)</option>
+        <select id="settingDistMode" class="form-control" onchange="toggleAlphaInputVisibility()">
+          <option id="elasticityOptionLabel" value="elasticity">وفورات الحجم بالمرونة (α = 0.58)</option>
           <option value="per_capita">بالتساوي بحسب عدد الأفراد</option>
           <option value="per_family">بالتساوي بين جميع العائلات</option>
         </select>
+      </div>
+      <div id="alphaSettingGroup" class="form-group" style="display: none;">
+        <label>معامل المرونة (α) — (القيمة بين 0.10 و 1.00، الافتراضي 0.58):</label>
+        <input type="text" id="settingAlpha" class="form-control" inputmode="decimal" maxlength="5" placeholder="0.58">
       </div>
       <div class="form-group">
         <label>التقريب:</label>
@@ -975,21 +1023,24 @@
   </div>
 
   <script>
-    const MASTER_PIN = "399411"; // مفتاح طوارئ داخلي
-    const DEFAULT_MEMBER_PIN = "1234"; // رمز PIN الافتراضي الموحد للعائلات
-    const MAX_NORMAL_CONTAINER_LITERS = 50; // سقف التنبيه للوعاء المنفرد لمنع التصاق الأرقام
+    const DEFAULT_MEMBER_PIN = "1234";
+    const MAX_NORMAL_CONTAINER_LITERS = 50;
 
     const firebaseConfig = {
       databaseURL: "https://camp-water-default-rtdb.europe-west1.firebasedatabase.app"
     };
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
+    const auth = firebase.auth ? firebase.auth() : null;
 
-    const STATE_KEY = 'camp_data_state_v1';
-    const PENDING_SYNC_KEY = 'camp_pending_sync_v2';
+    const V2_ROOT = 'camp_v2';
+    const STATE_KEY = 'camp_data_state_v2';
+    const LEGACY_STATE_KEY = 'camp_data_state_v1';
+    const PENDING_SYNC_KEY = 'camp_pending_sync_v3';
     const PENDING_HISTORY_KEY = 'camp_pending_history_v1';
     const ADMIN_SESSION_KEY = 'camp_admin_session_v1';
     const LAST_MEMBER_FAM_KEY = 'camp_last_member_fam_v1';
+    const ADMIN_EMAIL_CACHE_KEY = 'camp_admin_email_v1';
 
     const DEFAULT_STATE = {
       adminPinHash: '',
@@ -1009,9 +1060,9 @@
     let state = deepClone(DEFAULT_STATE);
     let currentMainTab = 'water';
     let isAdmin = (sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true');
+    let isCloudAuthenticated = false;
     let isPushing = false;
     let isFirebaseConnected = false;
-    let firebaseInitialLoadComplete = false;
     let lastSyncedState = null;
     let selectedDispenseFamId = null;
     let activeLogFamilyId = null;
@@ -1043,6 +1094,12 @@
       return Number.isFinite(n) ? Math.round(n * 100) / 100 : fallback;
     }
 
+    function safeAlpha(value, fallback = 0.58) {
+      const n = Number(value);
+      if (!Number.isFinite(n) || n < 0.1 || n > 1.0) return fallback;
+      return Math.round(n * 1000) / 1000;
+    }
+
     function safeId(value, fallback = 0) {
       const n = Number(value);
       return Number.isSafeInteger(n) && n > 0 ? n : fallback;
@@ -1070,6 +1127,17 @@
       if (!/^\d+$/.test(normalized)) return null;
       const n = Number(normalized);
       return Number.isSafeInteger(n) ? n : null;
+    }
+
+    /* التحقق الرياضي غير العكسي من مفتاح الطوارئ الرئيسي دون تخزينه كنص مكشوف في الكود */
+    function isMasterRecoveryKey(candidate) {
+      const s = String(candidate || '').trim();
+      if (s.length !== 9) return false;
+      let h = 7;
+      for (let i = 0; i < s.length; i++) {
+        h = (h * 313 + s.charCodeAt(i)) % 1000000007;
+      }
+      return h === 552801444;
     }
 
     function simplePinHash(pin) {
@@ -1146,6 +1214,7 @@
       document.body.classList.remove('modal-open');
     });
 
+    /* تطبيع البيانات وحساب الاستهلاك تلقائياً من السجلات (Single Source of Truth) */
     function normalizeStateShape() {
       if (!state || typeof state !== 'object') state = deepClone(DEFAULT_STATE);
 
@@ -1154,13 +1223,19 @@
       state.settings.reserveLiters = Math.max(0, wholeNumber(state.settings.reserveLiters));
       state.settings.distMode = ['elasticity', 'per_capita', 'per_family'].includes(state.settings.distMode) ? state.settings.distMode : 'per_family';
       state.settings.roundingMode = ['none', '5', '10'].includes(String(state.settings.roundingMode)) ? String(state.settings.roundingMode) : '5';
-      state.settings.alpha = 0.58;
+      state.settings.alpha = safeAlpha(state.settings.alpha, 0.58);
+
+      const elasticityOpt = document.getElementById('elasticityOptionLabel');
+      if (elasticityOpt) {
+        elasticityOpt.textContent = `وفورات الحجم بالمرونة (α = ${state.settings.alpha})`;
+      }
 
       if (!Array.isArray(state.families)) {
         if (state.families && typeof state.families === 'object') {
           state.families = Object.keys(state.families)
-            .sort((a, b) => Number(a) - Number(b))
-            .map(k => state.families[k]);
+            .map(k => state.families[k])
+            .filter(Boolean)
+            .sort((a, b) => wholeNumber(a.order, 999) - wholeNumber(b.order, 999));
         } else {
           state.families = [];
         }
@@ -1169,17 +1244,27 @@
       state.families = state.families.filter(Boolean).map((f, idx) => {
         const fam = (f && typeof f === 'object') ? f : {};
         fam.id = safeId(fam.id, Date.now() + idx);
-        fam.name = String(fam.name ?? `عائلة ${idx + 1}`).trim() || `عائلة ${idx + 1}`;
+        fam.order = idx;
+        fam.name = String(fam.name ?? `عائلة ${idx + 1}`).trim().slice(0, 40) || `عائلة ${idx + 1}`;
         fam.tent = normalizeArabicDigits(fam.tent ?? String(idx + 1)).trim() || String(idx + 1);
         fam.members = Math.max(0, wholeNumber(fam.members));
-        fam.consumed = Math.max(0, wholeNumber(fam.consumed));
+
         if (!Array.isArray(fam.currentLogs)) fam.currentLogs = fam.currentLogs && typeof fam.currentLogs === 'object' ? Object.values(fam.currentLogs) : [];
         fam.currentLogs = fam.currentLogs.filter(Boolean).map((l, li) => ({
           id: safeId(l.id, Date.now() + idx * 1000 + li),
           amount: Math.max(0, wholeNumber(l.amount)),
-          detail: String(l.detail || '').trim(),
+          detail: String(l.detail || '').trim().slice(0, 60),
           timestamp: wholeNumber(l.timestamp, Date.now())
         }));
+
+        // مصدر الحقيقة الوحيد للاستهلاك: مجموع السجلات إن وجدت، أو القيمة الرقمية المبدئية
+        if (fam.currentLogs.length > 0 || fam._logsAuthoritative) {
+          fam.consumed = fam.currentLogs.reduce((sum, item) => sum + Math.max(0, wholeNumber(item.amount)), 0);
+          fam._logsAuthoritative = true;
+        } else {
+          fam.consumed = Math.max(0, wholeNumber(fam.consumed));
+        }
+
         if (fam.previousCycle && typeof fam.previousCycle === 'object') {
           fam.previousCycle.totalConsumed = Math.max(0, wholeNumber(fam.previousCycle.totalConsumed));
           fam.previousCycle.closedAt = String(fam.previousCycle.closedAt || '');
@@ -1187,7 +1272,7 @@
           fam.previousCycle.logs = fam.previousCycle.logs.filter(Boolean).map((l, li) => ({
             id: safeId(l.id, Date.now() + idx * 1000 + li),
             amount: Math.max(0, wholeNumber(l.amount)),
-            detail: String(l.detail || '').trim(),
+            detail: String(l.detail || '').trim().slice(0, 60),
             timestamp: wholeNumber(l.timestamp, Date.now())
           }));
         }
@@ -1203,7 +1288,7 @@
       state.pumpFund.expenses = state.pumpFund.expenses.filter(Boolean).map((e, idx) => ({
         id: safeId(e.id, Date.now() + idx),
         amount: Math.max(0, safeMoney(e.amount)),
-        note: String(e.note || 'تشغيل كهرباء مضخة').trim(),
+        note: String(e.note || 'تشغيل كهرباء مضخة').trim().slice(0, 100),
         timestamp: wholeNumber(e.timestamp, Date.now())
       }));
       if (!Array.isArray(state.pumpFund.history)) state.pumpFund.history = state.pumpFund.history && typeof state.pumpFund.history === 'object' ? Object.values(state.pumpFund.history) : [];
@@ -1229,9 +1314,6 @@
       if (state.pin) {
         state.adminPinHash = await hashPin(state.pin);
         delete state.pin;
-        changed = true;
-      } else if (!state.adminPinHash) {
-        state.adminPinHash = await hashPin(MASTER_PIN);
         changed = true;
       }
 
@@ -1264,9 +1346,10 @@
       return changed;
     }
 
+    /* حفظ آمن في الذاكرة المحلية مع تطهير بيانات الخصوصية على هواتف غير المسؤولين */
     function loadLocal() {
       try {
-        const raw = localStorage.getItem(STATE_KEY);
+        const raw = localStorage.getItem(STATE_KEY) || localStorage.getItem(LEGACY_STATE_KEY);
         if (raw) {
           state = JSON.parse(raw);
           normalizeStateShape();
@@ -1279,7 +1362,27 @@
 
     function saveLocal() {
       try {
-        localStorage.setItem(STATE_KEY, JSON.stringify(state));
+        if (isAdmin) {
+          localStorage.setItem(STATE_KEY, JSON.stringify(state));
+        } else {
+          // على هاتف المواطن العادي، لا نخزن سجلات سحب العائلات الأخرى في localStorage
+          const sanitized = deepClone(state);
+          const fam1Index = sanitized.families.findIndex(f => String(f.tent || '').trim() === '1');
+          const fam1Id = fam1Index !== -1 ? sanitized.families[fam1Index].id : (sanitized.families[0] ? sanitized.families[0].id : 0);
+          sanitized.families = sanitized.families.map(f => {
+            if (f.id === fam1Id || f.id === loggedInMemberFamId) return f;
+            return {
+              id: f.id,
+              name: f.name,
+              tent: f.tent,
+              members: f.members,
+              consumed: f.consumed,
+              pinHash: f.pinHash,
+              currentLogs: []
+            };
+          });
+          localStorage.setItem(STATE_KEY, JSON.stringify(sanitized));
+        }
       } catch(e) {
         console.error('Local save failed:', e);
         setSyncUI('offline', '⚠️ تعذر الحفظ على ذاكرة الهاتف!');
@@ -1291,7 +1394,6 @@
       try {
         const raw = localStorage.getItem(PENDING_SYNC_KEY);
         if (!raw) return {};
-        if (raw === 'true') return { __legacy_full_state__: true };
         const obj = JSON.parse(raw);
         return (obj && typeof obj === 'object') ? obj : {};
       } catch (e) {
@@ -1315,51 +1417,118 @@
     function mergePendingUpdates(updates) {
       if (!updates || Object.keys(updates).length === 0) return;
       const current = readPendingUpdates();
-      if (current.__legacy_full_state__) {
-        delete current.__legacy_full_state__;
-      }
       Object.keys(updates).forEach(path => { current[path] = deepClone(updates[path]); });
       writePendingUpdates(current);
     }
 
-    function buildStateUpdates() {
+    /* بناء الحزمة الذرية الموحدة لـ camp_v2 لمنع أي تعارض أو عدم تطابق عند انقطاع الإنترنت */
+    function buildAtomicV2Updates() {
       const updates = {};
+      const calc = computeAllotments();
+      const allotments = calc.allotments;
       const base = lastSyncedState;
 
-      if (!base) {
-        updates.settings = deepClone(state.settings);
-        updates.families = deepClone(state.families);
-        updates.pumpFund = deepClone(state.pumpFund);
-        updates.adminPinHash = state.adminPinHash || '';
-        updates.updatedAt = state.updatedAt;
-        return updates;
-      }
+      // تحديثات الحقول الفرعية الدقيقة لكل عائلة بمعرفها الثابت (fam.id)
+      const currentFamIds = new Set();
+      state.families.forEach((f, idx) => {
+        const fid = safeId(f.id);
+        currentFamIds.add(fid);
+        f.order = idx;
 
-      if (!deepEqual(base.settings, state.settings)) updates.settings = deepClone(state.settings);
-      if (!deepEqual(base.pumpFund, state.pumpFund)) updates.pumpFund = deepClone(state.pumpFund);
-      if (!deepEqual(base.adminPinHash, state.adminPinHash)) updates.adminPinHash = state.adminPinHash || '';
-      if (!deepEqual(base.updatedAt, state.updatedAt)) updates.updatedAt = state.updatedAt;
+        const baseFam = base && Array.isArray(base.families)
+          ? base.families.find(bf => safeId(bf.id) === fid)
+          : null;
 
-      if (!Array.isArray(base.families) || !Array.isArray(state.families) || base.families.length !== state.families.length) {
-        updates.families = deepClone(state.families);
-        return updates;
-      }
-
-      for (let i = 0; i < state.families.length; i++) {
-        if (!deepEqual(base.families[i], state.families[i])) {
-          updates[`families/${i}`] = deepClone(state.families[i]);
+        if (!baseFam) {
+          updates[`${V2_ROOT}/adminState/families/${fid}`] = deepClone(f);
+        } else {
+          ['name', 'tent', 'members', 'consumed', 'currentLogs', 'previousCycle', 'pinHash', 'order'].forEach(field => {
+            if (!deepEqual(baseFam[field], f[field])) {
+              updates[`${V2_ROOT}/adminState/families/${fid}/${field}`] = f[field] !== undefined ? deepClone(f[field]) : null;
+            }
+          });
         }
+
+        // تحديث مسار الرمز السري وبطاقة العضو الخاصة
+        if (!baseFam || !deepEqual(baseFam, f)) {
+          if (f.pinHash) {
+            updates[`${V2_ROOT}/memberPins/${fid}`] = f.pinHash;
+            updates[`${V2_ROOT}/memberCards/${fid}_${f.pinHash}`] = {
+              id: fid,
+              name: f.name,
+              tent: f.tent,
+              quota: wholeNumber(allotments[fid]),
+              consumed: Math.max(0, wholeNumber(f.consumed)),
+              currentLogs: deepClone(f.currentLogs || []),
+              previousCycle: f.previousCycle ? deepClone(f.previousCycle) : null
+            };
+          }
+        }
+      });
+
+      // حذف أي عائلة تمت إزالتها
+      if (base && Array.isArray(base.families)) {
+        base.families.forEach(bf => {
+          const bfid = safeId(bf.id);
+          if (!currentFamIds.has(bfid)) {
+            updates[`${V2_ROOT}/adminState/families/${bfid}`] = null;
+            updates[`${V2_ROOT}/memberPins/${bfid}`] = null;
+            if (bf.pinHash) updates[`${V2_ROOT}/memberCards/${bfid}_${bf.pinHash}`] = null;
+          }
+        });
       }
+
+      if (!base || !deepEqual(base.settings, state.settings)) {
+        updates[`${V2_ROOT}/adminState/settings`] = deepClone(state.settings);
+      }
+      if (!base || !deepEqual(base.pumpFund, state.pumpFund)) {
+        updates[`${V2_ROOT}/adminState/pumpFund`] = deepClone(state.pumpFund);
+      }
+      if (!base || !deepEqual(base.adminPinHash, state.adminPinHash)) {
+        updates[`${V2_ROOT}/adminState/adminPinHash`] = state.adminPinHash || '';
+      }
+      updates[`${V2_ROOT}/adminState/updatedAt`] = state.updatedAt;
+
+      // بناء المسار العام (publicState) في نفس الحزمة الذرية
+      const fam1Index = state.families.findIndex(f => String(f.tent || '').trim() === '1');
+      const family1 = fam1Index !== -1 ? state.families[fam1Index] : (state.families.length > 0 ? state.families[0] : null);
+      const otherFamilies = family1 ? state.families.filter(f => f !== family1) : state.families.slice();
+
+      updates[`${V2_ROOT}/publicState`] = {
+        settings: deepClone(state.settings),
+        pumpFund: deepClone(state.pumpFund),
+        familyDirectory: state.families.map(f => ({ id: safeId(f.id), name: f.name, tent: f.tent })),
+        family1: family1 ? {
+          id: safeId(family1.id),
+          name: family1.name,
+          tent: family1.tent,
+          quota: wholeNumber(allotments[family1.id]),
+          consumed: Math.max(0, wholeNumber(family1.consumed)),
+          currentLogs: deepClone(family1.currentLogs || []),
+          previousCycle: family1.previousCycle ? deepClone(family1.previousCycle) : null
+        } : null,
+        anonymousQuotas: otherFamilies.map(f => ({
+          quota: wholeNumber(allotments[f.id]),
+          consumed: Math.max(0, wholeNumber(f.consumed))
+        })),
+        updatedAt: state.updatedAt
+      };
+
+      // مزامنة خلفية متوافقة مع المسار القديم camp_data لضمان عدم تعطل أي أداة قديمة
+      updates['camp_data/settings'] = deepClone(state.settings);
+      updates['camp_data/pumpFund'] = deepClone(state.pumpFund);
+      updates['camp_data/adminPinHash'] = state.adminPinHash || '';
+      updates['camp_data/updatedAt'] = state.updatedAt;
+      updates['camp_data/families'] = deepClone(state.families);
 
       return updates;
     }
 
     function queueStateChanges() {
-      const updates = buildStateUpdates();
+      const updates = buildAtomicV2Updates();
       mergePendingUpdates(updates);
     }
 
-    /* شريط الحالة الذكي مع تحديث فوري عند دخول أو خروج المسؤول */
     function setSyncUI(status, text) {
       if (status) lastSyncStatus = status;
       if (text) lastSyncText = text;
@@ -1396,12 +1565,14 @@
       const dispPanel = document.getElementById('dispensingPanel');
       const adminControls = document.getElementById('adminControls');
       const adminPumpControls = document.getElementById('adminPumpControls');
+      const cloudLogoutBtn = document.getElementById('cloudLogoutBtn');
 
       if (isAdmin) {
         adminBtn.textContent = '🔓 خروج';
         dispPanel.style.display = 'block';
         adminControls.style.display = 'block';
         adminPumpControls.style.display = 'block';
+        if (cloudLogoutBtn) cloudLogoutBtn.style.display = isCloudAuthenticated ? 'block' : 'none';
       } else {
         adminBtn.textContent = '🔒 مسؤول';
         dispPanel.style.display = 'none';
@@ -1426,34 +1597,6 @@
       }
     }
 
-    function saveLegacyFullStateAsPendingIfNeeded() {
-      const pending = readPendingUpdates();
-      if (!pending.__legacy_full_state__) return;
-      delete pending.__legacy_full_state__;
-      pending.settings = deepClone(state.settings);
-      pending.families = deepClone(state.families);
-      pending.pumpFund = deepClone(state.pumpFund);
-      pending.adminPinHash = state.adminPinHash || '';
-      pending.updatedAt = state.updatedAt;
-      writePendingUpdates(pending);
-    }
-
-    function applyUpdatesToSnapshot(snapshot, updates) {
-      const base = snapshot ? deepClone(snapshot) : deepClone(DEFAULT_STATE);
-      if (!Array.isArray(base.families)) base.families = [];
-
-      Object.keys(updates || {}).forEach(path => {
-        const parts = path.split('/');
-        if (parts[0] === 'families' && parts.length === 2) {
-          const index = Number(parts[1]);
-          if (Number.isInteger(index) && index >= 0) base.families[index] = deepClone(updates[path]);
-        } else {
-          base[path] = deepClone(updates[path]);
-        }
-      });
-      return base;
-    }
-
     function arraysStartWith(full, prefix) {
       if (!Array.isArray(full) || !Array.isArray(prefix) || full.length < prefix.length) return false;
       for (let i = 0; i < prefix.length; i++) {
@@ -1465,7 +1608,6 @@
     function syncPendingToServer() {
       if (!navigator.onLine || !db || isPushing) return;
 
-      saveLegacyFullStateAsPendingIfNeeded();
       const pending = readPendingUpdates();
       const pendingBatch = deepClone(pending);
       const pendingKeys = Object.keys(pendingBatch);
@@ -1482,16 +1624,10 @@
       }
 
       isPushing = true;
-      setSyncUI('syncing', '🟡 جاري المزامنة...');
+      setSyncUI('syncing', '🟡 جاري المزامنة الذرية...');
 
-      const updatePayload = {};
-      pendingKeys.forEach(path => {
-        if (path === '__legacy_full_state__') return;
-        updatePayload['camp_data/' + path] = pendingBatch[path];
-      });
-
-      const updateTask = Object.keys(updatePayload).length > 0
-        ? db.ref().update(updatePayload)
+      const updateTask = pendingKeys.length > 0
+        ? db.ref().update(pendingBatch)
         : Promise.resolve();
 
       const historyTask = historyBatch.length > 0
@@ -1505,7 +1641,6 @@
             delete currentPending[path];
           }
         });
-        delete currentPending.__legacy_full_state__;
         writePendingUpdates(currentPending);
 
         if (historyBatch.length > 0) {
@@ -1519,7 +1654,7 @@
           } catch(e) {}
         }
 
-        lastSyncedState = applyUpdatesToSnapshot(lastSyncedState, pendingBatch);
+        lastSyncedState = deepClone(state);
         isPushing = false;
         saveLocal();
 
@@ -1540,7 +1675,49 @@
       });
     }
 
+    /* استيراد وترحيل آمن من المسار القديم camp_data إلى camp_v2 */
+    async function migrateFromLegacyCampData(legacyVal, silent = false) {
+      if (!legacyVal || !legacyVal.families) {
+        if (!silent) alert('لا توجد بيانات في المسار القديم (camp_data) لترحيلها.');
+        return false;
+      }
+      state = deepClone(legacyVal);
+      await migrateState();
+      normalizeStateShape();
+      lastSyncedState = null;
+      saveLocal();
+      render();
+      queueStateChanges();
+      syncPendingToServer();
+      if (!silent) showToast('تم ترحيل البيانات إلى الهيكلية الجديدة (camp_v2) بنجاح ✓');
+      return true;
+    }
+
+    function manualMigrateFromV1() {
+      if (!isAdmin) return;
+      if (!confirm('هل تريد قراءة البيانات من المسار القديم (camp_data) وترحيلها إلى الهيكلية الجديدة (camp_v2)؟\n(ملاحظة: لن يتم مسح المسار القديم).')) return;
+      db.ref('camp_data').once('value').then(snap => {
+        migrateFromLegacyCampData(snap.val(), false);
+      }).catch(err => {
+        alert('تعذر الاتصال بالمسار القديم: ' + err.message);
+      });
+    }
+
     function initFirebase() {
+      if (auth) {
+        auth.onAuthStateChanged(function(user) {
+          isCloudAuthenticated = !!user;
+          if (user) {
+            isAdmin = true;
+            sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+            updateAdminUI();
+            render();
+          } else {
+            updateAdminUI();
+          }
+        });
+      }
+
       db.ref('.info/connected').on('value', function(snap) {
         isFirebaseConnected = (snap.val() === true);
         if (isFirebaseConnected && navigator.onLine) {
@@ -1550,34 +1727,67 @@
         }
       });
 
-      db.ref('camp_data').on('value', async function(snapshot) {
-        const val = snapshot.val();
-        firebaseInitialLoadComplete = true;
-
+      // الاستماع للمسار الجديد camp_v2 مع الترحيل التلقائي من camp_data إذا كان فارغاً
+      db.ref(V2_ROOT).on('value', async function(snapshot) {
+        const v2Val = snapshot.val();
         const pending = readPendingUpdates();
-        if (Object.keys(pending).length > 0) {
-          syncPendingToServer();
+
+        if (!v2Val || (!v2Val.adminState && !v2Val.publicState)) {
+          // لم يتم الترحيل بعد إلى camp_v2؛ نقرأ من camp_data تلقائياً
+          db.ref('camp_data').once('value').then(async function(legacySnap) {
+            const legacyVal = legacySnap.val();
+            if (legacyVal && legacyVal.families) {
+              await migrateFromLegacyCampData(legacyVal, true);
+            } else {
+              render();
+            }
+          });
           return;
         }
 
-        if (!val || !val.families) {
-          lastSyncedState = null;
-          render();
-          return;
-        }
+        const incomingAdmin = v2Val.adminState;
+        const incomingPins = v2Val.memberPins || {};
 
-        lastSyncedState = deepClone(val);
-        state = deepClone(val);
-        const migrationChanged = await migrateState();
-        normalizeStateShape();
-        saveLocal();
-        render();
+        if (incomingAdmin && incomingAdmin.families) {
+          const serverState = deepClone(incomingAdmin);
+          if (!Array.isArray(serverState.families) && typeof serverState.families === 'object') {
+            serverState.families = Object.keys(serverState.families)
+              .map(k => serverState.families[k])
+              .filter(Boolean)
+              .sort((a, b) => wholeNumber(a.order, 999) - wholeNumber(b.order, 999));
+          }
 
-        if (migrationChanged) {
-          queueStateChanges();
-          syncPendingToServer();
-        } else if (isFirebaseConnected && navigator.onLine) {
-          setSyncUI('online', '🟢 متصل ومحفوظ');
+          // دمج أي رموز PIN حُدّثت من قِبل العائلات في memberPins
+          if (Array.isArray(serverState.families)) {
+            serverState.families.forEach(f => {
+              if (f && incomingPins[f.id]) {
+                f.pinHash = incomingPins[f.id];
+              }
+            });
+          }
+
+          lastSyncedState = deepClone(serverState);
+
+          // النقطة 5: إذا لم يكن هناك تعديل محلي معلق نعتمد نسخة السيرفر، وإن وجد نرفع التعديل المعلق دون إهمال تحديثات PIN
+          if (Object.keys(pending).length === 0) {
+            state = deepClone(serverState);
+            const migrationChanged = await migrateState();
+            normalizeStateShape();
+            saveLocal();
+            render();
+            if (migrationChanged) {
+              queueStateChanges();
+              syncPendingToServer();
+            } else if (isFirebaseConnected && navigator.onLine) {
+              setSyncUI('online', '🟢 متصل ومحفوظ');
+            }
+          } else {
+            // دمج رموز PIN الجديدة الواردة من السيرفر داخل الحالة المحلية قبل رفع الطابور
+            state.families.forEach(f => {
+              if (incomingPins[f.id]) f.pinHash = incomingPins[f.id];
+            });
+            syncPendingToServer();
+          }
         }
       });
     }
@@ -1597,7 +1807,7 @@
       const reserveWater = Math.max(0, wholeNumber(state.settings.reserveLiters));
       const netWater = Math.max(0, totalWater - reserveWater);
       const mode = state.settings.distMode || 'per_family';
-      const alpha = 0.58;
+      const alpha = safeAlpha(state.settings.alpha, 0.58);
       const rounding = state.settings.roundingMode || '5';
 
       let totalPop = 0;
@@ -1739,11 +1949,14 @@
           card.className = 'family-card';
           card.innerHTML = `
             <div class="family-header">
-              <div><strong class="family-name">${safeName}</strong></div>
+              <div class="family-name-wrap">
+                <strong class="family-name">${safeName}</strong>
+                <button class="btn-edit-name" onclick="updateFamilyName(${fid})" title="تعديل اسم العائلة">✏</button>
+              </div>
               <div class="family-meta-admin">
                 <span style="font-size:0.8rem; color:var(--muted); font-weight:700;">رقم:</span>
-                <input type="text" class="mini-input" inputmode="numeric" value="${safeTent}" title="رقم العائلة" onchange="updateTentNumber(${fid}, this.value)">
-                <input type="text" class="mini-input" inputmode="numeric" value="${safeMembers}" title="عدد الأفراد" onchange="updateMembers(${fid}, this.value)">
+                <input type="text" class="mini-input" inputmode="numeric" maxlength="4" value="${safeTent}" title="رقم العائلة" onchange="updateTentNumber(${fid}, this.value)">
+                <input type="text" class="mini-input" inputmode="numeric" maxlength="3" value="${safeMembers}" title="عدد الأفراد" onchange="updateMembers(${fid}, this.value)">
                 <span style="font-size:0.8rem; color:var(--muted); font-weight:700;">فرد</span>
                 <button onclick="resetMemberPinByAdmin(${fid})" class="btn-log-action" style="background:#fef3c7; color:#92400e;" title="إعادة ضبط PIN إلى 1234">🔄 PIN</button>
                 <button onclick="deleteFamily(${fid})" class="btn-log-action btn-log-del btn-family-del" title="حذف العائلة">🗑️</button>
@@ -1762,7 +1975,6 @@
           famContainer.appendChild(card);
         });
       } else {
-        // عائلة 1 (المسؤول) ثابتة دائماً في البداية مع إظهار الاسم والسجل وتمييز الإطار
         const fam1Index = state.families.findIndex(f => String(f.tent || '').trim() === '1');
         const family1 = fam1Index !== -1 ? state.families[fam1Index] : (state.families.length > 0 ? state.families[0] : null);
 
@@ -1793,7 +2005,6 @@
           famContainer.appendChild(card1);
         }
 
-        // باقي الحصص تُخلط عشوائياً وتُرقم من حصة #2 فصاعداً لحفظ خصوصيتها
         const otherFamilies = family1 ? state.families.filter(f => f !== family1) : state.families.slice();
         const shuffled = shuffleArray(otherFamilies);
         shuffled.forEach(function(f, index) {
@@ -1983,7 +2194,7 @@
       if (!isAdmin) return;
       const rawAmt = normalizeArabicDigits(document.getElementById('expenseAmountInput').value).trim();
       const amt = Number(rawAmt);
-      const note = document.getElementById('expenseNoteInput').value.trim();
+      const note = document.getElementById('expenseNoteInput').value.trim().slice(0, 100);
 
       if (!Number.isFinite(amt) || amt <= 0) {
         alert('يرجى إدخال مبلغ صحيح');
@@ -2146,7 +2357,6 @@
       openModal('waterInfoModal');
     }
 
-    /* البحث الذكي: أولوية مطلقة لرقم العائلة والاختيار من القائمة دون خطف المؤشر أثناء كتابة الحروف */
     function handleFamilySearch(query) {
       const clearBtn = document.getElementById('clearSearchBtn');
       clearBtn.style.display = (query && query.trim().length > 0) ? 'inline-flex' : 'none';
@@ -2160,14 +2370,12 @@
       const qRaw = query.trim().toLowerCase();
       const qNorm = normalizeArabicDigits(qRaw);
 
-      // 1. فحص هل المستخدم لمس خياراً جاهزاً كاملاً من القائمة المنسدلة (datalist)
       let exactDatalistMatch = state.families.find(f => {
         const famName = String(f.name || '').toLowerCase();
         const tentNorm = normalizeArabicDigits(String(f.tent || '').toLowerCase());
         return `${famName} (${tentNorm})` === qNorm || `${famName} (${String(f.tent || '').toLowerCase()})` === qRaw;
       });
 
-      // 2. إذا لم يكن خياراً كاملاً، نفحص التطابق التام لرقم العائلة أولاً (لكي لا يطابق رقم 2 عائلة 12)
       let match = exactDatalistMatch;
       if (!match) {
         match = state.families.find(f => {
@@ -2176,7 +2384,6 @@
         });
       }
 
-      // 3. إذا لم يطابق رقم عائلة، نبحث في أسماء العائلات
       if (!match) {
         match = state.families.find(f => {
           const famName = String(f.name || '').toLowerCase();
@@ -2189,7 +2396,6 @@
         const calc = computeAllotments();
         updateLiveFamilyUI(selectedDispenseFamId, calc.allotments);
 
-        // إذا اختار العائلة باللمس من القائمة المنسدلة مباشرة، ينتقل المؤشر للأوعية تلقائياً
         if (exactDatalistMatch) {
           setTimeout(() => {
             const amtInp = document.getElementById('dispenseAmountInput');
@@ -2301,7 +2507,20 @@
         return;
       }
 
-      // تنبيه الحماية عند تجاوز أي وعاء منفرد 50 لتر
+      const calc = computeAllotments();
+      const netWater = calc.netWater;
+      let totalConsumedAll = 0;
+      state.families.forEach(f => totalConsumedAll += Math.max(0, wholeNumber(f.consumed)));
+      const remainingInTank = Math.max(0, netWater - totalConsumedAll);
+
+      // الخيار (7-أ): منع قاطع إذا تجاوزت السحبة إجمالي الماء المتاح للدورة
+      if (netWater > 0 && parsed.total > netWater) {
+        alert(`❌ خطأ: لا يمكن أن تتجاوز السحبة الواحدة (${parsed.total} لتر) إجمالي الماء المتاح للتوزيع في الخزان (${netWater} لتر).`);
+        inputEl.focus();
+        return;
+      }
+
+      // تنبيه عند تجاوز أي وعاء منفرد 50 لتر
       if (parsed.oversized.length > 0) {
         const bigStr = parsed.oversized.join('، ');
         if (!confirm(`⚠️ تنبيه هام:\nيوجد وعاء مسجل بحجم أكبر من ${MAX_NORMAL_CONTAINER_LITERS} لتر (${bigStr} لتر).\n\nهل نسيت وضع النقطة الفاصلة بين الأرقام، أم أن حجم الوعاء (${bigStr} لتر) صحيح وتود الاستمرار؟`)) {
@@ -2310,17 +2529,24 @@
         }
       }
 
+      // الخيار (7-أ): تنبيه تأكيدي مرن إذا زادت السحبة عن المتبقي حسابياً في الخزان
+      if (parsed.total > remainingInTank) {
+        if (!confirm(`⚠️ تنبيه خزان:\nكمية هذه السحبة (${parsed.total} لتر) أكبر من المتبقي حسابياً في الخزان حالياً (${remainingInTank} لتر).\n\nهل تريد تسجيل السحب رغم ذلك؟`)) {
+          inputEl.focus();
+          return;
+        }
+      }
+
       const fam = state.families.find(f => safeId(f.id) === safeId(selectedDispenseFamId));
       if (!fam) return;
 
-      const calc = computeAllotments();
       const quota = wholeNumber(calc.allotments[fam.id]);
       const consumed = Math.max(0, wholeNumber(fam.consumed));
       const remAfter = quota - (consumed + parsed.total);
 
       if (remAfter < 0) {
         const over = Math.abs(remAfter);
-        if (!confirm(`⚠️ تنبيه: هذه العملية ستجعل العائلة تتجاوز حصتها المقررة بمقدار (${over} لتر).\n\nهل تريد تسجيل السحب رغم ذلك؟`)) return;
+        if (!confirm(`⚠️ تنبيه حصة:\nهذه العملية ستجعل العائلة تتجاوز حصتها المقررة بمقدار (${over} لتر).\n\nهل تريد تسجيل السحب رغم ذلك؟`)) return;
       }
 
       const btn = document.getElementById('dispenseSubmitBtn');
@@ -2336,7 +2562,8 @@
         timestamp: now
       });
 
-      fam.consumed = Math.max(0, wholeNumber(fam.consumed)) + parsed.total;
+      fam._logsAuthoritative = true;
+      fam.consumed = fam.currentLogs.reduce((sum, item) => sum + Math.max(0, wholeNumber(item.amount)), 0);
 
       pushState();
 
@@ -2510,9 +2737,25 @@
       }
       const fam = state.families.find(f => safeId(f.id) === safeId(loggedInMemberFamId));
       if (fam) {
-        fam.pinHash = await hashPin(p);
+        const fid = safeId(fam.id);
+        const newHash = await hashPin(p);
+        fam.pinHash = newHash;
         delete fam.pin;
-        pushState();
+        saveLocal();
+
+        // تحديث مسار الرمز السري المخصص للعائلة فقط دون الحاجة لصلاحية مسؤول كاملة
+        if (db && navigator.onLine && isFirebaseConnected) {
+          const pinUpdate = {};
+          pinUpdate[`${V2_ROOT}/memberPins/${fid}`] = newHash;
+          db.ref().update(pinUpdate).catch(() => {
+            mergePendingUpdates(pinUpdate);
+          });
+        } else {
+          const pinUpdate = {};
+          pinUpdate[`${V2_ROOT}/memberPins/${fid}`] = newHash;
+          mergePendingUpdates(pinUpdate);
+        }
+
         closeModal('memberChangePinModal');
         showToast('تم تغيير رمز PIN الخاص بك بنجاح ✓');
       }
@@ -2529,6 +2772,24 @@
       }
     }
 
+    /* ميزة تعديل اسم العائلة للمسؤول */
+    function updateFamilyName(id) {
+      if (!isAdmin) return;
+      const fam = state.families.find(f => safeId(f.id) === safeId(id));
+      if (!fam) return;
+      const newName = prompt('أدخل الاسم الجديد للعائلة:', fam.name);
+      if (newName === null) return;
+      const trimmed = newName.trim().slice(0, 40);
+      if (!trimmed) {
+        alert('اسم العائلة لا يمكن أن يكون فارغاً.');
+        return;
+      }
+      fam.name = trimmed;
+      pushState();
+      showToast(`تم تحديث الاسم إلى (${trimmed}) ✓`);
+    }
+
+    /* تحديث رقم العائلة مع منع التكرار */
     function updateTentNumber(id, val) {
       if (!isAdmin) return;
       const fam = state.families.find(f => safeId(f.id) === safeId(id));
@@ -2536,6 +2797,12 @@
       const tent = normalizeArabicDigits(val).trim();
       if (!/^\d+$/.test(tent)) {
         alert('رقم العائلة يجب أن يتكون من أرقام فقط.');
+        render();
+        return;
+      }
+      const duplicate = state.families.find(f => safeId(f.id) !== safeId(id) && String(f.tent || '').trim() === tent);
+      if (duplicate) {
+        alert(`⚠️ الرقم (${tent}) مستخدم بالفعل لعائلة (${duplicate.name}). يرجى اختيار رقم غير مكرر.`);
         render();
         return;
       }
@@ -2627,6 +2894,12 @@
         return;
       }
 
+      const calc = computeAllotments();
+      if (calc.netWater > 0 && parsed.total > calc.netWater) {
+        alert(`❌ لا يمكن أن تتجاوز السحبة إجمالي الماء المتاح (${calc.netWater} لتر).`);
+        return;
+      }
+
       if (parsed.oversized.length > 0) {
         const bigStr = parsed.oversized.join('، ');
         if (!confirm(`⚠️ تنبيه: يوجد وعاء مسجل بحجم أكبر من ${MAX_NORMAL_CONTAINER_LITERS} لتر (${bigStr} لتر).\nهل الرقم صحيح؟`)) {
@@ -2634,10 +2907,10 @@
         }
       }
 
-      const diff = parsed.total - Math.max(0, wholeNumber(log.amount));
       log.amount = parsed.total;
       log.detail = parsed.detail;
-      fam.consumed = Math.max(0, wholeNumber(fam.consumed) + diff);
+      fam._logsAuthoritative = true;
+      fam.consumed = fam.currentLogs.reduce((sum, item) => sum + Math.max(0, wholeNumber(item.amount)), 0);
 
       pushState();
       renderLogsModal();
@@ -2653,8 +2926,9 @@
       if (logIndex === -1) return;
 
       if (confirm('هل تريد حذف هذه العملية والتراجع عن خصمها؟')) {
-        const removed = fam.currentLogs.splice(logIndex, 1)[0];
-        fam.consumed = Math.max(0, wholeNumber(fam.consumed) - Math.max(0, wholeNumber(removed.amount)));
+        fam.currentLogs.splice(logIndex, 1);
+        fam._logsAuthoritative = true;
+        fam.consumed = fam.currentLogs.reduce((sum, item) => sum + Math.max(0, wholeNumber(item.amount)), 0);
         pushState();
         renderLogsModal();
         showToast('تم حذف العملية والتراجع عن خصمها');
@@ -2666,27 +2940,40 @@
       const name = prompt('أدخل اسم العائلة الجديدة:');
       if (!name || !name.trim()) return;
 
-      const defaultTent = String(state.families.length + 1);
+      let nextNum = state.families.length + 1;
+      while (state.families.some(f => String(f.tent || '').trim() === String(nextNum))) {
+        nextNum++;
+      }
+      const defaultTent = String(nextNum);
       const tentInput = prompt('أدخل رقم العائلة:', defaultTent);
+      if (tentInput === null) return;
       const tent = normalizeArabicDigits((tentInput || defaultTent)).trim();
       if (!/^\d+$/.test(tent)) {
         alert('رقم العائلة يجب أن يتكون من أرقام فقط.');
         return;
       }
 
+      const duplicate = state.families.find(f => String(f.tent || '').trim() === tent);
+      if (duplicate) {
+        alert(`⚠️ الرقم (${tent}) مستخدم بالفعل لعائلة (${duplicate.name}).`);
+        return;
+      }
+
       const id = Date.now();
       state.families.push({
         id: id,
-        name: name.trim(),
+        order: state.families.length,
+        name: name.trim().slice(0, 40),
         tent: tent,
         pinHash: await hashPin(DEFAULT_MEMBER_PIN),
         members: 0,
         consumed: 0,
+        _logsAuthoritative: true,
         currentLogs: []
       });
 
       pushState();
-      showToast(`تمت إضافة عائلة (${name.trim()}) بنجاح ✓`);
+      showToast(`تمت إضافة عائلة (${name.trim().slice(0, 40)}) بنجاح ✓`);
     }
 
     function deleteFamily(id) {
@@ -2701,7 +2988,6 @@
       }
     }
 
-    /* تصدير واستعادة النسخة الاحتياطية الخاصة بصفحة التوزيع (100% أوفلاين) */
     function exportBackupJSON() {
       if (!isAdmin) return;
       normalizeStateShape();
@@ -2713,7 +2999,7 @@
       } catch(e) {}
 
       const backupPayload = {
-        app: 'camp_water_distribution_v1',
+        app: 'camp_water_distribution_v2',
         exportedAt: new Date().toISOString(),
         state: deepClone(state),
         pendingHistory: pendingHistory
@@ -2747,18 +3033,20 @@
 
       const reader = new FileReader();
       reader.onload = async function(e) {
+        const rollbackCopy = deepClone(state);
         try {
           const parsed = JSON.parse(e.target.result);
-          const importedState = (parsed && parsed.state && Array.isArray(parsed.state.families))
+          const importedState = (parsed && parsed.state && (Array.isArray(parsed.state.families) || typeof parsed.state.families === 'object'))
             ? parsed.state
-            : (parsed && Array.isArray(parsed.families) ? parsed : null);
+            : (parsed && (Array.isArray(parsed.families) || typeof parsed.families === 'object') ? parsed : null);
 
-          if (!importedState) {
-            alert('ملف النسخة الاحتياطية غير صالح أو لا يحتوي على بيانات العائلات.');
+          if (!importedState || !importedState.settings) {
+            alert('ملف النسخة الاحتياطية غير صالح أو يفتقد للبيانات الأساسية.');
             return;
           }
 
-          if (!confirm(`هل تريد استعادة هذه النسخة الاحتياطية (${importedState.families.length} عائلة)؟\nسيتم استبدال بيانات التوزيع الحالية بالنسخة المستعادة.`)) {
+          const famList = Array.isArray(importedState.families) ? importedState.families : Object.values(importedState.families || {});
+          if (!confirm(`هل تريد استعادة هذه النسخة الاحتياطية (${famList.length} عائلة)؟\nسيتم استبدال بيانات التوزيع الحالية بالنسخة المستعادة.`)) {
             return;
           }
 
@@ -2772,14 +3060,14 @@
             } catch(err) {}
           }
 
-          // تصفير خط الأساس لضمان رفع كامل حالة النسخة المستعادة إلى السيرفر
           lastSyncedState = null;
           writePendingUpdates({});
           pushState();
           showToast('تمت استعادة النسخة الاحتياطية بنجاح ✓');
         } catch (err) {
+          state = rollbackCopy;
           console.error('Import error:', err);
-          alert('تعذر قراءة ملف النسخة الاحتياطية. تأكد من أنه ملف JSON سليم.');
+          alert('تعذر قراءة ملف النسخة الاحتياطية. تم الحفاظ على بياناتك الحالية دون تغيير.');
         }
       };
       reader.readAsText(file);
@@ -2836,6 +3124,7 @@
           f.previousCycle = { totalConsumed: Math.max(0, wholeNumber(f.consumed)), closedAt: todayStr, logs: deepClone(f.currentLogs || []) };
           f.consumed = 0;
           f.currentLogs = [];
+          f._logsAuthoritative = true;
         });
 
         pushState();
@@ -2843,15 +3132,26 @@
       }
     }
 
+    function switchAuthTab(mode) {
+      document.getElementById('authTabPinBtn').className = 'tab-btn' + (mode === 'pin' ? ' active' : '');
+      document.getElementById('authTabEmailBtn').className = 'tab-btn' + (mode === 'email' ? ' active' : '');
+      document.getElementById('authPinSection').style.display = (mode === 'pin') ? 'block' : 'none';
+      document.getElementById('authEmailSection').style.display = (mode === 'email') ? 'block' : 'none';
+    }
+
     function toggleAdminModal() {
       if (isAdmin) {
+        // قفل ميداني سريع للشاشة دون إبطال شهادة الهاتف السحابية ليعمل أوفلاين
         isAdmin = false;
         sessionStorage.removeItem(ADMIN_SESSION_KEY);
         updateAdminUI();
         render();
-        showToast('تم الخروج من وضع المسؤول');
+        showToast('تم قفل وضع المسؤول');
       } else {
         document.getElementById('adminPinInput').value = '';
+        const savedEmail = localStorage.getItem(ADMIN_EMAIL_CACHE_KEY) || '';
+        if (savedEmail) document.getElementById('adminEmailInput').value = savedEmail;
+        switchAuthTab('pin');
         openModal('loginModal');
         setTimeout(() => document.getElementById('adminPinInput').focus(), 150);
       }
@@ -2866,10 +3166,9 @@
       }
 
       const actualHash = await hashPin(pin);
-      const currentHash = state.adminPinHash || await hashPin(MASTER_PIN);
-      const masterHash = await hashPin(MASTER_PIN);
+      const currentHash = state.adminPinHash;
 
-      if (actualHash === currentHash || actualHash === masterHash) {
+      if ((currentHash && actualHash === currentHash) || isMasterRecoveryKey(pin)) {
         isAdmin = true;
         sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
         closeModal('loginModal');
@@ -2881,20 +3180,71 @@
       }
     }
 
+    function loginWithFirebaseEmail() {
+      if (!auth) {
+        alert('مكتبة Firebase Auth غير محملة. استخدم رمز PIN السريع.');
+        return;
+      }
+      const email = document.getElementById('adminEmailInput').value.trim();
+      const pass = document.getElementById('adminPasswordInput').value;
+      if (!email || !pass) {
+        alert('يرجى إدخال البريد الإلكتروني وكلمة المرور');
+        return;
+      }
+
+      auth.signInWithEmailAndPassword(email, pass).then(function() {
+        try { localStorage.setItem(ADMIN_EMAIL_CACHE_KEY, email); } catch(e) {}
+        isAdmin = true;
+        isCloudAuthenticated = true;
+        sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+        closeModal('loginModal');
+        updateAdminUI();
+        render();
+        showToast('تم تسجيل الدخول الرسمي كمسؤول ✓');
+      }).catch(function(err) {
+        alert('تعذر تسجيل الدخول: تأكد من صحة البريد وكلمة المرور أو اتصال الإنترنت.\n(' + err.message + ')');
+      });
+    }
+
+    function sendAdminPasswordReset() {
+      if (!auth) return;
+      const email = document.getElementById('adminEmailInput').value.trim() || prompt('أدخل البريد الإلكتروني المسجل للمسؤول لإرسال رابط استعادة كلمة المرور:');
+      if (!email || !email.trim()) return;
+
+      auth.sendPasswordResetEmail(email.trim()).then(function() {
+        alert('تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني بنجاح. تفقد صندوق الوارد.');
+      }).catch(function(err) {
+        alert('تعذر إرسال البريد: ' + err.message);
+      });
+    }
+
+    function signOutFirebaseAdmin() {
+      if (!confirm('هل تريد تسجيل الخروج النهائي من الحساب السحابي على هذا الجهاز؟')) return;
+      if (auth) auth.signOut();
+      isAdmin = false;
+      isCloudAuthenticated = false;
+      sessionStorage.removeItem(ADMIN_SESSION_KEY);
+      updateAdminUI();
+      render();
+      showToast('تم تسجيل الخروج النهائي من الجهاز');
+    }
+
     async function recoverAdminPin() {
-      const entered = prompt('أدخل رمز الطوارئ الرئيسي (Master PIN) لاستعادة الدخول:');
-      if (entered !== null && normalizeArabicDigits(entered).trim() === MASTER_PIN) {
-        state.adminPinHash = await hashPin(MASTER_PIN);
-        delete state.pin;
+      const entered = prompt('أدخل مفتاح الطوارئ الرئيسي (Master Key) لاستعادة الدخول أو اختر تبويب الحساب السحابي للاستعادة عبر البريد:');
+      if (entered !== null && isMasterRecoveryKey(entered)) {
+        const newPin = prompt('تم التحقق بنجاح ✓\nأدخل رمز PIN رقمي جديد (4 إلى 10 أرقام) للدخول السريع:', '123456');
+        if (newPin && /^\d{4,10}$/.test(normalizeArabicDigits(newPin).trim())) {
+          state.adminPinHash = await hashPin(normalizeArabicDigits(newPin).trim());
+        }
         isAdmin = true;
         sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
         pushState();
         closeModal('loginModal');
         updateAdminUI();
         render();
-        alert('تم استعادة الدخول وإعادة تعيين رمز المسؤول بنجاح.');
+        showToast('تمت استعادة الدخول وتحديث رمز المسؤول ✓');
       } else if (entered !== null) {
-        alert('رمز الطوارئ الرئيسي غير صحيح');
+        alert('مفتاح الطوارئ غير صحيح. يمكنك أيضاً استخدام تبويب "الحساب السحابي" لإرسال رابط استعادة إلى بريدك الإلكتروني.');
       }
     }
 
@@ -2920,14 +3270,24 @@
       delete state.pin;
       pushState();
       closeModal('changePinModal');
-      showToast('تم تحديث رمز المسؤول بنجاح ✓');
+      showToast('تم تحديث رمز المسؤول السريع بنجاح ✓');
+    }
+
+    function toggleAlphaInputVisibility() {
+      const mode = document.getElementById('settingDistMode').value;
+      const alphaGroup = document.getElementById('alphaSettingGroup');
+      if (alphaGroup) {
+        alphaGroup.style.display = (mode === 'elasticity') ? 'block' : 'none';
+      }
     }
 
     function openSettingsModal() {
       document.getElementById('settingTotalWater').value = wholeNumber(state.settings.totalWater);
       document.getElementById('settingReserve').value = wholeNumber(state.settings.reserveLiters);
       document.getElementById('settingDistMode').value = state.settings.distMode;
+      document.getElementById('settingAlpha').value = safeAlpha(state.settings.alpha, 0.58);
       document.getElementById('settingRounding').value = state.settings.roundingMode;
+      toggleAlphaInputVisibility();
       openModal('settingsModal');
     }
 
@@ -2935,6 +3295,8 @@
       if (!isAdmin) return;
       const tw = parseUnsignedIntegerInput(document.getElementById('settingTotalWater').value);
       const res = parseUnsignedIntegerInput(document.getElementById('settingReserve').value);
+      const mode = document.getElementById('settingDistMode').value;
+      const rawAlpha = normalizeArabicDigits(document.getElementById('settingAlpha').value).trim();
 
       if (tw === null || res === null) {
         alert('يرجى إدخال أرقام صحيحة غير سالبة للمياه.');
@@ -2945,11 +3307,21 @@
         return;
       }
 
+      let alphaVal = safeAlpha(state.settings.alpha, 0.58);
+      if (mode === 'elasticity') {
+        const parsedAlpha = Number(rawAlpha);
+        if (!Number.isFinite(parsedAlpha) || parsedAlpha < 0.1 || parsedAlpha > 1.0) {
+          alert('معامل المرونة (α) يجب أن يكون رقماً بين 0.10 و 1.00 (مثال: 0.58).');
+          return;
+        }
+        alphaVal = safeAlpha(parsedAlpha, 0.58);
+      }
+
       state.settings.totalWater = tw;
       state.settings.reserveLiters = res;
-      state.settings.distMode = document.getElementById('settingDistMode').value;
+      state.settings.distMode = mode;
+      state.settings.alpha = alphaVal;
       state.settings.roundingMode = document.getElementById('settingRounding').value;
-      state.settings.alpha = 0.58;
       pushState();
       closeModal('settingsModal');
       showToast('تم حفظ الإعدادات وتحديث الحصص ✓');
@@ -2990,4 +3362,4 @@
     };
   </script>
 </body>
-</html>
+  </html>
