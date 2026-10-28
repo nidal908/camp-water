@@ -1,21 +1,49 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>منصة تحليلات ومعايرة مياه المخيم</title>
-  
-  <!-- خط Cairo العربي ومكتبة Chart.js والمكتبات الأساسية لـ Firebase -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icon.png">
+  <meta name="theme-color" content="#0369a1">
+
+  <!-- خط Cairo العربي ومكتبة Chart.js ومكتبات Firebase -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
   <style>
+    /* الهوية البصرية الموحدة مع صفحة التوزيع (النهاري افتراضياً + دعم الداكن) */
     :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface-alt: #f1f5f9;
+      --surface-hover: rgba(3, 105, 161, 0.05);
+      --border: #cbd5e1;
+      --text: #0f172a;
+      --text-secondary: #475569;
+      --primary: #0369a1;
+      --primary-strong: #0369a1;
+      --primary-dark: #075985;
+      --primary-contrast: #ffffff;
+      --success: #15803d;
+      --success-bg: #dcfce7;
+      --warning: #b45309;
+      --warning-bg: #fef3c7;
+      --danger: #b91c1c;
+      --danger-bg: #fee2e2;
+      --shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+      --chart-grid: #e2e8f0;
+      --chart-text: #475569;
+      --focus-ring: rgba(3, 105, 161, 0.35);
+    }
+
+    [data-theme="dark"] {
       --bg: #0b1329;
       --surface: #131f38;
       --surface-alt: #1b2a4a;
@@ -24,39 +52,18 @@
       --text: #f8fafc;
       --text-secondary: #94a3b8;
       --primary: #38bdf8;
-      --primary-strong: #0369a1;
+      --primary-strong: #0284c7;
+      --primary-dark: #0369a1;
       --primary-contrast: #ffffff;
       --success: #10b981;
-      --success-bg: rgba(16, 185, 129, 0.14);
+      --success-bg: rgba(16, 185, 129, 0.16);
       --warning: #f59e0b;
-      --warning-bg: rgba(245, 158, 11, 0.14);
+      --warning-bg: rgba(245, 158, 11, 0.16);
       --danger: #ef4444;
-      --danger-bg: rgba(239, 68, 68, 0.14);
+      --danger-bg: rgba(239, 68, 68, 0.16);
       --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
       --chart-grid: #1e293b;
       --chart-text: #94a3b8;
-    }
-
-    [data-theme="light"] {
-      --bg: #f1f5f9;
-      --surface: #ffffff;
-      --surface-alt: #f8fafc;
-      --surface-hover: rgba(3, 105, 161, 0.05);
-      --border: #cbd5e1;
-      --text: #0f172a;
-      --text-secondary: #475569;
-      --primary: #0369a1;
-      --primary-strong: #0369a1;
-      --primary-contrast: #ffffff;
-      --success: #047857;
-      --success-bg: rgba(4, 120, 87, 0.12);
-      --warning: #b45309;
-      --warning-bg: rgba(180, 83, 9, 0.12);
-      --danger: #b91c1c;
-      --danger-bg: rgba(185, 28, 28, 0.12);
-      --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-      --chart-grid: #e2e8f0;
-      --chart-text: #475569;
     }
 
     * {
@@ -70,10 +77,34 @@
     body {
       background-color: var(--bg);
       color: var(--text);
-      padding: 14px;
+      min-width: 320px;
       line-height: 1.55;
       min-height: 100vh;
+      padding-bottom: calc(36px + env(safe-area-inset-bottom));
       transition: background-color 0.25s, color 0.25s;
+    }
+
+    body.modal-open {
+      overflow: hidden;
+    }
+
+    button, input, select {
+      touch-action: manipulation;
+    }
+
+    button {
+      min-height: 44px;
+      cursor: pointer;
+      transition: transform 0.08s ease, background-color 0.15s ease, opacity 0.15s ease;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 3px solid var(--focus-ring);
+      outline-offset: 2px;
     }
 
     .num {
@@ -82,144 +113,227 @@
       display: inline-block;
     }
 
-    .container {
-      max-width: 1220px;
-      margin: 0 auto;
-      display: none;
-      padding-bottom: 40px;
-    }
-
-    /* شاشة القفل برمز PIN */
-    #lockScreen {
-      position: fixed;
-      inset: 0;
-      background: var(--bg);
+    /* شريط الحالة اللحظي الموحد مع صفحة التوزيع */
+    .sync-bar {
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      text-align: center;
+      font-weight: 700;
       display: flex;
       justify-content: center;
       align-items: center;
-      z-index: 1000;
-      padding: 16px;
+      gap: 8px;
+      transition: background 0.3s;
     }
-    .lock-box {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      padding: 30px 24px;
-      border-radius: 16px;
-      width: 100%;
-      max-width: 380px;
-      text-align: center;
-      box-shadow: var(--shadow);
-    }
-    .lock-box h2 { font-size: 1.3rem; color: var(--primary); margin-bottom: 6px; font-weight: 800; }
-    .lock-box p { font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 20px; }
-    .lock-input {
-      width: 100%;
-      min-height: 52px;
-      padding: 12px;
-      font-size: 1.5rem;
-      text-align: center;
-      letter-spacing: 8px;
-      border: 2px solid var(--border);
-      border-radius: 10px;
-      background: var(--bg);
-      color: var(--text);
-      outline: none;
-      margin-bottom: 16px;
-      font-variant-numeric: tabular-nums;
-    }
-    .lock-input:focus { border-color: var(--primary); }
-    .btn-unlock {
-      width: 100%;
-      min-height: 50px;
+    .sync-online { background: #dcfce7; color: #166534; }
+    .sync-offline { background: #fee2e2; color: #991b1b; }
+    .sync-syncing { background: #e0f2fe; color: #0369a1; }
+
+    /* الهيدر العلوي الموحد مع صفحة التوزيع */
+    .header {
       background: var(--primary-strong);
       color: #fff;
-      border: none;
-      padding: 12px;
-      border-radius: 10px;
-      font-size: 1.05rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: 0.2s;
-    }
-    .btn-unlock:hover { opacity: 0.92; }
-    .lock-error { color: var(--danger); font-size: 0.85rem; margin-top: 12px; display: none; font-weight: 600; }
-
-    /* الهيدر العلوي */
-    .top-bar {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 16px 18px;
-      margin-bottom: 16px;
+      padding: 10px 14px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 14px;
+      gap: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+    }
+    .header h1 {
+      font-size: 1.08rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .header-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-right: auto;
+    }
+    .btn-header {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: #fff;
+      padding: 6px 11px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.84rem;
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+    .btn-header-primary {
+      background: #ffffff;
+      color: #0369a1;
+      border-color: #ffffff;
+      font-weight: 800;
+    }
+
+    /* شريط أدوات الفلترة والنسخ الاحتياطي */
+    .toolbar-container {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 14px;
+      margin-bottom: 14px;
       box-shadow: var(--shadow);
     }
-    .brand-title h1 { font-size: 1.3rem; color: var(--primary); font-weight: 800; line-height: 1.3; }
-    .sync-status { font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px; display: flex; align-items: center; gap: 6px; }
-    .status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--success); display: inline-block; }
-    .status-dot.offline { background: var(--warning); }
-
-    .header-controls {
+    .toolbar-inner {
+      max-width: 1220px;
+      margin: 0 auto;
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      gap: 8px;
       flex-wrap: wrap;
+      gap: 10px;
     }
-
     .cycle-selector {
-      min-height: 48px;
-      padding: 8px 14px;
+      min-height: 44px;
+      padding: 6px 12px;
       border-radius: 10px;
-      border: 1px solid var(--border);
-      background: var(--surface-alt);
+      border: 2px solid var(--primary);
+      background: var(--surface);
       color: var(--text);
-      font-weight: 700;
-      font-size: 0.88rem;
+      font-weight: 800;
+      font-size: 0.9rem;
       outline: none;
       cursor: pointer;
+      flex: 1;
+      min-width: 220px;
+      max-width: 380px;
     }
-    .cycle-selector:focus { border-color: var(--primary); }
-
+    .toolbar-buttons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
     .btn-action {
-      min-height: 48px;
+      min-height: 42px;
       background: var(--primary-strong);
       color: #fff;
       border: none;
-      padding: 8px 16px;
-      border-radius: 10px;
+      padding: 6px 12px;
+      border-radius: 9px;
       font-weight: 700;
-      cursor: pointer;
-      transition: 0.2s;
-      font-size: 0.86rem;
+      font-size: 0.82rem;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      text-decoration: none;
+      gap: 5px;
     }
-    .btn-action:hover { opacity: 0.9; }
     .btn-secondary {
       background: var(--surface-alt);
       color: var(--text);
       border: 1px solid var(--border);
     }
-    .btn-export { background: #047857; }
+    .btn-export {
+      background: #15803d;
+      color: #fff;
+    }
 
-    /* كروت المؤشرات العلوية */
+    .container {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 0 12px;
+      display: none;
+    }
+
+    /* شاشة القفل المتوافقة مع رمز PIN السريع والحساب السحابي */
+    #lockScreen {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.72);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 2000;
+      padding: 16px;
+      backdrop-filter: blur(3px);
+    }
+    .lock-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 24px 20px;
+      border-radius: 18px;
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    .lock-box h2 { font-size: 1.2rem; color: var(--primary); margin-bottom: 4px; font-weight: 800; }
+    .lock-box p { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 14px; }
+    .auth-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 14px;
+    }
+    .auth-tab-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      padding: 8px;
+      font-size: 0.86rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      border-bottom: 3px solid transparent;
+    }
+    .auth-tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+    .lock-input {
+      width: 100%;
+      min-height: 50px;
+      padding: 10px 12px;
+      font-size: 1.4rem;
+      text-align: center;
+      letter-spacing: 6px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+      color: var(--text);
+      outline: none;
+      margin-bottom: 12px;
+    }
+    .form-input {
+      width: 100%;
+      min-height: 46px;
+      padding: 10px 12px;
+      font-size: 0.95rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+    .btn-unlock {
+      width: 100%;
+      min-height: 48px;
+      background: var(--primary-strong);
+      color: #fff;
+      border: none;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 800;
+    }
+    .lock-error { color: var(--danger); font-size: 0.84rem; margin-top: 10px; display: none; font-weight: 700; }
+
+    /* كروت المؤشرات العلوية (KPIs) */
     .metrics-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
-      gap: 12px;
-      margin-bottom: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
     }
     .metric-card {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 14px;
-      padding: 14px 16px;
+      padding: 12px 14px;
       text-align: center;
       box-shadow: var(--shadow);
       position: relative;
@@ -231,48 +345,43 @@
       top: 0; right: 0; left: 0;
       height: 3px;
       background: var(--primary);
-      opacity: 0.7;
     }
-    .metric-card span { font-size: 0.8rem; color: var(--text-secondary); display: block; margin-bottom: 4px; font-weight: 600; }
-    .metric-card strong { font-size: 1.45rem; color: var(--primary); display: block; font-weight: 800; }
-    .metric-card small { font-size: 0.75rem; color: var(--text-secondary); display: block; margin-top: 2px; }
+    .metric-card span { font-size: 0.78rem; color: var(--text-secondary); display: block; margin-bottom: 3px; font-weight: 700; }
+    .metric-card strong { font-size: 1.35rem; color: var(--primary); display: block; font-weight: 900; line-height: 1.2; }
+    .metric-card small { font-size: 0.74rem; color: var(--text-secondary); display: block; margin-top: 3px; font-weight: 600; }
 
-    /* شريط التبويبات الذكي */
+    /* شريط التبويبات الذكي المتوافق مع الهاتف */
     .tabs-nav {
       display: flex;
-      gap: 8px;
-      margin-bottom: 18px;
+      gap: 6px;
+      margin-bottom: 14px;
       overflow-x: auto;
       padding-bottom: 4px;
       scrollbar-width: thin;
     }
     .tab-btn {
-      min-height: 48px;
-      padding: 10px 18px;
-      border-radius: 12px;
+      min-height: 46px;
+      padding: 8px 14px;
+      border-radius: 10px;
       border: 1px solid var(--border);
       background: var(--surface);
       color: var(--text-secondary);
-      font-weight: 700;
-      font-size: 0.9rem;
-      cursor: pointer;
+      font-weight: 800;
+      font-size: 0.86rem;
       white-space: nowrap;
-      transition: 0.2s;
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       flex: 1;
       justify-content: center;
     }
-    .tab-btn:hover { border-color: var(--primary); color: var(--text); }
     .tab-btn.active {
       background: var(--primary-strong);
       color: #ffffff;
       border-color: var(--primary-strong);
-      box-shadow: 0 4px 14px rgba(3, 105, 161, 0.35);
+      box-shadow: 0 3px 10px rgba(3, 105, 161, 0.25);
     }
 
-    /* الحاويات والأقسام */
     .tab-section { display: none; }
     .tab-section.active { display: block; }
 
@@ -280,8 +389,8 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 14px;
-      padding: 20px;
-      margin-bottom: 20px;
+      padding: 16px;
+      margin-bottom: 16px;
       box-shadow: var(--shadow);
       overflow-x: auto;
     }
@@ -290,40 +399,39 @@
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 16px;
+      gap: 8px;
+      margin-bottom: 14px;
       border-bottom: 1px solid var(--border);
-      padding-bottom: 12px;
+      padding-bottom: 10px;
     }
-    .panel-header h2 { font-size: 1.1rem; color: var(--text); font-weight: 800; }
+    .panel-header h2 { font-size: 1.05rem; color: var(--text); font-weight: 800; }
 
     /* شريط الفلترة وكبسولات العائلات */
     .filter-card {
       background: var(--surface-alt);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 14px;
-      margin-bottom: 16px;
+      padding: 12px;
+      margin-bottom: 14px;
     }
     .filter-top {
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 12px;
-      padding-bottom: 10px;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
       border-bottom: 1px dashed var(--border);
     }
     .checkbox-label {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       cursor: pointer;
       user-select: none;
       font-weight: 700;
-      font-size: 0.88rem;
-      min-height: 36px;
+      font-size: 0.85rem;
     }
     .checkbox-label input { width: 20px; height: 20px; accent-color: var(--primary-strong); cursor: pointer; }
 
@@ -340,22 +448,20 @@
     .chips-container {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 6px;
     }
     .fam-chip {
-      min-height: 40px;
-      padding: 6px 12px;
+      min-height: 38px;
+      padding: 4px 11px;
       border-radius: 999px;
       border: 1px solid var(--primary);
-      background: rgba(56, 189, 248, 0.1);
+      background: var(--surface);
       color: var(--text);
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       font-weight: 700;
-      cursor: pointer;
-      transition: 0.15s;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       user-select: none;
     }
     .fam-chip.excluded {
@@ -369,59 +475,67 @@
     /* صندوق نتائج معايرة ألفا */
     .calibration-box {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
       background: var(--surface-alt);
       border: 2px dashed var(--primary);
       border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 18px;
+      padding: 14px;
+      margin-bottom: 16px;
     }
-    .calibration-item span { font-size: 0.78rem; color: var(--text-secondary); display: block; font-weight: 600; }
-    .calibration-item strong { font-size: 1.35rem; color: var(--text); font-weight: 800; }
+    .calibration-item span { font-size: 0.76rem; color: var(--text-secondary); display: block; font-weight: 700; }
+    .calibration-item strong { font-size: 1.3rem; color: var(--text); font-weight: 900; }
 
     /* محاكي التوزيع التفاعلي */
     .sim-controls {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 14px;
       background: var(--surface-alt);
-      padding: 16px;
+      padding: 14px;
       border-radius: 12px;
       border: 1px solid var(--border);
-      margin-bottom: 18px;
+      margin-bottom: 16px;
       align-items: end;
     }
     .control-group label {
       display: flex;
       justify-content: space-between;
-      font-size: 0.85rem;
+      font-size: 0.84rem;
       color: var(--text-secondary);
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       font-weight: 700;
     }
     .control-group label strong { color: var(--primary); font-size: 1rem; }
     .control-input {
       width: 100%;
-      min-height: 48px;
-      padding: 10px 12px;
+      min-height: 46px;
+      padding: 8px 12px;
       border-radius: 10px;
       border: 1px solid var(--border);
       background: var(--surface);
       color: var(--text);
       font-size: 0.95rem;
       font-weight: 700;
-      outline: none;
     }
-    .control-input:focus { border-color: var(--primary); }
     input[type="range"] { width: 100%; accent-color: var(--primary-strong); height: 8px; cursor: pointer; }
 
     /* الجداول والفرز التفاعلي */
-    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; text-align: right; min-width: 820px; }
-    th, td { padding: 12px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .table-scroll-hint {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      display: none;
+    }
+    @media (max-width: 768px) {
+      .table-scroll-hint { display: block; }
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.86rem; text-align: right; min-width: 780px; }
+    th, td { padding: 10px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
     th {
       color: var(--text-secondary);
-      font-weight: 700;
+      font-weight: 800;
       background: var(--surface-alt);
       white-space: nowrap;
       user-select: none;
@@ -433,45 +547,54 @@
     tr.clickable-row { cursor: pointer; transition: background 0.15s; }
     tr.clickable-row:hover { background: var(--surface-hover); }
 
-    /* الشارات (Tags) */
     .tag {
       display: inline-block;
-      padding: 4px 9px;
+      padding: 4px 8px;
       border-radius: 8px;
-      font-size: 0.78rem;
-      font-weight: 700;
+      font-size: 0.76rem;
+      font-weight: 800;
       white-space: nowrap;
     }
-    .tag-blue { background: rgba(56, 189, 248, 0.15); color: var(--primary); }
+    .tag-blue { background: rgba(3, 105, 161, 0.12); color: var(--primary); }
     .tag-green { background: var(--success-bg); color: var(--success); }
     .tag-amber { background: var(--warning-bg); color: var(--warning); }
     .tag-red { background: var(--danger-bg); color: var(--danger); }
 
     .per-capita-cell {
       border-radius: 8px;
-      padding: 6px 10px;
+      padding: 5px 9px;
       display: inline-block;
-      min-width: 115px;
+      min-width: 110px;
       text-align: center;
       border: 1px solid transparent;
     }
     .sub-metric {
       display: block;
-      font-size: 0.73rem;
+      font-size: 0.72rem;
       color: var(--text-secondary);
       margin-top: 2px;
       font-weight: 600;
     }
 
-    .chart-container { position: relative; width: 100%; height: 350px; }
-    .loading-msg { text-align: center; padding: 40px; color: var(--text-secondary); font-size: 1.05rem; font-weight: 700; }
+    .chart-container { position: relative; width: 100%; height: 340px; }
+    .loading-msg {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      text-align: center;
+      padding: 36px 20px;
+      color: var(--text-secondary);
+      font-size: 1rem;
+      font-weight: 700;
+      margin-top: 12px;
+    }
 
-    /* النافذة السفلية المنبثقة (Bottom Sheet Modal) */
+    /* النافذة السفلية المنبثقة (Bottom Sheet Modal) برأس ثابت */
     .modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.65);
-      z-index: 2000;
+      background: rgba(15, 23, 42, 0.65);
+      z-index: 2500;
       display: none;
       justify-content: center;
       align-items: flex-end;
@@ -480,15 +603,15 @@
     .modal-backdrop.open { display: flex; }
     .bottom-sheet {
       background: var(--surface);
-      border-top: 2px solid var(--primary);
+      border-top: 3px solid var(--primary);
       border-radius: 20px 20px 0 0;
       width: 100%;
       max-width: 780px;
       max-height: 86vh;
       display: flex;
       flex-direction: column;
-      box-shadow: 0 -10px 35px rgba(0, 0, 0, 0.5);
-      animation: slideUp 0.22s ease-out;
+      box-shadow: 0 -10px 35px rgba(0, 0, 0, 0.35);
+      animation: slideUp 0.2s ease-out;
     }
     @keyframes slideUp {
       from { transform: translateY(100%); }
@@ -502,35 +625,38 @@
       margin: 10px auto 4px;
     }
     .sheet-header {
-      padding: 12px 20px 14px;
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      z-index: 10;
+      padding: 10px 18px 12px;
       border-bottom: 1px solid var(--border);
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 12px;
     }
-    .sheet-header h3 { font-size: 1.15rem; color: var(--primary); font-weight: 800; }
+    .sheet-header h3 { font-size: 1.08rem; color: var(--primary); font-weight: 800; }
     .btn-close-sheet {
-      min-height: 44px;
-      min-width: 44px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
+      min-height: 42px;
+      min-width: 42px;
+      border-radius: 50%;
+      border: none;
       background: var(--surface-alt);
       color: var(--text);
       font-size: 1.1rem;
       font-weight: 800;
-      cursor: pointer;
     }
     .sheet-body {
-      padding: 18px 20px 28px;
+      padding: 16px 18px calc(24px + env(safe-area-inset-bottom));
       overflow-y: auto;
     }
     .log-cycle-group {
       background: var(--surface-alt);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 14px;
-      margin-bottom: 14px;
+      padding: 12px;
+      margin-bottom: 12px;
     }
     .log-cycle-header {
       display: flex;
@@ -538,8 +664,8 @@
       align-items: center;
       flex-wrap: wrap;
       gap: 8px;
-      margin-bottom: 10px;
-      padding-bottom: 8px;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
       border-bottom: 1px dashed var(--border);
       font-weight: 700;
     }
@@ -555,59 +681,98 @@
       font-size: 0.85rem;
     }
 
-    @media (max-width: 640px) {
-      body { padding: 10px; }
-      .top-bar { padding: 14px; }
-      .panel { padding: 14px; }
-      .tab-btn { font-size: 0.82rem; padding: 8px 12px; }
+    /* شريط التنبيهات العائم Toast */
+    .toast {
+      position: fixed;
+      left: 16px;
+      right: 16px;
+      bottom: calc(20px + env(safe-area-inset-bottom));
+      background: #0f172a;
+      color: #fff;
+      padding: 14px 18px;
+      border-radius: 12px;
+      font-size: 0.92rem;
+      font-weight: 800;
+      text-align: center;
+      z-index: 3000;
+      transform: translateY(120px);
+      opacity: 0;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      pointer-events: none;
+    }
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
     }
   </style>
 </head>
 <body>
 
-  <!-- شاشة القفل برمز PIN المحمي سحابياً -->
+  <!-- شريط الحالة الموحد مع صفحة التوزيع -->
+  <div id="syncStatusBar" class="sync-bar sync-syncing" role="status" aria-live="polite">
+    🟡 جاري فحص الاتصال واستعادة جلسة المسؤول...
+  </div>
+
+  <!-- الشريط العلوي الموحد -->
+  <div class="header">
+    <h1>📊 تحليلات ومعايرة مياه المخيم</h1>
+    <div class="header-actions">
+      <button class="btn-header btn-header-primary" onclick="window.location.href='index.html'">🚰 صفحة التوزيع</button>
+      <button id="themeToggleBtn" class="btn-header" onclick="cycleThemeMode()" title="تبديل المظهر">☀️ نهاري</button>
+      <button class="btn-header" onclick="lockDashboard()">🔒 قفل</button>
+    </div>
+  </div>
+
+  <!-- شاشة القفل (تتخطاها الصفحة تلقائياً إذا كنت داخلاً كمسؤول من صفحة التوزيع) -->
   <div id="lockScreen">
     <div class="lock-box">
-      <h2>🔒 منصة تحليلات ومعايرة المياه</h2>
-      <p>أدخل رمز PIN السريع للمسؤول للوصول إلى الإحصائيات</p>
-      <input type="password" id="pinInput" class="lock-input" maxlength="10" placeholder="••••" onkeydown="if(event.key==='Enter') checkUnlock()">
-      <button class="btn-unlock" onclick="checkUnlock()">فتح اللوحة</button>
-      <div id="lockError" class="lock-error">رمز PIN غير صحيح</div>
+      <h2>🔒 دخول مسؤول التحليلات</h2>
+      <p>أدخل رمز PIN السريع للمسؤول أو سجل الدخول بالحساب السحابي</p>
+
+      <div class="auth-tabs">
+        <button id="tabLockPinBtn" class="auth-tab-btn active" onclick="switchLockTab('pin')">⚡ رمز PIN السريع</button>
+        <button id="tabLockEmailBtn" class="auth-tab-btn" onclick="switchLockTab('email')">📧 الحساب السحابي</button>
+      </div>
+
+      <div id="lockPinSection">
+        <input type="password" id="pinInput" class="lock-input" inputmode="numeric" maxlength="10" placeholder="••••" onkeydown="if(event.key==='Enter') checkUnlock()">
+        <button class="btn-unlock" onclick="checkUnlock()">فتح منصة التحليلات</button>
+      </div>
+
+      <div id="lockEmailSection" style="display: none;">
+        <input type="email" id="cloudEmailInput" class="form-input" autocomplete="email" placeholder="البريد الإلكتروني للمسؤول">
+        <input type="password" id="cloudPassInput" class="form-input" autocomplete="current-password" placeholder="كلمة المرور" onkeydown="if(event.key==='Enter') loginCloudFromAnalytics()">
+        <button class="btn-unlock" onclick="loginCloudFromAnalytics()">تسجيل الدخول السحابي</button>
+      </div>
+
+      <div id="lockError" class="lock-error">رمز الدخول غير صحيح</div>
+      <div style="margin-top: 14px;">
+        <button class="btn-action btn-secondary" style="width:100%; justify-content:center;" onclick="window.location.href='index.html'">⬅ العودة لصفحة التوزيع</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- شريط التحكم والفلترة والنسخ الاحتياطي للأرشيف -->
+  <div id="topToolbar" class="toolbar-container" style="display: none;">
+    <div class="toolbar-inner">
+      <select id="cycleFilterSelect" class="cycle-selector" onchange="reprocessCurrentData()">
+        <option value="ALL">📚 كل الدورات المؤرشفة (تراكمي)</option>
+      </select>
+
+      <div class="toolbar-buttons">
+        <button class="btn-action" onclick="fetchHistoryData(true)">🔄 تحديث</button>
+        <button class="btn-action btn-export" onclick="exportToCSV()">📊 تصدير CSV</button>
+        <button class="btn-action btn-secondary" onclick="exportArchiveJSON()">📥 حفظ نسخة الأرشيف</button>
+        <button class="btn-action btn-secondary" onclick="triggerImportArchiveJSON()">📤 استعادة الأرشيف</button>
+        <input type="file" id="archiveFileInput" accept=".json" style="display:none;" onchange="handleImportArchiveJSON(event)">
+      </div>
     </div>
   </div>
 
   <!-- الحاوية الرئيسية -->
   <div class="container" id="mainContainer">
-    <!-- الشريط العلوي -->
-    <div class="top-bar">
-      <div class="brand-title">
-        <h1>📊 منصة تحليلات ومعايرة استهلاك مياه المخيم</h1>
-        <div class="sync-status">
-          <span id="syncDot" class="status-dot"></span>
-          <span id="syncText">جاري فحص الاتصال والسحابة...</span>
-        </div>
-      </div>
-
-      <div class="header-controls">
-        <select id="cycleFilterSelect" class="cycle-selector" onchange="reprocessCurrentData()">
-          <option value="ALL">📚 كل الدورات المؤرشفة (تراكمي)</option>
-        </select>
-
-        <button id="themeToggleBtn" class="btn-action btn-secondary" onclick="cycleThemeMode()" title="تبديل المظهر">
-          🌗 تلقائي
-        </button>
-
-        <a href="index.html" class="btn-action btn-secondary">🚰 العودة للتوزيع</a>
-        <button class="btn-action" onclick="fetchHistoryData()">🔄 تحديث</button>
-        <button class="btn-action btn-export" onclick="exportToCSV()">📥 تصدير CSV</button>
-        <button class="btn-action btn-secondary" onclick="exportArchiveJSON()" title="نسخة احتياطية للأرشيف">💾 حفظ الأرشيف</button>
-        <button class="btn-action btn-secondary" onclick="triggerImportArchiveJSON()" title="استعادة أرشيف">📂 استعادة</button>
-        <input type="file" id="importArchiveFile" accept=".json" style="display:none;" onchange="handleImportArchiveFile(event)">
-        <button class="btn-action btn-secondary" onclick="lockDashboard()">🔒 قفل</button>
-      </div>
-    </div>
-
-    <div id="loading" class="loading-msg">جاري المصادقة وقراءة البيانات التاريخية من السحابة...</div>
+    <div id="loading" class="loading-msg">⏳ جاري قراءة سجل الدورات التاريخية من السحابة...</div>
 
     <div id="dashboardContent" style="display: none;">
       <!-- كروت المؤشرات الكلية (KPIs) -->
@@ -648,7 +813,7 @@
         <button class="tab-btn" data-tab="ALL" onclick="switchTab('ALL')">📋 عرض الكل</button>
       </div>
 
-      <!-- التبويب 1 -->
+      <!-- التبويب 1: معايرة المرونة -->
       <div id="tab-calibration" class="tab-section active">
         <div class="panel">
           <div class="panel-header">
@@ -666,8 +831,8 @@
             </div>
 
             <div class="chips-title">
-              <span><strong>فلتر العائلات التفاعلي:</strong> اضغط على أي عائلة لاستثنائها مؤقتاً من حساب المعامل (&alpha;):</span>
-              <button class="btn-action btn-secondary" style="min-height:32px; padding:4px 10px; font-size:0.76rem;" onclick="resetExcludedFamilies()">إعادة تفعيل الكل</button>
+              <span><strong>فلتر العائلات التفاعلي:</strong> اضغط على أي عائلة لاستثنائها مؤقتاً من حساب المعامل (&alpha;) ومشاهدة أثرها الفوري:</span>
+              <button class="btn-action btn-secondary" style="min-height:34px; padding:4px 10px; font-size:0.76rem;" onclick="resetExcludedFamilies()">إعادة تفعيل الكل</button>
             </div>
             <div id="familyChipsContainer" class="chips-container"></div>
           </div>
@@ -691,14 +856,15 @@
             </div>
             <div class="calibration-item" style="grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 10px;">
               <span>التشخيص الإحصائي لسلوك الاستهلاك:</span>
-              <p id="alphaEvaluation" style="font-size:0.88rem; color:var(--text); margin-top:4px; font-weight:600;">—</p>
+              <p id="alphaEvaluation" style="font-size:0.88rem; color:var(--text); margin-top:4px; font-weight:700;">—</p>
             </div>
           </div>
 
-          <div class="chart-container" style="margin-bottom: 20px;">
+          <div class="chart-container" style="margin-bottom: 18px;">
             <canvas id="elasticityChart"></canvas>
           </div>
 
+          <div class="table-scroll-hint">↔️ اسحب الجدول يميناً ويساراً لعرض كافة الأعمدة</div>
           <table>
             <thead>
               <tr>
@@ -715,7 +881,7 @@
         </div>
       </div>
 
-      <!-- التبويب 2 -->
+      <!-- التبويب 2: محاكي التوزيع التفاعلي -->
       <div id="tab-simulator" class="tab-section">
         <div class="panel">
           <div class="panel-header">
@@ -732,7 +898,7 @@
                 <strong id="simAlphaLabel" class="num">0.58</strong>
               </label>
               <input type="range" id="simAlphaSlider" min="0.00" max="1.00" step="0.01" value="0.58" oninput="updateSimulator()">
-              <div style="display:flex; justify-content:space-between; font-size:0.73rem; color:var(--text-secondary); margin-top:4px; font-weight:600;">
+              <div style="display:flex; justify-content:space-between; font-size:0.73rem; color:var(--text-secondary); margin-top:4px; font-weight:700;">
                 <span>0.00 (تساوي للعائلات)</span>
                 <span>0.58 (مرجعي)</span>
                 <span>1.00 (تساوي للأفراد)</span>
@@ -741,7 +907,7 @@
 
             <div class="control-group">
               <label><span>صافي المياه المتاحة للتوزيع (بعد الاحتياطي):</span></label>
-              <input type="number" id="simNetWaterInput" class="control-input num" value="3600" step="100" min="500" oninput="updateSimulator()">
+              <input type="number" id="simNetWaterInput" class="control-input num" value="3000" step="100" min="100" oninput="updateSimulator()">
             </div>
 
             <div class="control-group">
@@ -749,14 +915,16 @@
               <select id="simRoundingSelect" class="control-input" onchange="updateSimulator()">
                 <option value="1">تقريب لأقرب 1 لتر (دقيق)</option>
                 <option value="5" selected>تقريب لأقرب 5 لتر (عملي)</option>
+                <option value="10">تقريب لأقرب 10 لتر</option>
               </select>
             </div>
           </div>
 
+          <div class="table-scroll-hint">↔️ اسحب الجدول يميناً ويساراً لعرض كافة الأعمدة</div>
           <table>
             <thead>
               <tr>
-                <th>الخيمة</th>
+                <th>الرقم</th>
                 <th>اسم العائلة</th>
                 <th>الأفراد</th>
                 <th>متوسط سحب الأسرة الفعلي</th>
@@ -771,20 +939,21 @@
         </div>
       </div>
 
-      <!-- التبويب 3 -->
+      <!-- التبويب 3: أداء العائلات وحصة الفرد -->
       <div id="tab-families" class="tab-section">
         <div class="panel">
           <div class="panel-header">
             <div>
               <h2>3. الأداء التراكمي وحصة الفرد الفعلية لكل عائلة</h2>
-              <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:2px;">💡 اضغط على عنوان أي عمود للترتيب الفوري، واضغط على أي عائلة لفتح تفاصيل سحوباتها.</p>
+              <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:2px; font-weight:600;">💡 اضغط على عنوان أي عمود للترتيب الفوري، واضغط على صف أي عائلة لفتح تفاصيل سحوباتها بالأوعية.</p>
             </div>
           </div>
 
+          <div class="table-scroll-hint">↔️ اسحب الجدول يميناً ويساراً لعرض كافة الأعمدة</div>
           <table>
             <thead>
               <tr>
-                <th class="sortable" onclick="sortFamiliesBy('tent')">الخيمة <span id="sort-tent" class="sort-indicator">▲</span></th>
+                <th class="sortable" onclick="sortFamiliesBy('tent')">الرقم <span id="sort-tent" class="sort-indicator">▲</span></th>
                 <th class="sortable" onclick="sortFamiliesBy('name')">اسم العائلة <span id="sort-name" class="sort-indicator"></span></th>
                 <th class="sortable" onclick="sortFamiliesBy('members')">الأفراد <span id="sort-members" class="sort-indicator"></span></th>
                 <th class="sortable" onclick="sortFamiliesBy('activeCycles')">دورات الحضور <span id="sort-activeCycles" class="sort-indicator"></span></th>
@@ -801,12 +970,13 @@
         </div>
       </div>
 
-      <!-- التبويب 4 -->
+      <!-- التبويب 4: سجل الدورات المؤرشفة -->
       <div id="tab-cycles" class="tab-section">
         <div class="panel">
           <div class="panel-header">
             <h2>4. سجل الدورات السابقة المؤرشفة (بعد خصم الاحتياطي)</h2>
           </div>
+          <div class="table-scroll-hint">↔️ اسحب الجدول يميناً ويساراً لعرض كافة الأعمدة</div>
           <table>
             <thead>
               <tr>
@@ -828,14 +998,14 @@
     </div>
   </div>
 
-  <!-- النافذة السفلية المنبثقة (Bottom Sheet) -->
+  <!-- النافذة السفلية المنبثقة (Bottom Sheet) لتفاصيل سحوبات الأوعية -->
   <div id="logsModalBackdrop" class="modal-backdrop" onclick="if(event.target===this) closeFamilyModal()">
     <div class="bottom-sheet">
       <div class="sheet-handle"></div>
       <div class="sheet-header">
         <div>
           <h3 id="modalFamilyTitle">سجل سحوبات العائلة</h3>
-          <span id="modalFamilySub" style="font-size:0.82rem; color:var(--text-secondary); font-weight:600;">—</span>
+          <span id="modalFamilySub" style="font-size:0.8rem; color:var(--text-secondary); font-weight:700;">—</span>
         </div>
         <button class="btn-close-sheet" onclick="closeFamilyModal()" title="إغلاق">✕</button>
       </div>
@@ -843,13 +1013,18 @@
     </div>
   </div>
 
+  <!-- شريط التنبيهات Toast -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
   <script>
-    const FIREBASE_HISTORY_URL = "https://camp-water-default-rtdb.europe-west1.firebasedatabase.app/camp_history.json";
+    const V2_ROOT = "camp_v2";
     const CACHE_KEY = "camp_analytics_history_cache_v3";
     const CACHE_TIME_KEY = "camp_analytics_last_sync_v3";
-    const SESSION_UNLOCK_KEY = "camp_analytics_unlocked_v3";
-    const THEME_STORAGE_KEY = "camp_analytics_theme_pref";
+    const ADMIN_SESSION_KEY = "camp_admin_session_v1";
     const ADMIN_PIN_CACHE_KEY = "camp_admin_pin_hash_v2";
+    const ADMIN_EMAIL_CACHE_KEY = "camp_admin_email_v1";
+    const THEME_STORAGE_KEY = "camp_analytics_theme_pref";
+    const LEGACY_PIN_SHA256_HASH = "f8c367c6b9a43f91b42696b3859d7a368b1185966a35e30d897476d18a916327";
 
     const firebaseConfig = {
       apiKey: "AIzaSy" + "D9UwiLg28jEzgda69k6DXaLiojELaIvrY",
@@ -861,7 +1036,7 @@
     let auth = null;
     try {
       if (firebase.auth) auth = firebase.auth();
-    } catch(e) {}
+    } catch (e) {}
 
     let rawHistoryData = {};
     let processedState = null;
@@ -871,42 +1046,17 @@
     let currentTab = 'tab-calibration';
     let familySortState = { field: 'tent', asc: true };
     let modalOpenState = false;
+    let isUnlocked = (sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true');
+    let isCloudAuthed = false;
+    let toastTimer = null;
 
-    function getSavedThemePref() {
-      return localStorage.getItem(THEME_STORAGE_KEY) || 'auto';
-    }
-
-    function applyTheme(pref) {
-      const systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const effectiveTheme = pref === 'auto' ? (systemDark ? 'dark' : 'light') : pref;
-
-      if (effectiveTheme === 'light') {
-        document.documentElement.setAttribute('data-theme', 'light');
-      } else {
-        document.documentElement.removeAttribute('data-theme');
-      }
-
-      const btn = document.getElementById('themeToggleBtn');
-      if (btn) {
-        if (pref === 'auto') btn.innerHTML = '🌗 تلقائي';
-        else if (pref === 'dark') btn.innerHTML = '🌙 داكن';
-        else btn.innerHTML = '☀️ نهاري';
-      }
-
-      if (processedState) updateSimulator();
-    }
-
-    function cycleThemeMode() {
-      const current = getSavedThemePref();
-      const next = current === 'auto' ? 'light' : (current === 'light' ? 'dark' : 'auto');
-      localStorage.setItem(THEME_STORAGE_KEY, next);
-      applyTheme(next);
-    }
-
-    if (window.matchMedia) {
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-        if (getSavedThemePref() === 'auto') applyTheme('auto');
-      });
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      if (!t) return;
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
     }
 
     function normalizeArabicDigits(value) {
@@ -916,87 +1066,172 @@
         .replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 0x06F0));
     }
 
-    function simplePinHash(pin) {
-      const s = normalizeArabicDigits(pin).trim();
-      let h1 = 2166136261 >>> 0;
-      let h2 = 16777619 >>> 0;
-      for (let i = 0; i < s.length; i++) {
-        const c = s.charCodeAt(i);
-        h1 ^= c;
-        h1 = Math.imul(h1, 16777619) >>> 0;
-        h2 ^= (c + i) & 0xff;
-        h2 = Math.imul(h2, 2166136261) >>> 0;
-      }
-      return 'fallback:' + h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0');
+    function toArray(val) {
+      if (!val) return [];
+      if (Array.isArray(val)) return val.filter(Boolean);
+      if (typeof val === 'object') return Object.values(val).filter(Boolean);
+      return [];
     }
 
+    /* ==================== 1. نظام المظهر المتوافق مع صفحة التوزيع ==================== */
+    function getSavedThemePref() {
+      return localStorage.getItem(THEME_STORAGE_KEY) || 'light';
+    }
+
+    function applyTheme(pref) {
+      const systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const effectiveTheme = pref === 'auto' ? (systemDark ? 'dark' : 'light') : pref;
+
+      if (effectiveTheme === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+
+      const btn = document.getElementById('themeToggleBtn');
+      if (btn) {
+        if (pref === 'light') btn.innerHTML = '☀️ نهاري';
+        else if (pref === 'dark') btn.innerHTML = '🌙 داكن';
+        else btn.innerHTML = '🌗 تلقائي';
+      }
+
+      if (processedState) updateSimulator();
+    }
+
+    function cycleThemeMode() {
+      const current = getSavedThemePref();
+      const next = current === 'light' ? 'dark' : (current === 'dark' ? 'auto' : 'light');
+      localStorage.setItem(THEME_STORAGE_KEY, next);
+      applyTheme(next);
+    }
+
+    /* ==================== 2. الأمان ومشاركة جلسة المسؤول ==================== */
     async function hashPin(pin) {
-      const normalized = normalizeArabicDigits(pin).trim();
+      const clean = normalizeArabicDigits(pin).trim();
       if (window.crypto && window.crypto.subtle && window.TextEncoder) {
         try {
-          const bytes = new TextEncoder().encode(normalized);
-          const buffer = await window.crypto.subtle.digest('SHA-256', bytes);
-          return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
-        } catch (e) {
-          return simplePinHash(normalized);
-        }
-      }
-      return simplePinHash(normalized);
-    }
-
-    async function getStoredAdminHash() {
-      let hash = localStorage.getItem(ADMIN_PIN_CACHE_KEY);
-      if (!hash && db) {
-        try {
-          const snap = await db.ref('camp_v2/adminState/adminPinHash').once('value');
-          if (snap.val()) {
-            hash = String(snap.val());
-            localStorage.setItem(ADMIN_PIN_CACHE_KEY, hash);
-          }
+          const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(clean));
+          return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
         } catch (e) {}
       }
-      if (!hash) {
-        hash = await hashPin("1234");
-      }
-      return hash;
+      return "";
+    }
+
+    function switchLockTab(mode) {
+      document.getElementById('tabLockPinBtn').className = 'auth-tab-btn' + (mode === 'pin' ? ' active' : '');
+      document.getElementById('tabLockEmailBtn').className = 'auth-tab-btn' + (mode === 'email' ? ' active' : '');
+      document.getElementById('lockPinSection').style.display = (mode === 'pin') ? 'block' : 'none';
+      document.getElementById('lockEmailSection').style.display = (mode === 'email') ? 'block' : 'none';
+      document.getElementById('lockError').style.display = 'none';
     }
 
     async function checkUnlock() {
-      const pin = document.getElementById('pinInput').value.trim();
+      const rawPin = document.getElementById('pinInput').value;
+      const pin = normalizeArabicDigits(rawPin).trim();
       if (!pin) return;
-      const hashed = await hashPin(pin);
-      const expectedHash = await getStoredAdminHash();
 
-      if (hashed === expectedHash || pin === "399411") {
-        sessionStorage.setItem(SESSION_UNLOCK_KEY, "1");
-        document.getElementById('lockScreen').style.display = 'none';
-        document.getElementById('mainContainer').style.display = 'block';
-        initDashboard();
-      } else {
-        document.getElementById('lockError').style.display = 'block';
+      const hashed = await hashPin(pin);
+      let expectedHash = localStorage.getItem(ADMIN_PIN_CACHE_KEY) || '';
+
+      if (!expectedHash && navigator.onLine) {
+        try {
+          const snap = await db.ref(`${V2_ROOT}/publicState/adminPinHash`).once('value');
+          if (snap && snap.val()) {
+            expectedHash = String(snap.val());
+            localStorage.setItem(ADMIN_PIN_CACHE_KEY, expectedHash);
+          }
+        } catch (e) {}
       }
+
+      if ((expectedHash && hashed === expectedHash) || hashed === LEGACY_PIN_SHA256_HASH) {
+        unlockAndShowDashboard();
+      } else {
+        const errEl = document.getElementById('lockError');
+        errEl.textContent = 'رمز PIN السريع غير صحيح. جرب الحساب السحابي إذا نسيته.';
+        errEl.style.display = 'block';
+      }
+    }
+
+    function loginCloudFromAnalytics() {
+      if (!auth) return;
+      const email = document.getElementById('cloudEmailInput').value.trim();
+      const pass = document.getElementById('cloudPassInput').value;
+      const errEl = document.getElementById('lockError');
+      if (!email || !pass) {
+        errEl.textContent = 'يرجى إدخال البريد الإلكتروني وكلمة المرور';
+        errEl.style.display = 'block';
+        return;
+      }
+      errEl.style.display = 'none';
+      auth.signInWithEmailAndPassword(email, pass).then(() => {
+        try { localStorage.setItem(ADMIN_EMAIL_CACHE_KEY, email); } catch (e) {}
+        isCloudAuthed = true;
+        unlockAndShowDashboard();
+        showToast('تم تسجيل الدخول السحابي بنجاح ✓');
+      }).catch(err => {
+        errEl.textContent = 'فشل الدخول: تأكد من صحة البريد وكلمة المرور';
+        errEl.style.display = 'block';
+      });
+    }
+
+    function unlockAndShowDashboard() {
+      isUnlocked = true;
+      sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+      document.getElementById('lockScreen').style.display = 'none';
+      document.getElementById('topToolbar').style.display = 'block';
+      document.getElementById('mainContainer').style.display = 'block';
+      initDashboard();
     }
 
     function lockDashboard() {
-      sessionStorage.removeItem(SESSION_UNLOCK_KEY);
+      isUnlocked = false;
+      sessionStorage.removeItem(ADMIN_SESSION_KEY);
       document.getElementById('pinInput').value = '';
       document.getElementById('lockError').style.display = 'none';
-      document.getElementById('lockScreen').style.display = 'flex';
+      document.getElementById('topToolbar').style.display = 'none';
       document.getElementById('mainContainer').style.display = 'none';
+      document.getElementById('lockScreen').style.display = 'flex';
     }
 
-    window.addEventListener('DOMContentLoaded', async () => {
+    function setSyncBar(status, text) {
+      const bar = document.getElementById('syncStatusBar');
+      if (!bar) return;
+      bar.className = 'sync-bar sync-' + status;
+      bar.textContent = text;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
       applyTheme(getSavedThemePref());
-      if (auth) {
-        auth.signInAnonymously().catch(() => {});
+      const savedEmail = localStorage.getItem(ADMIN_EMAIL_CACHE_KEY) || '';
+      if (savedEmail) document.getElementById('cloudEmailInput').value = savedEmail;
+
+      // عرض الكاش المحلي فوراً إن كان المسؤول مفتوحاً
+      if (isUnlocked) {
+        unlockAndShowDashboard();
+      } else {
+        document.getElementById('lockScreen').style.display = 'flex';
       }
-      if (sessionStorage.getItem(SESSION_UNLOCK_KEY) === "1") {
-        document.getElementById('lockScreen').style.display = 'none';
-        document.getElementById('mainContainer').style.display = 'block';
-        initDashboard();
+
+      // الاستماع لاستعادة جلسة Firebase Auth لجلب البيانات بأمان
+      if (auth) {
+        auth.onAuthStateChanged(user => {
+          isCloudAuthed = !!user;
+          if (user) {
+            if (!isUnlocked) {
+              unlockAndShowDashboard();
+            } else {
+              fetchHistoryData(false);
+            }
+          } else if (isUnlocked) {
+            fetchHistoryData(false);
+          } else {
+            setSyncBar('offline', '🔒 يرجى فتح القفل لعرض التحليلات');
+          }
+        });
       }
     });
 
+    /* ==================== 3. التبويبات الذكية ==================== */
     function switchTab(tabId) {
       currentTab = tabId;
       document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -1014,65 +1249,91 @@
       }
     }
 
+    /* ==================== 4. جلب البيانات والتخزين المحلي ==================== */
     function initDashboard() {
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
         try {
-          rawHistoryData = JSON.parse(cached);
-          populateCycleSelector(rawHistoryData);
-          reprocessCurrentData();
-          document.getElementById('loading').style.display = 'none';
-          document.getElementById('dashboardContent').style.display = 'block';
-          updateSyncBanner(false, localStorage.getItem(CACHE_TIME_KEY));
-        } catch (e) {}
+          const parsed = JSON.parse(cached);
+          if (parsed && Object.keys(parsed).length > 0) {
+            rawHistoryData = parsed;
+            populateCycleSelector(rawHistoryData);
+            reprocessCurrentData();
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('dashboardContent').style.display = 'block';
+            const lastTime = localStorage.getItem(CACHE_TIME_KEY) || 'محفوظ محلياً';
+            setSyncBar('syncing', `🟡 معروض من الذاكرة المحلية (${lastTime}) — جاري المزامنة...`);
+          }
+        } catch (e) {
+          console.error('Cache parse error:', e);
+        }
       }
-      fetchHistoryData();
-    }
-
-    function updateSyncBanner(isOnline, timestampStr) {
-      const dot = document.getElementById('syncDot');
-      const txt = document.getElementById('syncText');
-      if (isOnline) {
-        dot.className = 'status-dot';
-        txt.textContent = `متصل بالسحابة (مؤمن) — آخر مزامنة: ${timestampStr}`;
-      } else {
-        dot.className = 'status-dot offline';
-        txt.textContent = `وضع الذاكرة المحلية (Offline) — آخر مزامنة: ${timestampStr || 'غير معروف'}`;
+      if (isCloudAuthed) {
+        fetchHistoryData(false);
       }
     }
 
-    async function fetchHistoryData() {
+    async function fetchHistoryData(manualTrigger = false) {
+      if (!isUnlocked) return;
+
       if (Object.keys(rawHistoryData).length === 0) {
         document.getElementById('loading').style.display = 'block';
         document.getElementById('dashboardContent').style.display = 'none';
       }
 
+      if (manualTrigger) {
+        setSyncBar('syncing', '🟡 جاري تحديث أرشيف الدورات من السحابة...');
+      }
+
       try {
-        const resp = await fetch(FIREBASE_HISTORY_URL, { cache: "no-store" });
-        if (!resp.ok) throw new Error('Permission denied or network error');
-        const data = await resp.json();
-        
+        const snap = await db.ref('camp_history').once('value');
+        const data = snap.val();
+
         if (!data || Object.keys(data).length === 0) {
-          document.getElementById('loading').textContent = 'لا توجد بيانات تاريخية مؤرشفة بعد في camp_history.';
+          if (Object.keys(rawHistoryData).length === 0) {
+            document.getElementById('loading').textContent = 'لا توجد دورات مؤرشفة بعد في camp_history. ستظهر البيانات هنا فور تصفير أول دورة.';
+          }
+          setSyncBar('online', '🟢 متصل بالسحابة (لا توجد دورات مؤرشفة بعد)');
           return;
         }
 
         rawHistoryData = data;
         const nowStr = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-        localStorage.setItem(CACHE_KEY, JSON.stringify(data));
-        localStorage.setItem(CACHE_TIME_KEY, nowStr);
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+          localStorage.setItem(CACHE_TIME_KEY, nowStr);
+        } catch (e) {}
 
         populateCycleSelector(data);
-        updateSyncBanner(true, nowStr);
         reprocessCurrentData();
         document.getElementById('loading').style.display = 'none';
         document.getElementById('dashboardContent').style.display = 'block';
+        setSyncBar('online', `🟢 متصل بالسحابة ومؤمّن — آخر تحديث: ${nowStr}`);
+        if (manualTrigger) showToast('تم تحديث بيانات التحليلات بنجاح ✓');
       } catch (err) {
-        updateSyncBanner(false, localStorage.getItem(CACHE_TIME_KEY));
-        if (Object.keys(rawHistoryData).length === 0) {
-          document.getElementById('loading').textContent = 'تعذر الاتصال بالسيرفر. تأكد من تسجيل دخولك كمسؤول في صفحة التوزيع أولاً.';
+        console.error('Fetch history error:', err);
+        const lastTime = localStorage.getItem(CACHE_TIME_KEY) || 'غير معروف';
+        if (err && err.code === 'PERMISSION_DENIED') {
+          setSyncBar('offline', '🔒 يلزم تسجيل الدخول بالحساب السحابي لقراءة الأرشيف من السيرفر');
+          if (Object.keys(rawHistoryData).length === 0) {
+            document.getElementById('loading').innerHTML = `
+              🔒 مسار الأرشيف محمي بقواعد السيرفر.<br>
+              يرجى تسجيل الدخول بالحساب السحابي (البريد الإلكتروني) لتحديث البيانات.<br><br>
+              <button class="btn-action" onclick="openCloudLoginModal()">📧 تسجيل الدخول بالحساب السحابي الآن</button>
+            `;
+          }
+        } else {
+          setSyncBar('offline', `🔴 وضع عدم الاتصال (Offline) — آخر نسخة محفوظة: ${lastTime}`);
+          if (Object.keys(rawHistoryData).length === 0) {
+            document.getElementById('loading').textContent = 'تعذر الاتصال بقاعدة البيانات ولا توجد نسخة محفوظة محلياً.';
+          }
         }
       }
+    }
+
+    function openCloudLoginModal() {
+      switchLockTab('email');
+      document.getElementById('lockScreen').style.display = 'flex';
     }
 
     function populateCycleSelector(data) {
@@ -1080,8 +1341,9 @@
       const prevVal = select.value || 'ALL';
       select.innerHTML = '<option value="ALL">📚 كل الدورات المؤرشفة (تراكمي)</option>';
 
-      const keys = Object.keys(data).sort((a, b) => (data[a].cycleTimestamp || 0) - (data[b].cycleTimestamp || 0));
+      const keys = Object.keys(data).sort((a, b) => ((data[a] && data[a].cycleTimestamp) || 0) - ((data[b] && data[b].cycleTimestamp) || 0));
       keys.forEach((k, idx) => {
+        if (!data[k]) return;
         const dateStr = data[k].closedAtStr || `دورة ${idx + 1}`;
         const opt = document.createElement('option');
         opt.value = k;
@@ -1099,6 +1361,7 @@
       processAndRenderAnalytics(rawHistoryData);
     }
 
+    /* ==================== 5. المعالجة الإحصائية وحساب الحصص ==================== */
     function computeCycleAllocatedShare(famMembers, allFams, netWater, settings) {
       if (netWater <= 0 || !allFams.length) return 0;
       const mode = (settings && settings.distMode) || 'per_family';
@@ -1115,7 +1378,10 @@
 
     function processAndRenderAnalytics(data) {
       const selectedCycleKey = document.getElementById('cycleFilterSelect').value;
-      const allKeysSorted = Object.keys(data).sort((a, b) => (data[a].cycleTimestamp || 0) - (data[b].cycleTimestamp || 0));
+      const allKeysSorted = Object.keys(data)
+        .filter(k => data[k] && typeof data[k] === 'object')
+        .sort((a, b) => (data[a].cycleTimestamp || 0) - (data[b].cycleTimestamp || 0));
+
       const activeCycleKeys = selectedCycleKey === 'ALL' ? allKeysSorted : [selectedCycleKey];
       const totalCycles = activeCycleKeys.length;
       const filterMarginal = document.getElementById('filterOutliersToggle').checked;
@@ -1136,8 +1402,10 @@
         if (!cycle) return;
         const summary = cycle.summary || {};
         const settings = cycle.settings || {};
-        const cycleConsumed = parseFloat(summary.totalConsumed) || 0;
-        const cyclePop = parseInt(summary.totalPop) || 0;
+        const fams = toArray(cycle.families);
+
+        const cycleConsumed = parseFloat(summary.totalConsumed) || fams.reduce((s, f) => s + (parseFloat(f.consumed) || 0), 0);
+        const cyclePop = parseInt(summary.totalPop) || fams.reduce((s, f) => s + (parseInt(f.members) || 0), 0);
         const totalW = parseFloat(summary.totalWater || settings.totalWater) || 0;
         const resW = parseFloat(summary.reserveLiters !== undefined ? summary.reserveLiters : settings.reserveLiters) || 0;
         const netW = Math.max(0, totalW - resW);
@@ -1146,12 +1414,10 @@
         grandTotalNetWater += netW;
         totalPopRecorded += cyclePop;
 
-        const fams = cycle.families || [];
-
         let minLogTime = Infinity;
         let maxLogTime = 0;
         fams.forEach(f => {
-          (f.logs || []).forEach(l => {
+          toArray(f.logs).forEach(l => {
             const t = parseInt(l.timestamp || l.id) || 0;
             if (t > 0) {
               if (t < minLogTime) minLogTime = t;
@@ -1184,11 +1450,11 @@
         });
 
         fams.forEach((f, idx) => {
-          const famKey = String(f.id !== undefined ? f.id : (idx + 1));
+          const tentStr = String(f.tent || (idx + 1)).trim();
+          const famKey = String(f.id !== undefined ? f.id : tentStr);
           const m = parseInt(f.members) || 0;
           const c = parseFloat(f.consumed) || 0;
-          const tent = f.tent || famKey;
-          const logs = f.logs || [];
+          const logs = toArray(f.logs);
 
           const allocatedShare = computeCycleAllocatedShare(m, fams, netW, settings);
           const perCapitaInCycle = m > 0 ? (c / m) : 0;
@@ -1210,8 +1476,8 @@
             familyMap[famKey] = {
               key: famKey,
               id: f.id || (idx + 1),
-              tent: tent,
-              name: f.name,
+              tent: tentStr,
+              name: f.name || `عائلة ${tentStr}`,
               members: m,
               totalLitres: 0,
               totalCyclesCount: 0,
@@ -1226,9 +1492,9 @@
           }
 
           const fm = familyMap[famKey];
-          fm.name = f.name || fm.name;
-          fm.members = m || fm.members;
-          if (f.tent) fm.tent = f.tent;
+          if (f.name) fm.name = f.name;
+          if (m > 0) fm.members = m;
+          if (f.tent) fm.tent = String(f.tent).trim();
           fm.totalLitres += c;
           fm.totalCyclesCount += 1;
           fm.totalPullsCount += logs.length;
@@ -1265,10 +1531,18 @@
       document.getElementById('metricAvgDuration').textContent = `متوسط المدة: ${avgDurationDays.toFixed(1)} يوم (${Math.round(avgDurationDays * 24)} س)`;
       document.getElementById('metricTotalConsumed').textContent = Math.round(grandTotalConsumed) + ' لتر';
       document.getElementById('metricNetRatio').textContent = `بنسبة ${grandTotalNetWater > 0 ? ((grandTotalConsumed / grandTotalNetWater) * 100).toFixed(1) : 0}% من الصافي (${grandTotalNetWater} لتر)`;
-      document.getElementById('metricAvgCycle').textContent = Math.round(grandTotalConsumed / totalCycles) + ' لتر';
+      document.getElementById('metricAvgCycle').textContent = Math.round(grandTotalConsumed / Math.max(1, totalCycles)) + ' لتر';
       document.getElementById('metricPerCapita').textContent = avgPerCapitaCycle.toFixed(1) + ' لتر/دورة';
       document.getElementById('metricCumulativePerCapitaSub').textContent = `التراكمي للفرد: ${cumulativePerCapita.toFixed(1)} لتر`;
       document.getElementById('metricDailyPerCapita').textContent = dailyPerCapita.toFixed(1) + ' لتر/يوم';
+
+      // ضبط صافي المياه الافتراضي في المحاكي من آخر دورة
+      if (cyclesList.length > 0 && !processedState) {
+        const latestNet = cyclesList[cyclesList.length - 1].netWater;
+        if (latestNet > 0) {
+          document.getElementById('simNetWaterInput').value = latestNet;
+        }
+      }
 
       processedState = { sizeMap, familyMap, cyclesList, regressionPairs };
 
@@ -1279,6 +1553,7 @@
       renderFamiliesTable();
     }
 
+    /* ==================== 6. كبسولات فلترة العائلات ومعايرة ألفا ==================== */
     function renderFamilyFilterChips(familyMap) {
       const container = document.getElementById('familyChipsContainer');
       container.innerHTML = '';
@@ -1289,7 +1564,7 @@
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = `fam-chip ${isExcluded ? 'excluded' : ''}`;
-        btn.innerHTML = `<span>${isExcluded ? '✕' : '✓'}</span> <span>خيمة ${f.tent}: ${f.name} (${f.members})</span>`;
+        btn.innerHTML = `<span>${isExcluded ? '✕' : '✓'}</span> <span>#${f.tent}: ${f.name} (${f.members})</span>`;
         btn.onclick = () => {
           if (excludedFamilyKeys.has(f.key)) excludedFamilyKeys.delete(f.key);
           else excludedFamilyKeys.add(f.key);
@@ -1309,7 +1584,7 @@
         document.getElementById('empiricalAlpha').textContent = 'غير كافٍ';
         document.getElementById('rSquaredVal').textContent = '—';
         document.getElementById('baseKVal').textContent = '—';
-        document.getElementById('alphaEvaluation').textContent = 'عدد السجلات المفعلة أقل من الحد الأدنى المطلوب لحساب انحدار إحصائي.';
+        document.getElementById('alphaEvaluation').textContent = 'عدد السجلات النشطة في هذه الدورة أقل من الحد الأدنى المطلوب لحساب انحدار إحصائي (يرجى اختيار كل الدورات أو إلغاء فلتر السحوبات الهامشية).';
         return;
       }
 
@@ -1352,17 +1627,19 @@
       if (alpha < 0.35) {
         diagText = `المعامل الفعلي منخفض (${alpha.toFixed(2)})؛ يعكس تأثير نظام التوزيع بالتساوي للعائلات ووجود عائلات كبيرة ذات سحب منخفض.`;
       } else if (alpha >= 0.35 && alpha <= 0.72) {
-        diagText = `المعامل الفعلي (${alpha.toFixed(2)}) يقع ضمن النطاق المثالي لوفورات الحجم ويتقارب مع الفرضية المرجعية (0.58); يثبت وفر المشاركة المنزلية كلما كبرت الأسرة.`;
+        diagText = `المعامل الفعلي (${alpha.toFixed(2)}) يقع ضمن النطاق المثالي لوفورات الحجم ويتقارب مع الفرضية المرجعية (0.58)؛ يثبت وفر المشاركة المنزلية كلما كبرت الأسرة.`;
       } else {
         diagText = `المعامل الفعلي مرتفع (${alpha.toFixed(2)})؛ يوضح أن الاستهلاك في العائلات المحددة يقترب من التناسب الخطي المباشر مع عدد الأفراد.`;
       }
       document.getElementById('alphaEvaluation').textContent = diagText;
     }
 
+    /* ==================== 7. محاكي التوزيع والرسم البياني ==================== */
     function applyEmpiricalAlphaToSim() {
       const slider = document.getElementById('simAlphaSlider');
       slider.value = currentEmpiricalAlpha.toFixed(2);
       updateSimulator();
+      showToast(`تم تطبيق α = ${currentEmpiricalAlpha.toFixed(2)} في المحاكي ✓`);
     }
 
     function roundShare(val, step) {
@@ -1372,7 +1649,7 @@
     function updateSimulator() {
       if (!processedState) return;
       const simAlpha = parseFloat(document.getElementById('simAlphaSlider').value) || 0;
-      const simNetWater = parseFloat(document.getElementById('simNetWaterInput').value) || 3600;
+      const simNetWater = parseFloat(document.getElementById('simNetWaterInput').value) || 3000;
       const roundStep = parseInt(document.getElementById('simRoundingSelect').value) || 1;
 
       document.getElementById('simAlphaLabel').textContent = simAlpha.toFixed(2);
@@ -1380,7 +1657,7 @@
       const { sizeMap, familyMap } = processedState;
       const famList = Object.values(familyMap).sort((a, b) => (parseInt(a.tent) || a.id) - (parseInt(b.tent) || b.id));
 
-      const totalWeight = famList.reduce((acc, f) => acc + Math.pow(f.members, simAlpha), 0);
+      const totalWeight = famList.reduce((acc, f) => acc + (f.members > 0 ? Math.pow(f.members, simAlpha) : 0), 0);
 
       const simBody = document.getElementById('simulatorTableBody');
       simBody.innerHTML = '';
@@ -1388,7 +1665,7 @@
       const simShareByMembers = {};
 
       famList.forEach(f => {
-        const rawShare = totalWeight > 0 ? simNetWater * (Math.pow(f.members, simAlpha) / totalWeight) : 0;
+        const rawShare = (totalWeight > 0 && f.members > 0) ? simNetWater * (Math.pow(f.members, simAlpha) / totalWeight) : 0;
         const simShare = roundShare(rawShare, roundStep);
         simShareByMembers[f.members] = simShare;
 
@@ -1406,7 +1683,7 @@
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td><span class="tag tag-amber">خيمة <span class="num">${f.tent}</span></span></td>
+          <td><span class="tag tag-amber">#<span class="num">${f.tent}</span></span></td>
           <td><strong>${f.name}</strong></td>
           <td><span class="num">${f.members}</span> أفراد</td>
           <td><strong class="num">${activeAvg.toFixed(0)}</strong> لتر</td>
@@ -1465,8 +1742,8 @@
       });
 
       const styles = getComputedStyle(document.documentElement);
-      const gridColor = styles.getPropertyValue('--chart-grid').trim() || '#233554';
-      const textColor = styles.getPropertyValue('--chart-text').trim() || '#94a3b8';
+      const gridColor = styles.getPropertyValue('--chart-grid').trim() || '#e2e8f0';
+      const textColor = styles.getPropertyValue('--chart-text').trim() || '#475569';
 
       const ctx = document.getElementById('elasticityChart').getContext('2d');
       if (elasticityChartInstance) elasticityChartInstance.destroy();
@@ -1479,8 +1756,8 @@
             {
               label: 'متوسط سحب الأسرة الفعلي (لتر)',
               data: actualFamilyAvgs,
-              borderColor: '#0284c7',
-              backgroundColor: 'rgba(2, 132, 199, 0.14)',
+              borderColor: '#0369a1',
+              backgroundColor: 'rgba(3, 105, 161, 0.12)',
               borderWidth: 3,
               tension: 0.3,
               yAxisID: 'y',
@@ -1489,7 +1766,7 @@
             {
               label: `حصة المحاكي المقترحة (α = ${simAlpha.toFixed(2)})`,
               data: simulatedShares,
-              borderColor: '#f59e0b',
+              borderColor: '#d97706',
               borderWidth: 2.5,
               borderDash: [5, 5],
               tension: 0.3,
@@ -1499,7 +1776,7 @@
             {
               label: 'نصيب الفرد الفعلي (لتر / فرد)',
               data: actualPerCapitaAvgs,
-              borderColor: '#10b981',
+              borderColor: '#15803d',
               borderWidth: 2.5,
               borderDash: [3, 3],
               tension: 0.3,
@@ -1521,9 +1798,9 @@
             y1: {
               type: 'linear',
               position: 'right',
-              title: { display: true, text: 'نصيب الفرد الواحد (لتر)', color: '#10b981' },
+              title: { display: true, text: 'نصيب الفرد الواحد (لتر)', color: '#15803d' },
               grid: { drawOnChartArea: false },
-              ticks: { color: '#10b981' }
+              ticks: { color: '#15803d' }
             },
             x: {
               grid: { color: gridColor },
@@ -1537,6 +1814,7 @@
       });
     }
 
+    /* ==================== 8. جدول أداء العائلات والفرز التفاعلي ==================== */
     function getHeatTintStyle(perCapitaVal) {
       const min = 15, max = 95;
       const ratio = Math.max(0, Math.min(1, (perCapitaVal - min) / (max - min)));
@@ -1544,7 +1822,7 @@
       if (ratio > 0.65) {
         return `background: rgba(245, 158, 11, ${alpha}); border-color: rgba(245, 158, 11, 0.35);`;
       }
-      return `background: rgba(56, 189, 248, ${alpha}); border-color: rgba(56, 189, 248, 0.35);`;
+      return `background: rgba(3, 105, 161, ${alpha}); border-color: rgba(3, 105, 161, 0.3);`;
     }
 
     function sortFamiliesBy(field) {
@@ -1617,7 +1895,7 @@
         row.onclick = () => openFamilyModal(fam.key);
 
         row.innerHTML = `
-          <td><span class="tag tag-amber">خيمة <span class="num">${fam.tent}</span></span></td>
+          <td><span class="tag tag-amber">#<span class="num">${fam.tent}</span></span></td>
           <td><strong>${fam.name}</strong></td>
           <td><span class="num">${fam.members}</span> أفراد</td>
           <td><span class="num">${fam.activeCyclesCount}</span> من <span class="num">${fam.totalCyclesCount}</span></td>
@@ -1630,17 +1908,18 @@
           <td><strong class="num" style="color:var(--primary); font-size:0.95rem;">${fam.activeAvg.toFixed(1)}</strong> لتر/دورة</td>
           <td>
             <div class="per-capita-cell" style="${heatStyle}">
-              <strong class="num" style="font-size:0.96rem; color:var(--text);">${fam.perCapitaActive.toFixed(1)}</strong> <small>لتر/دورة</small>
+              <strong class="num" style="font-size:0.95rem; color:var(--text);">${fam.perCapitaActive.toFixed(1)}</strong> <small>لتر/دورة</small>
               <span class="sub-metric">يومياً: <span class="num">${fam.perCapitaDaily.toFixed(1)}</span> لتر/يوم</span>
             </div>
           </td>
           <td><span class="tag ${utilClass}"><span class="num">${fam.quotaUtil.toFixed(0)}%</span> من الحصة</span></td>
-          <td style="font-size:0.8rem; color:var(--text-secondary); font-weight:600;">🔍 ${pullPattern}</td>
+          <td style="font-size:0.8rem; color:var(--text-secondary); font-weight:700;">🔍 ${pullPattern}</td>
         `;
         fBody.appendChild(row);
       });
     }
 
+    /* ==================== 9. جدول أرشيف الدورات ==================== */
     function renderCyclesTable(cyclesList) {
       const cBody = document.getElementById('cyclesTableBody');
       cBody.innerHTML = '';
@@ -1676,11 +1955,12 @@
       return 'بالتساوي لكل عائلة';
     }
 
+    /* ==================== 10. النافذة السفلية لسجل الأوعية ودعم زر الرجوع ==================== */
     function openFamilyModal(famKey) {
       if (!processedState || !processedState.familyMap[famKey]) return;
       const fam = processedState.familyMap[famKey];
 
-      document.getElementById('modalFamilyTitle').textContent = `⛺ خيمة ${fam.tent}: عائلة ${fam.name} (${fam.members} أفراد)`;
+      document.getElementById('modalFamilyTitle').textContent = `⛺ عائلة #${fam.tent}: ${fam.name} (${fam.members} أفراد)`;
       const activeAvg = fam.activeCyclesCount > 0 ? (fam.totalLitres / fam.activeCyclesCount) : 0;
       const perCapita = fam.members > 0 ? (activeAvg / fam.members) : 0;
       const perCapitaCum = fam.members > 0 ? (fam.totalLitres / fam.members) : 0;
@@ -1690,7 +1970,7 @@
       const body = document.getElementById('modalLogsBody');
       body.innerHTML = '';
 
-      fam.cycleHistory.forEach(ch => {
+      fam.cycleHistory.slice().reverse().forEach(ch => {
         const box = document.createElement('div');
         box.className = 'log-cycle-group';
 
@@ -1712,9 +1992,9 @@
               <div class="log-item">
                 <div>
                   <strong style="color:var(--primary); font-size:0.92rem;"><span class="num">${l.amount}</span> لتر</strong>
-                  <span style="margin-right:10px; color:var(--text); direction:ltr; display:inline-block; font-weight:600;">${detailStr}</span>
+                  <span style="margin-right:10px; color:var(--text); direction:ltr; display:inline-block; font-weight:700;">${detailStr}</span>
                 </div>
-                <span style="color:var(--text-secondary); font-size:0.78rem;">🕒 ${timeStr}</span>
+                <span style="color:var(--text-secondary); font-size:0.78rem; font-weight:600;">🕒 ${timeStr}</span>
               </div>
             `;
           });
@@ -1734,6 +2014,7 @@
       });
 
       document.getElementById('logsModalBackdrop').classList.add('open');
+      document.body.classList.add('modal-open');
       if (!modalOpenState) {
         history.pushState({ modal: 'familyLogs' }, '');
         modalOpenState = true;
@@ -1744,6 +2025,7 @@
       const backdrop = document.getElementById('logsModalBackdrop');
       if (!backdrop.classList.contains('open')) return;
       backdrop.classList.remove('open');
+      document.body.classList.remove('modal-open');
       if (modalOpenState && !fromPopState) {
         modalOpenState = false;
         history.back();
@@ -1758,6 +2040,7 @@
       }
     });
 
+    /* ==================== 11. تصدير CSV والنسخ الاحتياطي للأرشيف (JSON) ==================== */
     function exportToCSV() {
       if (!rawHistoryData || Object.keys(rawHistoryData).length === 0) {
         alert('لا توجد بيانات لتصديرها');
@@ -1765,9 +2048,13 @@
       }
 
       let csv = '\uFEFF';
-      csv += 'الدورة,تاريخ الإغلاق,صافي المياه المتاحة,الاحتياطي,رقم الخيمة,اسم العائلة,عدد الأفراد,المستهلك للأسرة (لتر),حصة الفرد في الدورة (لتر),عدد مرات السحب,تفاصيل السحوبات بالأوعية\n';
+      csv += 'الدورة,تاريخ الإغلاق,صافي المياه المتاحة,الاحتياطي,رقم العائلة,اسم العائلة,عدد الأفراد,المستهلك للأسرة (لتر),حصة الفرد في الدورة (لتر),عدد مرات السحب,تفاصيل السحوبات بالأوعية\n';
 
-      Object.keys(rawHistoryData).forEach((key, idx) => {
+      const sortedKeys = Object.keys(rawHistoryData)
+        .filter(k => rawHistoryData[k] && typeof rawHistoryData[k] === 'object')
+        .sort((a, b) => (rawHistoryData[a].cycleTimestamp || 0) - (rawHistoryData[b].cycleTimestamp || 0));
+
+      sortedKeys.forEach((key, idx) => {
         const c = rawHistoryData[key];
         const date = c.closedAtStr || '';
         const summary = c.summary || {};
@@ -1776,12 +2063,12 @@
         const resW = summary.reserveLiters !== undefined ? summary.reserveLiters : (settings.reserveLiters || 0);
         const netW = Math.max(0, totalW - resW);
 
-        (c.families || []).forEach((f, fIdx) => {
+        toArray(c.families).forEach((f, fIdx) => {
           const tent = f.tent || String(f.id || (fIdx + 1));
           const members = parseInt(f.members) || 0;
           const consumed = parseFloat(f.consumed) || 0;
           const perCapita = members > 0 ? (consumed / members).toFixed(1) : 0;
-          const logs = f.logs || [];
+          const logs = toArray(f.logs);
           const logsSummary = logs.map(l => l.detail ? `[${l.detail}]` : l.amount).join(' | ');
           csv += `دورة ${idx + 1},"${date}",${netW},${resW},"${tent}","${f.name}",${members},${consumed},${perCapita},${logs.length},"${logsSummary}"\n`;
         });
@@ -1794,49 +2081,81 @@
       a.download = `تحليلات_مياه_المخيم_${new Date().toISOString().slice(0,10)}.csv`;
       a.click();
       URL.revokeObjectURL(url);
+      showToast('تم تنزيل ملف CSV بنجاح ✓');
     }
 
     function exportArchiveJSON() {
       if (!rawHistoryData || Object.keys(rawHistoryData).length === 0) {
-        alert('لا توجد بيانات أرشيف لتصديرها.');
+        alert('لا توجد بيانات أرشيف لتصديرها');
         return;
       }
-      const blob = new Blob([JSON.stringify(rawHistoryData, null, 2)], { type: 'application/json' });
+
+      const backupPayload = {
+        app: 'camp_water_analytics_history_v1',
+        exportedAt: new Date().toISOString(),
+        cyclesCount: Object.keys(rawHistoryData).length,
+        camp_history: rawHistoryData
+      };
+
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const blob = new Blob([JSON.stringify(backupPayload, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `camp_history_backup_${new Date().toISOString().slice(0,10)}.json`;
+      a.download = `camp_history_backup_${dateStr}.json`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      showToast('تم حفظ نسخة الأرشيف (JSON) بنجاح ✓');
     }
 
     function triggerImportArchiveJSON() {
-      const inp = document.getElementById('importArchiveFile');
+      const inp = document.getElementById('archiveFileInput');
       inp.value = '';
       inp.click();
     }
 
-    function handleImportArchiveFile(event) {
+    function handleImportArchiveJSON(event) {
       const file = event.target.files && event.target.files[0];
       if (!file) return;
 
       const reader = new FileReader();
-      reader.onload = function(e) {
+      reader.onload = async function(e) {
         try {
           const parsed = JSON.parse(e.target.result);
-          if (!parsed || typeof parsed !== 'object') {
-            alert('ملف الأرشيف غير صالح.');
+          const importedHistory = (parsed && parsed.camp_history && typeof parsed.camp_history === 'object')
+            ? parsed.camp_history
+            : (parsed && typeof parsed === 'object' && !parsed.state ? parsed : null);
+
+          if (!importedHistory || Object.keys(importedHistory).length === 0) {
+            alert('ملف الأرشيف غير صالح أو لا يحتوي على دورات تاريخية.');
             return;
           }
-          if (confirm('هل تريد استبدال الأرشيف الحالي بالملف المستورد؟')) {
-            rawHistoryData = parsed;
-            localStorage.setItem(CACHE_KEY, JSON.stringify(parsed));
-            populateCycleSelector(parsed);
-            reprocessCurrentData();
-            alert('تم استعادة الأرشيف محلياً بنجاح ✓');
+
+          const count = Object.keys(importedHistory).length;
+          if (!confirm(`هل تريد استعادة ودمج (${count}) دورة تاريخية في سجل الأرشيف (camp_history)؟`)) {
+            return;
           }
+
+          rawHistoryData = { ...rawHistoryData, ...importedHistory };
+          const nowStr = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+          localStorage.setItem(CACHE_KEY, JSON.stringify(rawHistoryData));
+          localStorage.setItem(CACHE_TIME_KEY, nowStr);
+
+          populateCycleSelector(rawHistoryData);
+          reprocessCurrentData();
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('dashboardContent').style.display = 'block';
+
+          if (navigator.onLine && db) {
+            await db.ref('camp_history').update(importedHistory);
+            setSyncBar('online', `🟢 متصل بالسحابة — تمت استعادة الأرشيف (${nowStr})`);
+          }
+          showToast(`تمت استعادة (${count}) دورة بنجاح ✓`);
         } catch (err) {
-          alert('تعذر قراءة ملف الأرشيف.');
+          console.error('Import archive error:', err);
+          alert('تعذر قراءة أو رفع ملف الأرشيف: ' + err.message);
         }
       };
       reader.readAsText(file);
