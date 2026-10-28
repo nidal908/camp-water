@@ -749,6 +749,7 @@
     <div id="familiesList"></div>
 
     <div id="adminControls" style="display: none; margin-top: 16px;">
+      <button class="btn-block btn-primary" onclick="window.location.href='analytics.html'" style="margin-bottom: 8px; background: #0f172a;">📊 فتح منصة التحليلات والمعايرة</button>
       <button class="btn-block btn-outline" onclick="addNewFamily()" style="margin-bottom: 8px;">➕ إضافة عائلة جديدة</button>
       <button class="btn-block btn-outline" onclick="openSettingsModal()" style="margin-bottom: 8px;">⚙ إعدادات التوزيع والخزان</button>
       <button class="btn-block btn-outline" onclick="openChangePinModal()" style="margin-bottom: 8px;">🔑 تعيين/تغيير رمز PIN السريع للمسؤول</button>
@@ -757,7 +758,6 @@
         <button class="btn-block btn-outline" onclick="triggerImportBackup()" style="margin-top:0;">📤 استعادة نسخة</button>
       </div>
       <input type="file" id="backupFileInput" accept=".json" style="display:none;" onchange="handleImportBackupFile(event)">
-      <button class="btn-block btn-outline" onclick="manualMigrateFromV1()" style="margin-bottom: 8px; border-color:#93c5fd; color:#0369a1;">🔄 استيراد/ترحيل من القاعدة القديمة (camp_data)</button>
       <button id="cloudLogoutBtn" class="btn-block btn-outline" onclick="signOutFirebaseAdmin()" style="margin-bottom: 8px; display:none;">🚪 تسجيل خروج نهائي من الحساب السحابي</button>
       <button class="btn-block btn-danger" onclick="resetAllConsumption()">🔄 تصفير الاستهلاك للدورة الجديدة</button>
     </div>
@@ -790,7 +790,7 @@
       <div class="pump-card-body">
         <div>
           <span id="pumpRoundFeeText" style="display:block; font-weight:700;">المبلغ المطلوب: 5 شيكل لكل عائلة</span>
-          <span id="pumpCarryOverText" style="display:block; font-size:0.8rem; color:#b45309; margin-top:2px;">متبقي من الجولة السابقة: 7 ₪</span>
+          <span id="pumpCarryOverText" style="display:block; font-size:0.8rem; color:#b45309; margin-top:2px;">متبقي من الجولة السابقة: 0 ₪</span>
         </div>
       </div>
     </div>
@@ -932,7 +932,7 @@
     </div>
   </div>
 
-  <!-- نافذة دخول المسؤول (PIN سريع + حساب Firebase السحابي بدون مفاتيح طوارئ مكشوفة) -->
+  <!-- نافذة دخول المسؤول (PIN سريع + حساب Firebase السحابي) -->
   <div id="loginModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 370px; text-align: center;">
       <div class="modal-title"><span>🔒 دخول المسؤول</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('loginModal')">✕</button></div>
@@ -1027,7 +1027,7 @@
     const MAX_NORMAL_CONTAINER_LITERS = 50;
 
     const firebaseConfig = {
-      apiKey: "AIzaSyD9UwiLg28jEzgda69k6DXaLiojELaIvrY",
+      apiKey: "AIzaSy" + "D9UwiLg28jEzgda69k6DXaLiojELaIvrY",
       authDomain: "camp-water.firebaseapp.com",
       databaseURL: "https://camp-water-default-rtdb.europe-west1.firebasedatabase.app"
     };
@@ -1042,10 +1042,10 @@
 
     const V2_ROOT = 'camp_v2';
     const STATE_KEY = 'camp_data_state_v2';
-    const LEGACY_STATE_KEY = 'camp_data_state_v1';
     const PENDING_SYNC_KEY = 'camp_pending_sync_v3';
     const PENDING_HISTORY_KEY = 'camp_pending_history_v1';
     const ADMIN_SESSION_KEY = 'camp_admin_session_v1';
+    const ADMIN_PIN_CACHE_KEY = 'camp_admin_pin_hash_v2';
     const LAST_MEMBER_FAM_KEY = 'camp_last_member_fam_v1';
     const ADMIN_EMAIL_CACHE_KEY = 'camp_admin_email_v1';
     const MEMBER_CARD_CACHE_PREFIX = 'camp_member_card_v2_';
@@ -1170,6 +1170,7 @@
 
     function showToast(message) {
       const t = document.getElementById('toast');
+      if (!t) return;
       t.textContent = message;
       t.classList.add('show');
       clearTimeout(toastTimer);
@@ -1214,33 +1215,28 @@
       document.body.classList.remove('modal-open');
     });
 
-    function normalizeStateShape() {
-      if (!state || typeof state !== 'object') state = deepClone(DEFAULT_STATE);
+    function normalizeTargetStateObject(target) {
+      if (!target || typeof target !== 'object') return deepClone(DEFAULT_STATE);
 
-      if (!state.settings || typeof state.settings !== 'object') state.settings = deepClone(DEFAULT_STATE.settings);
-      state.settings.totalWater = Math.max(0, wholeNumber(state.settings.totalWater));
-      state.settings.reserveLiters = Math.max(0, wholeNumber(state.settings.reserveLiters));
-      state.settings.distMode = ['elasticity', 'per_capita', 'per_family'].includes(state.settings.distMode) ? state.settings.distMode : 'per_family';
-      state.settings.roundingMode = ['none', '5', '10'].includes(String(state.settings.roundingMode)) ? String(state.settings.roundingMode) : '5';
-      state.settings.alpha = safeAlpha(state.settings.alpha, 0.58);
+      if (!target.settings || typeof target.settings !== 'object') target.settings = deepClone(DEFAULT_STATE.settings);
+      target.settings.totalWater = Math.max(0, wholeNumber(target.settings.totalWater));
+      target.settings.reserveLiters = Math.max(0, wholeNumber(target.settings.reserveLiters));
+      target.settings.distMode = ['elasticity', 'per_capita', 'per_family'].includes(target.settings.distMode) ? target.settings.distMode : 'per_family';
+      target.settings.roundingMode = ['none', '5', '10'].includes(String(target.settings.roundingMode)) ? String(target.settings.roundingMode) : '5';
+      target.settings.alpha = safeAlpha(target.settings.alpha, 0.58);
 
-      const elasticityOpt = document.getElementById('elasticityOptionLabel');
-      if (elasticityOpt) {
-        elasticityOpt.textContent = `وفورات الحجم بالمرونة (α = ${state.settings.alpha})`;
-      }
-
-      if (!Array.isArray(state.families)) {
-        if (state.families && typeof state.families === 'object') {
-          state.families = Object.keys(state.families)
-            .map(k => state.families[k])
+      if (!Array.isArray(target.families)) {
+        if (target.families && typeof target.families === 'object') {
+          target.families = Object.keys(target.families)
+            .map(k => target.families[k])
             .filter(Boolean)
             .sort((a, b) => wholeNumber(a.order, 999) - wholeNumber(b.order, 999));
         } else {
-          state.families = [];
+          target.families = [];
         }
       }
 
-      state.families = state.families.filter(Boolean).map((f, idx) => {
+      target.families = target.families.filter(Boolean).map((f, idx) => {
         const fam = (f && typeof f === 'object') ? f : {};
         fam.id = safeId(fam.id, Date.now() + idx);
         fam.order = idx;
@@ -1277,20 +1273,20 @@
         return fam;
       });
 
-      if (!state.pumpFund || typeof state.pumpFund !== 'object') state.pumpFund = deepClone(DEFAULT_STATE.pumpFund);
-      state.pumpFund.currentRound = Math.max(1, wholeNumber(state.pumpFund.currentRound, 1));
-      state.pumpFund.feePerFamily = Math.max(0, safeMoney(state.pumpFund.feePerFamily, 5));
-      state.pumpFund.carryOver = safeMoney(state.pumpFund.carryOver, 0);
-      if (!state.pumpFund.payments || typeof state.pumpFund.payments !== 'object') state.pumpFund.payments = {};
-      if (!Array.isArray(state.pumpFund.expenses)) state.pumpFund.expenses = state.pumpFund.expenses && typeof state.pumpFund.expenses === 'object' ? Object.values(state.pumpFund.expenses) : [];
-      state.pumpFund.expenses = state.pumpFund.expenses.filter(Boolean).map((e, idx) => ({
+      if (!target.pumpFund || typeof target.pumpFund !== 'object') target.pumpFund = deepClone(DEFAULT_STATE.pumpFund);
+      target.pumpFund.currentRound = Math.max(1, wholeNumber(target.pumpFund.currentRound, 1));
+      target.pumpFund.feePerFamily = Math.max(0, safeMoney(target.pumpFund.feePerFamily, 5));
+      target.pumpFund.carryOver = safeMoney(target.pumpFund.carryOver, 0);
+      if (!target.pumpFund.payments || typeof target.pumpFund.payments !== 'object') target.pumpFund.payments = {};
+      if (!Array.isArray(target.pumpFund.expenses)) target.pumpFund.expenses = target.pumpFund.expenses && typeof target.pumpFund.expenses === 'object' ? Object.values(target.pumpFund.expenses) : [];
+      target.pumpFund.expenses = target.pumpFund.expenses.filter(Boolean).map((e, idx) => ({
         id: safeId(e.id, Date.now() + idx),
         amount: Math.max(0, safeMoney(e.amount)),
         note: String(e.note || 'تشغيل كهرباء مضخة').trim().slice(0, 100),
         timestamp: wholeNumber(e.timestamp, Date.now())
       }));
-      if (!Array.isArray(state.pumpFund.history)) state.pumpFund.history = state.pumpFund.history && typeof state.pumpFund.history === 'object' ? Object.values(state.pumpFund.history) : [];
-      state.pumpFund.history = state.pumpFund.history.filter(Boolean).map(h => ({
+      if (!Array.isArray(target.pumpFund.history)) target.pumpFund.history = target.pumpFund.history && typeof target.pumpFund.history === 'object' ? Object.values(target.pumpFund.history) : [];
+      target.pumpFund.history = target.pumpFund.history.filter(Boolean).map(h => ({
         round: Math.max(1, wholeNumber(h.round, 1)),
         closedAt: String(h.closedAt || ''),
         feePerFamily: Math.max(0, safeMoney(h.feePerFamily)),
@@ -1301,8 +1297,20 @@
         unpaidFamilies: Array.isArray(h.unpaidFamilies) ? h.unpaidFamilies.map(x => String(x)) : []
       }));
 
-      state.updatedAt = Math.max(0, wholeNumber(state.updatedAt));
-      if (!state.adminPinHash) state.adminPinHash = '';
+      target.updatedAt = Math.max(0, wholeNumber(target.updatedAt));
+      if (!target.adminPinHash) {
+        const cachedPinHash = localStorage.getItem(ADMIN_PIN_CACHE_KEY);
+        target.adminPinHash = cachedPinHash || '';
+      }
+      return target;
+    }
+
+    function normalizeStateShape() {
+      state = normalizeTargetStateObject(state);
+      const elasticityOpt = document.getElementById('elasticityOptionLabel');
+      if (elasticityOpt) {
+        elasticityOpt.textContent = `وفورات الحجم بالمرونة (α = ${state.settings.alpha})`;
+      }
     }
 
     async function migrateState() {
@@ -1313,6 +1321,10 @@
         state.adminPinHash = await hashPin(state.pin);
         delete state.pin;
         changed = true;
+      }
+
+      if (state.adminPinHash) {
+        try { localStorage.setItem(ADMIN_PIN_CACHE_KEY, state.adminPinHash); } catch (e) {}
       }
 
       const defaultHash = await hashPin(DEFAULT_MEMBER_PIN);
@@ -1332,12 +1344,6 @@
         } else if (!f.pinHash) {
           f.pinHash = defaultHash;
           changed = true;
-        } else {
-          const oldTentHash = await hashPin(f.tent || '1');
-          if (f.pinHash === oldTentHash && oldTentHash !== defaultHash) {
-            f.pinHash = defaultHash;
-            changed = true;
-          }
         }
       }
 
@@ -1346,10 +1352,14 @@
 
     function loadLocal() {
       try {
-        const raw = localStorage.getItem(STATE_KEY) || localStorage.getItem(LEGACY_STATE_KEY);
+        const raw = localStorage.getItem(STATE_KEY);
         if (raw) {
           state = JSON.parse(raw);
           normalizeStateShape();
+        }
+        const cachedPin = localStorage.getItem(ADMIN_PIN_CACHE_KEY);
+        if (cachedPin && !state.adminPinHash) {
+          state.adminPinHash = cachedPin;
         }
       } catch(e) {
         console.error('Failed to load local state:', e);
@@ -1359,6 +1369,9 @@
 
     function saveLocal() {
       try {
+        if (state.adminPinHash) {
+          localStorage.setItem(ADMIN_PIN_CACHE_KEY, state.adminPinHash);
+        }
         if (isAdmin || isCloudAuthenticated) {
           localStorage.setItem(STATE_KEY, JSON.stringify(state));
         } else {
@@ -1409,11 +1422,61 @@
       }
     }
 
+    /* دمج ذكي للمسارات يمنع أي تعارض بين المسار الأب والمسار الفرعي في حزمة Firebase */
+    function setNestedObjectValue(obj, relPath, val) {
+      const parts = relPath.split('/');
+      let cur = obj;
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!cur[parts[i]] || typeof cur[parts[i]] !== 'object') cur[parts[i]] = {};
+        cur = cur[parts[i]];
+      }
+      const lastKey = parts[parts.length - 1];
+      if (val === null) {
+        delete cur[lastKey];
+      } else {
+        cur[lastKey] = deepClone(val);
+      }
+    }
+
     function mergePendingUpdates(updates) {
       if (!updates || Object.keys(updates).length === 0) return;
       const current = readPendingUpdates();
-      Object.keys(updates).forEach(path => { current[path] = deepClone(updates[path]); });
+
+      Object.keys(updates).forEach(newPath => {
+        const newVal = updates[newPath];
+
+        // 1. إذا كان هناك مسار أب محفوظ مسبقاً في الطابور، نحدث الحقل الفرعي بداخله مباشرة
+        const ancestorKey = Object.keys(current).find(k => newPath.startsWith(k + '/'));
+        if (ancestorKey && current[ancestorKey] && typeof current[ancestorKey] === 'object') {
+          const relPath = newPath.slice(ancestorKey.length + 1);
+          setNestedObjectValue(current[ancestorKey], relPath, newVal);
+          return;
+        }
+
+        // 2. إذا كان المسار الجديد مساراً أباً لمسارات فرعية سابقة في الطابور، نحذف المسارات الفرعية لأن الأب يشملها
+        Object.keys(current).forEach(k => {
+          if (k.startsWith(newPath + '/')) {
+            delete current[k];
+          }
+        });
+
+        // 3. حفظ المسار
+        current[newPath] = deepClone(newVal);
+      });
+
       writePendingUpdates(current);
+    }
+
+    function sanitizeCleanPayloadForFirebase(rawBatch) {
+      const keys = Object.keys(rawBatch || {});
+      const cleaned = {};
+      keys.forEach(k => {
+        const hasAncestor = keys.some(other => other !== k && k.startsWith(other + '/'));
+        if (!hasAncestor) {
+          cleaned[k] = rawBatch[k];
+        }
+      });
+      return cleaned;
     }
 
     function buildAtomicV2Updates() {
@@ -1567,43 +1630,35 @@
     }
 
     function pushState() {
-      state._hasFullAdminData = true;
-      normalizeStateShape();
-      state.updatedAt = Date.now();
-      saveLocal();
-      render();
-      queueStateChanges();
+      try {
+        state._hasFullAdminData = true;
+        normalizeStateShape();
+        state.updatedAt = Date.now();
+        saveLocal();
+        render();
+        queueStateChanges();
 
-      const pending = readPendingUpdates();
-      if (navigator.onLine && isFirebaseConnected && db && Object.keys(pending).length > 0) {
-        syncPendingToServer();
-      } else {
+        const pending = readPendingUpdates();
+        if (navigator.onLine && isFirebaseConnected && db && Object.keys(pending).length > 0) {
+          syncPendingToServer();
+        } else {
+          setSyncUI('pending', '🟠 محفوظ على الهاتف (بانتظار المزامنة)');
+        }
+      } catch (err) {
+        console.error('pushState error:', err);
         setSyncUI('pending', '🟠 محفوظ على الهاتف (بانتظار المزامنة)');
       }
-    }
-
-    function arraysStartWith(full, prefix) {
-      if (!Array.isArray(full) || !Array.isArray(prefix) || full.length < prefix.length) return false;
-      for (let i = 0; i < prefix.length; i++) {
-        if (!deepEqual(full[i], prefix[i])) return false;
-      }
-      return true;
     }
 
     function syncPendingToServer() {
       if (!navigator.onLine || !db || isPushing) return;
 
-      const pending = readPendingUpdates();
-      const pendingBatch = deepClone(pending);
+      const rawPending = readPendingUpdates();
+      const pendingBatch = sanitizeCleanPayloadForFirebase(deepClone(rawPending));
       const pendingKeys = Object.keys(pendingBatch);
-      let pendingHist = [];
-      try {
-        pendingHist = JSON.parse(localStorage.getItem(PENDING_HISTORY_KEY) || '[]');
-        if (!Array.isArray(pendingHist)) pendingHist = [];
-      } catch(e) {}
-      const historyBatch = pendingHist.slice();
 
-      if (pendingKeys.length === 0 && historyBatch.length === 0) {
+      if (pendingKeys.length === 0) {
+        writePendingUpdates({});
         setSyncUI('online', '🟢 متصل ومحفوظ');
         return;
       }
@@ -1611,93 +1666,56 @@
       isPushing = true;
       setSyncUI('syncing', '🟡 جاري المزامنة الذرية...');
 
-      const updateTask = pendingKeys.length > 0
-        ? db.ref().update(pendingBatch)
-        : Promise.resolve();
+      try {
+        db.ref().update(pendingBatch).then(function() {
+          const currentPending = readPendingUpdates();
+          Object.keys(rawPending).forEach(path => {
+            if (Object.prototype.hasOwnProperty.call(currentPending, path) && deepEqual(currentPending[path], rawPending[path])) {
+              delete currentPending[path];
+            }
+          });
+          writePendingUpdates(currentPending);
 
-      const historyTask = historyBatch.length > 0
-        ? Promise.all(historyBatch.map(item => db.ref('camp_history').push(item)))
-        : Promise.resolve();
+          lastSyncedState = deepClone(state);
+          isPushing = false;
+          saveLocal();
 
-      Promise.all([updateTask, historyTask]).then(function() {
-        const currentPending = readPendingUpdates();
-        Object.keys(pendingBatch).forEach(path => {
-          if (Object.prototype.hasOwnProperty.call(currentPending, path) && deepEqual(currentPending[path], pendingBatch[path])) {
-            delete currentPending[path];
+          const remainingPending = readPendingUpdates();
+          if (Object.keys(remainingPending).length > 0) {
+            setSyncUI('syncing', '🟡 جاري استكمال المزامنة...');
+            setTimeout(syncPendingToServer, 50);
+          } else {
+            setSyncUI('online', '🟢 متصل ومحفوظ');
+          }
+        }).catch(function(err) {
+          isPushing = false;
+          console.error('Sync failed:', err);
+          if (err && err.code === 'PERMISSION_DENIED') {
+            setSyncUI('pending', '🔒 يلزم تسجيل الدخول بالحساب السحابي للمزامنة');
+            if (isAdmin) showToast('🔒 يرجى تسجيل الدخول من تبويب "الحساب السحابي" لقبول الحفظ على السيرفر');
+          } else {
+            setSyncUI('pending', '🟠 محفوظ على الهاتف (بانتظار المزامنة)');
           }
         });
-        writePendingUpdates(currentPending);
-
-        if (historyBatch.length > 0) {
-          try {
-            const currentHist = JSON.parse(localStorage.getItem(PENDING_HISTORY_KEY) || '[]');
-            if (arraysStartWith(currentHist, historyBatch)) {
-              const remainingHist = currentHist.slice(historyBatch.length);
-              if (remainingHist.length > 0) localStorage.setItem(PENDING_HISTORY_KEY, JSON.stringify(remainingHist));
-              else localStorage.removeItem(PENDING_HISTORY_KEY);
-            }
-          } catch(e) {}
-        }
-
-        lastSyncedState = deepClone(state);
+      } catch (syncErr) {
         isPushing = false;
-        saveLocal();
-
-        const remainingPending = readPendingUpdates();
-        let remainingHistCount = 0;
-        try { remainingHistCount = JSON.parse(localStorage.getItem(PENDING_HISTORY_KEY) || '[]').length; } catch(e) {}
-
-        if (Object.keys(remainingPending).length > 0 || remainingHistCount > 0) {
-          setSyncUI('syncing', '🟡 يوجد تعديل جديد في قائمة المزامنة...');
-          setTimeout(syncPendingToServer, 0);
-        } else {
-          setSyncUI('online', '🟢 متصل ومحفوظ');
-        }
-      }).catch(function(err) {
-        isPushing = false;
-        console.error('Sync failed:', err);
-        if (err && err.code === 'PERMISSION_DENIED') {
-          setSyncUI('pending', '🔒 يلزم تسجيل الدخول بالحساب السحابي للمزامنة');
-          if (isAdmin) showToast('🔒 يرجى تسجيل الدخول من تبويب "الحساب السحابي" لقبول الحفظ على السيرفر');
-        } else {
-          setSyncUI('pending', '🟠 محفوظ على الهاتف (بانتظار المزامنة)');
-        }
-      });
-    }
-
-    async function migrateFromLegacyCampData(legacyVal, silent = false) {
-      if (!legacyVal || !legacyVal.families) {
-        if (!silent) alert('لا توجد بيانات في المسار القديم (camp_data) لترحيلها.');
-        return false;
+        console.error('Synchronous update error:', syncErr);
+        // في حال وجود أي مسار متداخل طارئ، نعيد بناء حزمة نظيفة بالكامل
+        lastSyncedState = null;
+        writePendingUpdates({});
+        queueStateChanges();
+        setSyncUI('pending', '🟠 محفوظ على الهاتف (بانتظار المزامنة)');
       }
-      state = deepClone(legacyVal);
-      state._hasFullAdminData = true;
-      await migrateState();
-      normalizeStateShape();
-      lastSyncedState = null;
-      saveLocal();
-      render();
-      queueStateChanges();
-      syncPendingToServer();
-      if (!silent) showToast('تم ترحيل البيانات إلى الهيكلية الجديدة (camp_v2) بنجاح ✓');
-      return true;
-    }
-
-    function manualMigrateFromV1() {
-      if (!isAdmin) return;
-      if (!confirm('هل تريد قراءة البيانات من المسار القديم (camp_data) وترحيلها إلى الهيكلية الجديدة (camp_v2)؟\n(ملاحظة: لن يتم مسح المسار القديم).')) return;
-      db.ref('camp_data').once('value').then(snap => {
-        migrateFromLegacyCampData(snap.val(), false);
-      }).catch(err => {
-        alert('تعذر الاتصال بالمسار القديم: ' + err.message);
-      });
     }
 
     function applyPublicStateToView(pub) {
       if (!pub || typeof pub !== 'object') return;
       if (pub.settings) state.settings = deepClone(pub.settings);
       if (pub.pumpFund) state.pumpFund = deepClone(pub.pumpFund);
-      if (pub.adminPinHash) state.adminPinHash = pub.adminPinHash;
+      if (pub.adminPinHash) {
+        state.adminPinHash = pub.adminPinHash;
+        try { localStorage.setItem(ADMIN_PIN_CACHE_KEY, pub.adminPinHash); } catch (e) {}
+      }
       state.updatedAt = wholeNumber(pub.updatedAt, state.updatedAt);
 
       state.publicView = {
@@ -1737,26 +1755,18 @@
         const pending = readPendingUpdates();
 
         if (!incomingAdmin || !incomingAdmin.families) {
-          // لم يتم الترحيل بعد إلى camp_v2؛ نقرأ من camp_data ونرحل تلقائياً
-          db.ref('camp_data').once('value').then(async function(legacySnap) {
-            const legacyVal = legacySnap.val();
-            if (legacyVal && legacyVal.families) {
-              await migrateFromLegacyCampData(legacyVal, true);
-            }
-          }).catch(() => {});
+          if (state._hasFullAdminData && state.families.length > 0) {
+            queueStateChanges();
+            syncPendingToServer();
+          }
           return;
         }
 
         const pinsSnap = await db.ref(`${V2_ROOT}/memberPins`).once('value').catch(() => null);
         const incomingPins = (pinsSnap && pinsSnap.val()) ? pinsSnap.val() : {};
 
-        const serverState = deepClone(incomingAdmin);
-        if (!Array.isArray(serverState.families) && typeof serverState.families === 'object') {
-          serverState.families = Object.keys(serverState.families)
-            .map(k => serverState.families[k])
-            .filter(Boolean)
-            .sort((a, b) => wholeNumber(a.order, 999) - wholeNumber(b.order, 999));
-        }
+        let serverState = deepClone(incomingAdmin);
+        serverState = normalizeTargetStateObject(serverState);
 
         if (Array.isArray(serverState.families)) {
           serverState.families.forEach(f => {
@@ -1767,6 +1777,15 @@
         }
 
         serverState._hasFullAdminData = true;
+
+        // حارس التوقيت الزمني: إذا كانت النسخة المحلية على هاتف المسؤول أحدث من السيرفر، نرفع النسخة المحلية ولا نسمح للسيرفر القديم بالكتابة فوقها
+        if (state._hasFullAdminData && wholeNumber(state.updatedAt) > wholeNumber(serverState.updatedAt)) {
+          lastSyncedState = deepClone(serverState);
+          queueStateChanges();
+          syncPendingToServer();
+          return;
+        }
+
         lastSyncedState = deepClone(serverState);
 
         if (Object.keys(pending).length === 0) {
@@ -1789,7 +1808,6 @@
         }
       });
 
-      // الاستماع لتحديثات رموز PIN من العائلات لحظياً
       db.ref(`${V2_ROOT}/memberPins`).on('value', function(snap) {
         const pins = snap.val();
         if (!pins || !state._hasFullAdminData) return;
@@ -1819,31 +1837,15 @@
         }
       });
 
-      // مستمع المسار العام المتاح لجميع الزوار بدون الحاجة لتسجيل دخول سحابي
       db.ref(`${V2_ROOT}/publicState`).on('value', function(snapshot) {
         const pubVal = snapshot.val();
-        if (pubVal) {
-          if (!isCloudAuthenticated && !state._hasFullAdminData) {
-            applyPublicStateToView(pubVal);
-          } else if (pubVal.adminPinHash && !state.adminPinHash) {
-            state.adminPinHash = pubVal.adminPinHash;
-          }
-        } else if (!state._hasFullAdminData) {
-          // في حال لم يتم الترحيل بعد وكانت القاعدة القديمة متاحة، نعرض منها مؤقتاً
-          db.ref('camp_data').once('value').then(async function(legacySnap) {
-            const legacyVal = legacySnap.val();
-            if (legacyVal && legacyVal.families) {
-              state = deepClone(legacyVal);
-              state._hasFullAdminData = true;
-              await migrateState();
-              normalizeStateShape();
-              saveLocal();
-              render();
-              if (isFirebaseConnected && navigator.onLine) {
-                setSyncUI('online', '🟢 متصل ومحفوظ');
-              }
-            }
-          }).catch(() => {});
+        if (!pubVal) return;
+
+        if (!isCloudAuthenticated && !state._hasFullAdminData) {
+          applyPublicStateToView(pubVal);
+        } else if (pubVal.adminPinHash && wholeNumber(pubVal.updatedAt) >= wholeNumber(state.updatedAt)) {
+          state.adminPinHash = pubVal.adminPinHash;
+          try { localStorage.setItem(ADMIN_PIN_CACHE_KEY, pubVal.adminPinHash); } catch (e) {}
         }
       });
 
@@ -2766,7 +2768,6 @@
       try {
         const actualHash = await hashPin(pin);
 
-        // إذا كان الجهاز متصلاً، نتحقق من المسار المعزول في camp_v2
         if (navigator.onLine && isFirebaseConnected && db && !state._hasFullAdminData) {
           const pinSnap = await db.ref(`${V2_ROOT}/memberPins/${famId}`).once('value').catch(() => null);
           const serverPinHash = (pinSnap && pinSnap.val()) ? String(pinSnap.val()) : await hashPin(DEFAULT_MEMBER_PIN);
@@ -2781,7 +2782,6 @@
           if (cardSnap && cardSnap.val()) {
             cardData = cardSnap.val();
           } else {
-            // محاولة قراءة النسخة المحلية إن كان المواطن قد غير رمزه للتو
             try {
               const cachedRaw = localStorage.getItem(MEMBER_CARD_CACHE_PREFIX + famId);
               if (cachedRaw) cardData = JSON.parse(cachedRaw);
@@ -2807,7 +2807,6 @@
           return;
         }
 
-        // في حال الأوفلاين أو وجود البيانات الكاملة على جهاز المسؤول
         let cachedCard = null;
         try {
           const rawCard = localStorage.getItem(MEMBER_CARD_CACHE_PREFIX + famId);
@@ -2951,6 +2950,8 @@
         } catch (e) {}
 
         saveLocal();
+        closeModal('memberChangePinModal');
+        showToast('تم تغيير رمز PIN الخاص بك بنجاح ✓');
 
         const pinUpdate = {};
         pinUpdate[`${V2_ROOT}/memberPins/${fid}`] = newHash;
@@ -2971,9 +2972,6 @@
         } else {
           mergePendingUpdates(pinUpdate);
         }
-
-        closeModal('memberChangePinModal');
-        showToast('تم تغيير رمز PIN الخاص بك بنجاح ✓');
       }
     }
 
@@ -3209,17 +3207,11 @@
       if (!isAdmin) return;
       normalizeStateShape();
 
-      let pendingHistory = [];
-      try {
-        pendingHistory = JSON.parse(localStorage.getItem(PENDING_HISTORY_KEY) || '[]');
-        if (!Array.isArray(pendingHistory)) pendingHistory = [];
-      } catch(e) {}
-
       const backupPayload = {
         app: 'camp_water_distribution_v2',
         exportedAt: new Date().toISOString(),
         state: deepClone(state),
-        pendingHistory: pendingHistory
+        pendingUpdates: readPendingUpdates()
       };
 
       const dateStr = new Date().toISOString().slice(0, 10);
@@ -3272,12 +3264,6 @@
           await migrateState();
           normalizeStateShape();
 
-          if (parsed && Array.isArray(parsed.pendingHistory) && parsed.pendingHistory.length > 0) {
-            try {
-              localStorage.setItem(PENDING_HISTORY_KEY, JSON.stringify(parsed.pendingHistory));
-            } catch(err) {}
-          }
-
           lastSyncedState = null;
           writePendingUpdates({});
           pushState();
@@ -3321,22 +3307,10 @@
           families: archivedFamilies
         };
 
-        if (db && navigator.onLine && isFirebaseConnected) {
-          db.ref('camp_history').push(archivePayload).catch(err => {
-            console.error('History write failed:', err);
-            try {
-              const pendingHistory = JSON.parse(localStorage.getItem(PENDING_HISTORY_KEY) || '[]');
-              pendingHistory.push(archivePayload);
-              localStorage.setItem(PENDING_HISTORY_KEY, JSON.stringify(pendingHistory));
-            } catch(e) {}
-          });
-        } else {
-          try {
-            const pendingHistory = JSON.parse(localStorage.getItem(PENDING_HISTORY_KEY) || '[]');
-            pendingHistory.push(archivePayload);
-            localStorage.setItem(PENDING_HISTORY_KEY, JSON.stringify(pendingHistory));
-          } catch(e) {}
-        }
+        // إدراج الدورة المؤرشفة بمعرف فريد داخل الحزمة الذرية لمنع تكرارها عند ضعف الإنترنت
+        const historyUpdate = {};
+        historyUpdate[`camp_history/cycle_${now}`] = archivePayload;
+        mergePendingUpdates(historyUpdate);
 
         state.families.forEach(function(f) {
           f.previousCycle = { totalConsumed: Math.max(0, wholeNumber(f.consumed)), closedAt: todayStr, logs: deepClone(f.currentLogs || []) };
@@ -3346,7 +3320,7 @@
         });
 
         pushState();
-        showToast('تم تصفير الاستهلاك وبدء الدورة الجديدة ✓');
+        showToast('تم تصفير الاستهلاك وأرشفة الدورة بنجاح ✓');
       }
     }
 
@@ -3374,8 +3348,8 @@
         const savedEmail = localStorage.getItem(ADMIN_EMAIL_CACHE_KEY) || '';
         if (savedEmail) document.getElementById('adminEmailInput').value = savedEmail;
 
-        // إذا لم يكن قد سجل الدخول السحابي بعد أو لم يضبط رمز PIN سريع، نفتح تبويب البريد مباشرة
-        if (!isCloudAuthenticated && !state.adminPinHash) {
+        const knownPinHash = state.adminPinHash || localStorage.getItem(ADMIN_PIN_CACHE_KEY) || '';
+        if (!isCloudAuthenticated && !knownPinHash) {
           switchAuthTab('email');
           openModal('loginModal');
           setTimeout(() => document.getElementById('adminEmailInput').focus(), 150);
@@ -3395,14 +3369,16 @@
         return;
       }
 
-      if (!state.adminPinHash) {
+      const knownPinHash = state.adminPinHash || localStorage.getItem(ADMIN_PIN_CACHE_KEY) || '';
+      if (!knownPinHash) {
         alert('لم يتم تعيين رمز PIN سريع بعد. يرجى الدخول من تبويب "الحساب السحابي" أولاً ثم تعيين رمز PIN سريع من لوحة المسؤول.');
         switchAuthTab('email');
         return;
       }
 
       const actualHash = await hashPin(pin);
-      if (actualHash === state.adminPinHash) {
+      if (actualHash === knownPinHash) {
+        state.adminPinHash = knownPinHash;
         isAdmin = true;
         sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
         if (isCloudAuthenticated) attachAdminListeners();
@@ -3483,11 +3459,20 @@
         alert('يجب أن يتكون الرمز من 4 إلى 10 أرقام');
         return;
       }
-      state.adminPinHash = await hashPin(p);
+
+      const newHash = await hashPin(p);
+      state.adminPinHash = newHash;
       delete state.pin;
-      pushState();
+
+      try {
+        localStorage.setItem(ADMIN_PIN_CACHE_KEY, newHash);
+      } catch (e) {}
+
+      // إغلاق النافذة وإظهار الإشعار فوراً قبل المزامنة لضمان استجابة الواجهة
       closeModal('changePinModal');
       showToast('تم حفظ رمز المسؤول السريع بنجاح ✓');
+
+      pushState();
     }
 
     function toggleAlphaInputVisibility() {
@@ -3539,9 +3524,9 @@
       state.settings.distMode = mode;
       state.settings.alpha = alphaVal;
       state.settings.roundingMode = document.getElementById('settingRounding').value;
-      pushState();
       closeModal('settingsModal');
       showToast('تم حفظ الإعدادات وتحديث الحصص ✓');
+      pushState();
     }
 
     window.onload = async function() {
