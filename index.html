@@ -751,7 +751,7 @@
     <div id="adminControls" style="display: none; margin-top: 16px;">
       <button class="btn-block btn-outline" onclick="addNewFamily()" style="margin-bottom: 8px;">➕ إضافة عائلة جديدة</button>
       <button class="btn-block btn-outline" onclick="openSettingsModal()" style="margin-bottom: 8px;">⚙ إعدادات التوزيع والخزان</button>
-      <button class="btn-block btn-outline" onclick="openChangePinModal()" style="margin-bottom: 8px;">🔑 تغيير رمز PIN السريع للمسؤول</button>
+      <button class="btn-block btn-outline" onclick="openChangePinModal()" style="margin-bottom: 8px;">🔑 تعيين/تغيير رمز PIN السريع للمسؤول</button>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
         <button class="btn-block btn-outline" onclick="exportBackupJSON()" style="margin-top:0;">📥 تنزيل نسخة احتياطية</button>
         <button class="btn-block btn-outline" onclick="triggerImportBackup()" style="margin-top:0;">📤 استعادة نسخة</button>
@@ -897,7 +897,7 @@
         <label>رمز PIN الخاص بك (الافتراضي: 1234):</label>
         <input type="password" id="memberPinInput" class="form-control" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="اكتب رمز PIN" onkeydown="if(event.key==='Enter') verifyMemberPin()">
       </div>
-      <button class="btn-block btn-primary" onclick="verifyMemberPin()">عرض بياناتي</button>
+      <button id="memberVerifyBtn" class="btn-block btn-primary" onclick="verifyMemberPin()">عرض بياناتي</button>
     </div>
   </div>
 
@@ -932,7 +932,7 @@
     </div>
   </div>
 
-  <!-- نافذة دخول المسؤول المتطورة (PIN سريع + حساب Firebase الرسمي) -->
+  <!-- نافذة دخول المسؤول (PIN سريع + حساب Firebase السحابي بدون مفاتيح طوارئ مكشوفة) -->
   <div id="loginModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 370px; text-align: center;">
       <div class="modal-title"><span>🔒 دخول المسؤول</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('loginModal')">✕</button></div>
@@ -944,9 +944,9 @@
 
       <!-- الوضع 1: الدخول الميداني السريع برمز PIN -->
       <div id="authPinSection">
-        <input type="password" id="adminPinInput" class="form-control" inputmode="numeric" autocomplete="off" style="font-size: 1.5rem; text-align: center; letter-spacing: 4px; margin-bottom: 12px;" maxlength="12" placeholder="••••" onkeydown="if(event.key==='Enter') verifyAdminPin()">
+        <input type="password" id="adminPinInput" class="form-control" inputmode="numeric" autocomplete="off" style="font-size: 1.5rem; text-align: center; letter-spacing: 4px; margin-bottom: 12px;" maxlength="10" placeholder="••••" onkeydown="if(event.key==='Enter') verifyAdminPin()">
         <button class="btn-block btn-primary" onclick="verifyAdminPin()">دخول سريع</button>
-        <div style="margin-top: 14px; font-size: 0.85rem; color: var(--primary); cursor: pointer; text-decoration: underline; font-weight: 700;" onclick="recoverAdminPin()">نسيت رمز المسؤول؟</div>
+        <div style="margin-top: 14px; font-size: 0.85rem; color: var(--primary); cursor: pointer; text-decoration: underline; font-weight: 700;" onclick="switchToEmailRecovery()">نسيت رمز PIN السريع؟ ادخل بالحساب السحابي</div>
       </div>
 
       <!-- الوضع 2: المصادقة الخادمية الرسمية عبر البريد الإلكتروني -->
@@ -960,14 +960,14 @@
           <input type="password" id="adminPasswordInput" class="form-control" autocomplete="current-password" placeholder="••••••••" onkeydown="if(event.key==='Enter') loginWithFirebaseEmail()">
         </div>
         <button class="btn-block btn-primary" onclick="loginWithFirebaseEmail()">تسجيل الدخول الرسمي</button>
-        <div style="margin-top: 14px; font-size: 0.85rem; color: var(--primary); cursor: pointer; text-decoration: underline; font-weight: 700;" onclick="sendAdminPasswordReset()">📧 إرسال رابط استعادة كلمة المرور للبريد</div>
+        <div style="margin-top: 14px; font-size: 0.85rem; color: var(--primary); cursor: pointer; text-decoration: underline; font-weight: 700;" onclick="sendAdminPasswordReset()">📧 نسيت كلمة المرور؟ إرسال رابط استعادة للبريد</div>
       </div>
     </div>
   </div>
 
   <div id="changePinModal" class="modal-overlay">
     <div class="modal-box" style="max-width: 340px;">
-      <div class="modal-title"><span>🔑 تغيير رمز المسؤول السريع</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('changePinModal')">✕</button></div>
+      <div class="modal-title"><span>🔑 تعيين رمز PIN السريع</span><button class="btn-close" aria-label="إغلاق" onclick="closeModal('changePinModal')">✕</button></div>
       <div class="form-group">
         <label>الرمز السري الجديد (4 إلى 10 أرقام):</label>
         <input type="password" id="newPinInput" class="form-control" inputmode="numeric" autocomplete="off" maxlength="10" placeholder="اكتب الرمز الجديد" onkeydown="if(event.key==='Enter') saveNewPin()">
@@ -1027,11 +1027,18 @@
     const MAX_NORMAL_CONTAINER_LITERS = 50;
 
     const firebaseConfig = {
+      apiKey: "AIzaSyD9UwiLg28jEzgda69k6DXaLiojELaIvrY",
+      authDomain: "camp-water.firebaseapp.com",
       databaseURL: "https://camp-water-default-rtdb.europe-west1.firebasedatabase.app"
     };
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-    const auth = firebase.auth ? firebase.auth() : null;
+    let auth = null;
+    try {
+      if (firebase.auth) auth = firebase.auth();
+    } catch (e) {
+      console.warn('Auth init warning:', e);
+    }
 
     const V2_ROOT = 'camp_v2';
     const STATE_KEY = 'camp_data_state_v2';
@@ -1041,6 +1048,7 @@
     const ADMIN_SESSION_KEY = 'camp_admin_session_v1';
     const LAST_MEMBER_FAM_KEY = 'camp_last_member_fam_v1';
     const ADMIN_EMAIL_CACHE_KEY = 'camp_admin_email_v1';
+    const MEMBER_CARD_CACHE_PREFIX = 'camp_member_card_v2_';
 
     const DEFAULT_STATE = {
       adminPinHash: '',
@@ -1054,6 +1062,8 @@
         expenses: [],
         history: []
       },
+      publicView: null,
+      _hasFullAdminData: false,
       updatedAt: 0
     };
 
@@ -1061,6 +1071,7 @@
     let currentMainTab = 'water';
     let isAdmin = (sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true');
     let isCloudAuthenticated = false;
+    let adminListenersAttached = false;
     let isPushing = false;
     let isFirebaseConnected = false;
     let lastSyncedState = null;
@@ -1127,17 +1138,6 @@
       if (!/^\d+$/.test(normalized)) return null;
       const n = Number(normalized);
       return Number.isSafeInteger(n) ? n : null;
-    }
-
-    /* التحقق الرياضي غير العكسي من مفتاح الطوارئ الرئيسي دون تخزينه كنص مكشوف في الكود */
-    function isMasterRecoveryKey(candidate) {
-      const s = String(candidate || '').trim();
-      if (s.length !== 9) return false;
-      let h = 7;
-      for (let i = 0; i < s.length; i++) {
-        h = (h * 313 + s.charCodeAt(i)) % 1000000007;
-      }
-      return h === 552801444;
     }
 
     function simplePinHash(pin) {
@@ -1214,7 +1214,6 @@
       document.body.classList.remove('modal-open');
     });
 
-    /* تطبيع البيانات وحساب الاستهلاك تلقائياً من السجلات (Single Source of Truth) */
     function normalizeStateShape() {
       if (!state || typeof state !== 'object') state = deepClone(DEFAULT_STATE);
 
@@ -1257,7 +1256,6 @@
           timestamp: wholeNumber(l.timestamp, Date.now())
         }));
 
-        // مصدر الحقيقة الوحيد للاستهلاك: مجموع السجلات إن وجدت، أو القيمة الرقمية المبدئية
         if (fam.currentLogs.length > 0 || fam._logsAuthoritative) {
           fam.consumed = fam.currentLogs.reduce((sum, item) => sum + Math.max(0, wholeNumber(item.amount)), 0);
           fam._logsAuthoritative = true;
@@ -1346,7 +1344,6 @@
       return changed;
     }
 
-    /* حفظ آمن في الذاكرة المحلية مع تطهير بيانات الخصوصية على هواتف غير المسؤولين */
     function loadLocal() {
       try {
         const raw = localStorage.getItem(STATE_KEY) || localStorage.getItem(LEGACY_STATE_KEY);
@@ -1362,10 +1359,9 @@
 
     function saveLocal() {
       try {
-        if (isAdmin) {
+        if (isAdmin || isCloudAuthenticated) {
           localStorage.setItem(STATE_KEY, JSON.stringify(state));
         } else {
-          // على هاتف المواطن العادي، لا نخزن سجلات سحب العائلات الأخرى في localStorage
           const sanitized = deepClone(state);
           const fam1Index = sanitized.families.findIndex(f => String(f.tent || '').trim() === '1');
           const fam1Id = fam1Index !== -1 ? sanitized.families[fam1Index].id : (sanitized.families[0] ? sanitized.families[0].id : 0);
@@ -1375,9 +1371,8 @@
               id: f.id,
               name: f.name,
               tent: f.tent,
-              members: f.members,
-              consumed: f.consumed,
-              pinHash: f.pinHash,
+              members: 0,
+              consumed: 0,
               currentLogs: []
             };
           });
@@ -1421,14 +1416,12 @@
       writePendingUpdates(current);
     }
 
-    /* بناء الحزمة الذرية الموحدة لـ camp_v2 لمنع أي تعارض أو عدم تطابق عند انقطاع الإنترنت */
     function buildAtomicV2Updates() {
       const updates = {};
       const calc = computeAllotments();
       const allotments = calc.allotments;
       const base = lastSyncedState;
 
-      // تحديثات الحقول الفرعية الدقيقة لكل عائلة بمعرفها الثابت (fam.id)
       const currentFamIds = new Set();
       state.families.forEach((f, idx) => {
         const fid = safeId(f.id);
@@ -1442,14 +1435,13 @@
         if (!baseFam) {
           updates[`${V2_ROOT}/adminState/families/${fid}`] = deepClone(f);
         } else {
-          ['name', 'tent', 'members', 'consumed', 'currentLogs', 'previousCycle', 'pinHash', 'order'].forEach(field => {
+          ['name', 'tent', 'members', 'consumed', 'currentLogs', 'previousCycle', 'pinHash', 'order', '_logsAuthoritative'].forEach(field => {
             if (!deepEqual(baseFam[field], f[field])) {
               updates[`${V2_ROOT}/adminState/families/${fid}/${field}`] = f[field] !== undefined ? deepClone(f[field]) : null;
             }
           });
         }
 
-        // تحديث مسار الرمز السري وبطاقة العضو الخاصة
         if (!baseFam || !deepEqual(baseFam, f)) {
           if (f.pinHash) {
             updates[`${V2_ROOT}/memberPins/${fid}`] = f.pinHash;
@@ -1466,7 +1458,6 @@
         }
       });
 
-      // حذف أي عائلة تمت إزالتها
       if (base && Array.isArray(base.families)) {
         base.families.forEach(bf => {
           const bfid = safeId(bf.id);
@@ -1489,7 +1480,6 @@
       }
       updates[`${V2_ROOT}/adminState/updatedAt`] = state.updatedAt;
 
-      // بناء المسار العام (publicState) في نفس الحزمة الذرية
       const fam1Index = state.families.findIndex(f => String(f.tent || '').trim() === '1');
       const family1 = fam1Index !== -1 ? state.families[fam1Index] : (state.families.length > 0 ? state.families[0] : null);
       const otherFamilies = family1 ? state.families.filter(f => f !== family1) : state.families.slice();
@@ -1497,6 +1487,7 @@
       updates[`${V2_ROOT}/publicState`] = {
         settings: deepClone(state.settings),
         pumpFund: deepClone(state.pumpFund),
+        adminPinHash: state.adminPinHash || '',
         familyDirectory: state.families.map(f => ({ id: safeId(f.id), name: f.name, tent: f.tent })),
         family1: family1 ? {
           id: safeId(family1.id),
@@ -1513,13 +1504,6 @@
         })),
         updatedAt: state.updatedAt
       };
-
-      // مزامنة خلفية متوافقة مع المسار القديم camp_data لضمان عدم تعطل أي أداة قديمة
-      updates['camp_data/settings'] = deepClone(state.settings);
-      updates['camp_data/pumpFund'] = deepClone(state.pumpFund);
-      updates['camp_data/adminPinHash'] = state.adminPinHash || '';
-      updates['camp_data/updatedAt'] = state.updatedAt;
-      updates['camp_data/families'] = deepClone(state.families);
 
       return updates;
     }
@@ -1583,6 +1567,7 @@
     }
 
     function pushState() {
+      state._hasFullAdminData = true;
       normalizeStateShape();
       state.updatedAt = Date.now();
       saveLocal();
@@ -1671,17 +1656,22 @@
       }).catch(function(err) {
         isPushing = false;
         console.error('Sync failed:', err);
-        setSyncUI('pending', '🟠 محفوظ على الهاتف (بانتظار المزامنة)');
+        if (err && err.code === 'PERMISSION_DENIED') {
+          setSyncUI('pending', '🔒 يلزم تسجيل الدخول بالحساب السحابي للمزامنة');
+          if (isAdmin) showToast('🔒 يرجى تسجيل الدخول من تبويب "الحساب السحابي" لقبول الحفظ على السيرفر');
+        } else {
+          setSyncUI('pending', '🟠 محفوظ على الهاتف (بانتظار المزامنة)');
+        }
       });
     }
 
-    /* استيراد وترحيل آمن من المسار القديم camp_data إلى camp_v2 */
     async function migrateFromLegacyCampData(legacyVal, silent = false) {
       if (!legacyVal || !legacyVal.families) {
         if (!silent) alert('لا توجد بيانات في المسار القديم (camp_data) لترحيلها.');
         return false;
       }
       state = deepClone(legacyVal);
+      state._hasFullAdminData = true;
       await migrateState();
       normalizeStateShape();
       lastSyncedState = null;
@@ -1703,13 +1693,165 @@
       });
     }
 
+    function applyPublicStateToView(pub) {
+      if (!pub || typeof pub !== 'object') return;
+      if (pub.settings) state.settings = deepClone(pub.settings);
+      if (pub.pumpFund) state.pumpFund = deepClone(pub.pumpFund);
+      if (pub.adminPinHash) state.adminPinHash = pub.adminPinHash;
+      state.updatedAt = wholeNumber(pub.updatedAt, state.updatedAt);
+
+      state.publicView = {
+        family1: pub.family1 ? deepClone(pub.family1) : null,
+        anonymousQuotas: Array.isArray(pub.anonymousQuotas) ? deepClone(pub.anonymousQuotas) : []
+      };
+
+      if (!state._hasFullAdminData && Array.isArray(pub.familyDirectory)) {
+        state.families = pub.familyDirectory.map((dirFam, idx) => {
+          const isFam1 = pub.family1 && safeId(pub.family1.id) === safeId(dirFam.id);
+          return {
+            id: safeId(dirFam.id, idx + 1),
+            order: idx,
+            name: String(dirFam.name || ''),
+            tent: String(dirFam.tent || ''),
+            members: 0,
+            consumed: isFam1 ? wholeNumber(pub.family1.consumed) : 0,
+            currentLogs: isFam1 ? deepClone(pub.family1.currentLogs || []) : [],
+            previousCycle: isFam1 && pub.family1.previousCycle ? deepClone(pub.family1.previousCycle) : null
+          };
+        });
+      }
+      normalizeStateShape();
+      saveLocal();
+      render();
+      if (isFirebaseConnected && navigator.onLine) {
+        setSyncUI('online', '🟢 متصل ومحفوظ');
+      }
+    }
+
+    function attachAdminListeners() {
+      if (adminListenersAttached || !db) return;
+      adminListenersAttached = true;
+
+      db.ref(`${V2_ROOT}/adminState`).on('value', async function(snap) {
+        const incomingAdmin = snap.val();
+        const pending = readPendingUpdates();
+
+        if (!incomingAdmin || !incomingAdmin.families) {
+          // لم يتم الترحيل بعد إلى camp_v2؛ نقرأ من camp_data ونرحل تلقائياً
+          db.ref('camp_data').once('value').then(async function(legacySnap) {
+            const legacyVal = legacySnap.val();
+            if (legacyVal && legacyVal.families) {
+              await migrateFromLegacyCampData(legacyVal, true);
+            }
+          }).catch(() => {});
+          return;
+        }
+
+        const pinsSnap = await db.ref(`${V2_ROOT}/memberPins`).once('value').catch(() => null);
+        const incomingPins = (pinsSnap && pinsSnap.val()) ? pinsSnap.val() : {};
+
+        const serverState = deepClone(incomingAdmin);
+        if (!Array.isArray(serverState.families) && typeof serverState.families === 'object') {
+          serverState.families = Object.keys(serverState.families)
+            .map(k => serverState.families[k])
+            .filter(Boolean)
+            .sort((a, b) => wholeNumber(a.order, 999) - wholeNumber(b.order, 999));
+        }
+
+        if (Array.isArray(serverState.families)) {
+          serverState.families.forEach(f => {
+            if (f && incomingPins[f.id]) {
+              f.pinHash = incomingPins[f.id];
+            }
+          });
+        }
+
+        serverState._hasFullAdminData = true;
+        lastSyncedState = deepClone(serverState);
+
+        if (Object.keys(pending).length === 0) {
+          state = deepClone(serverState);
+          const migrationChanged = await migrateState();
+          normalizeStateShape();
+          saveLocal();
+          render();
+          if (migrationChanged) {
+            queueStateChanges();
+            syncPendingToServer();
+          } else if (isFirebaseConnected && navigator.onLine) {
+            setSyncUI('online', '🟢 متصل ومحفوظ');
+          }
+        } else {
+          state.families.forEach(f => {
+            if (incomingPins[f.id]) f.pinHash = incomingPins[f.id];
+          });
+          syncPendingToServer();
+        }
+      });
+
+      // الاستماع لتحديثات رموز PIN من العائلات لحظياً
+      db.ref(`${V2_ROOT}/memberPins`).on('value', function(snap) {
+        const pins = snap.val();
+        if (!pins || !state._hasFullAdminData) return;
+        let updated = false;
+        state.families.forEach(f => {
+          if (pins[f.id] && f.pinHash !== pins[f.id]) {
+            f.pinHash = pins[f.id];
+            updated = true;
+          }
+        });
+        if (updated) saveLocal();
+      });
+    }
+
     function initFirebase() {
+      db.ref('.info/connected').on('value', function(snap) {
+        isFirebaseConnected = (snap.val() === true);
+        if (isFirebaseConnected && navigator.onLine) {
+          const pending = readPendingUpdates();
+          if (Object.keys(pending).length > 0) {
+            syncPendingToServer();
+          } else {
+            setSyncUI('online', '🟢 متصل ومحفوظ');
+          }
+        } else {
+          setSyncUI('offline', '🔴 وضع عدم الاتصال (أوفلاين)');
+        }
+      });
+
+      // مستمع المسار العام المتاح لجميع الزوار بدون الحاجة لتسجيل دخول سحابي
+      db.ref(`${V2_ROOT}/publicState`).on('value', function(snapshot) {
+        const pubVal = snapshot.val();
+        if (pubVal) {
+          if (!isCloudAuthenticated && !state._hasFullAdminData) {
+            applyPublicStateToView(pubVal);
+          } else if (pubVal.adminPinHash && !state.adminPinHash) {
+            state.adminPinHash = pubVal.adminPinHash;
+          }
+        } else if (!state._hasFullAdminData) {
+          // في حال لم يتم الترحيل بعد وكانت القاعدة القديمة متاحة، نعرض منها مؤقتاً
+          db.ref('camp_data').once('value').then(async function(legacySnap) {
+            const legacyVal = legacySnap.val();
+            if (legacyVal && legacyVal.families) {
+              state = deepClone(legacyVal);
+              state._hasFullAdminData = true;
+              await migrateState();
+              normalizeStateShape();
+              saveLocal();
+              render();
+              if (isFirebaseConnected && navigator.onLine) {
+                setSyncUI('online', '🟢 متصل ومحفوظ');
+              }
+            }
+          }).catch(() => {});
+        }
+      });
+
       if (auth) {
         auth.onAuthStateChanged(function(user) {
           isCloudAuthenticated = !!user;
           if (user) {
-            isAdmin = true;
-            sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+            attachAdminListeners();
             updateAdminUI();
             render();
           } else {
@@ -1717,79 +1859,6 @@
           }
         });
       }
-
-      db.ref('.info/connected').on('value', function(snap) {
-        isFirebaseConnected = (snap.val() === true);
-        if (isFirebaseConnected && navigator.onLine) {
-          syncPendingToServer();
-        } else {
-          setSyncUI('offline', '🔴 وضع عدم الاتصال (أوفلاين)');
-        }
-      });
-
-      // الاستماع للمسار الجديد camp_v2 مع الترحيل التلقائي من camp_data إذا كان فارغاً
-      db.ref(V2_ROOT).on('value', async function(snapshot) {
-        const v2Val = snapshot.val();
-        const pending = readPendingUpdates();
-
-        if (!v2Val || (!v2Val.adminState && !v2Val.publicState)) {
-          // لم يتم الترحيل بعد إلى camp_v2؛ نقرأ من camp_data تلقائياً
-          db.ref('camp_data').once('value').then(async function(legacySnap) {
-            const legacyVal = legacySnap.val();
-            if (legacyVal && legacyVal.families) {
-              await migrateFromLegacyCampData(legacyVal, true);
-            } else {
-              render();
-            }
-          });
-          return;
-        }
-
-        const incomingAdmin = v2Val.adminState;
-        const incomingPins = v2Val.memberPins || {};
-
-        if (incomingAdmin && incomingAdmin.families) {
-          const serverState = deepClone(incomingAdmin);
-          if (!Array.isArray(serverState.families) && typeof serverState.families === 'object') {
-            serverState.families = Object.keys(serverState.families)
-              .map(k => serverState.families[k])
-              .filter(Boolean)
-              .sort((a, b) => wholeNumber(a.order, 999) - wholeNumber(b.order, 999));
-          }
-
-          // دمج أي رموز PIN حُدّثت من قِبل العائلات في memberPins
-          if (Array.isArray(serverState.families)) {
-            serverState.families.forEach(f => {
-              if (f && incomingPins[f.id]) {
-                f.pinHash = incomingPins[f.id];
-              }
-            });
-          }
-
-          lastSyncedState = deepClone(serverState);
-
-          // النقطة 5: إذا لم يكن هناك تعديل محلي معلق نعتمد نسخة السيرفر، وإن وجد نرفع التعديل المعلق دون إهمال تحديثات PIN
-          if (Object.keys(pending).length === 0) {
-            state = deepClone(serverState);
-            const migrationChanged = await migrateState();
-            normalizeStateShape();
-            saveLocal();
-            render();
-            if (migrationChanged) {
-              queueStateChanges();
-              syncPendingToServer();
-            } else if (isFirebaseConnected && navigator.onLine) {
-              setSyncUI('online', '🟢 متصل ومحفوظ');
-            }
-          } else {
-            // دمج رموز PIN الجديدة الواردة من السيرفر داخل الحالة المحلية قبل رفع الطابور
-            state.families.forEach(f => {
-              if (incomingPins[f.id]) f.pinHash = incomingPins[f.id];
-            });
-            syncPendingToServer();
-          }
-        }
-      });
     }
 
     window.addEventListener('online', function() {
@@ -1895,8 +1964,17 @@
       const allotments = calc.allotments;
       const netWater = calc.netWater;
 
+      const usingPublicViewOnly = (!isAdmin && !state._hasFullAdminData && state.publicView);
+
       let totalConsumed = 0;
-      state.families.forEach(f => totalConsumed += Math.max(0, wholeNumber(f.consumed)));
+      if (usingPublicViewOnly) {
+        if (state.publicView.family1) totalConsumed += Math.max(0, wholeNumber(state.publicView.family1.consumed));
+        (state.publicView.anonymousQuotas || []).forEach(q => {
+          totalConsumed += Math.max(0, wholeNumber(q.consumed));
+        });
+      } else {
+        state.families.forEach(f => totalConsumed += Math.max(0, wholeNumber(f.consumed)));
+      }
 
       document.getElementById('statNetWater').textContent = netWater + ' لتر';
       document.getElementById('statTotalConsumed').textContent = totalConsumed + ' لتر';
@@ -1971,6 +2049,56 @@
               <button class="btn-log" onclick="openFamilyLog(${fid})">📋 السجل التفصيلي</button>
               ${status.badge}
             </div>
+          `;
+          famContainer.appendChild(card);
+        });
+      } else if (usingPublicViewOnly) {
+        const fam1 = state.publicView.family1;
+        if (fam1) {
+          const fid1 = safeId(fam1.id);
+          const quota1 = wholeNumber(fam1.quota);
+          const consumed1 = Math.max(0, wholeNumber(fam1.consumed));
+          const status1 = makeStatus(quota1 - consumed1);
+          const safeName1 = escapeHtml(fam1.name);
+
+          const card1 = document.createElement('div');
+          card1.className = 'family-card family-card-admin-public';
+          card1.innerHTML = `
+            <div class="family-header" style="margin-bottom:6px; border-bottom:1px dashed #bae6fd; padding-bottom:6px;">
+              <strong style="color:var(--primary-dark); font-size:0.98rem;">حصة #1: ${safeName1}</strong>
+              <span style="font-size:0.75rem; background:#e0f2fe; color:#0369a1; padding:3px 8px; border-radius:6px; font-weight:700;">عائلة المسؤول</span>
+            </div>
+            <div class="family-metrics" style="margin-bottom: 8px; background:#fff;">
+              <div><span>الحصة المقررة:</span><strong>${escapeHtml(quota1)} لتر</strong></div>
+              <div><span>المستهلك:</span><strong>${escapeHtml(consumed1)} لتر</strong></div>
+              ${status1.rem}
+            </div>
+            <div class="family-actions">
+              <button class="btn-log" style="background:#fff;" onclick="openFamilyLog(${fid1})">📋 السجل التفصيلي</button>
+              ${status1.badge}
+            </div>
+          `;
+          famContainer.appendChild(card1);
+        }
+
+        const shuffled = shuffleArray(state.publicView.anonymousQuotas || []);
+        shuffled.forEach(function(qItem, index) {
+          const quota = wholeNumber(qItem.quota);
+          const consumed = Math.max(0, wholeNumber(qItem.consumed));
+          const status = makeStatus(quota - consumed);
+
+          const card = document.createElement('div');
+          card.className = 'family-card';
+          card.innerHTML = `
+            <div class="family-header" style="margin-bottom:6px; border-bottom:1px dashed var(--border); padding-bottom:6px;">
+              <strong style="color:var(--primary); font-size:0.95rem;">حصة #${escapeHtml(index + 2)}</strong>
+            </div>
+            <div class="family-metrics" style="margin-bottom: 8px;">
+              <div><span>الحصة المقررة:</span><strong>${escapeHtml(quota)} لتر</strong></div>
+              <div><span>المستهلك:</span><strong>${escapeHtml(consumed)} لتر</strong></div>
+              ${status.rem}
+            </div>
+            <div style="display:flex; justify-content:flex-end;">${status.badge}</div>
           `;
           famContainer.appendChild(card);
         });
@@ -2513,14 +2641,12 @@
       state.families.forEach(f => totalConsumedAll += Math.max(0, wholeNumber(f.consumed)));
       const remainingInTank = Math.max(0, netWater - totalConsumedAll);
 
-      // الخيار (7-أ): منع قاطع إذا تجاوزت السحبة إجمالي الماء المتاح للدورة
       if (netWater > 0 && parsed.total > netWater) {
         alert(`❌ خطأ: لا يمكن أن تتجاوز السحبة الواحدة (${parsed.total} لتر) إجمالي الماء المتاح للتوزيع في الخزان (${netWater} لتر).`);
         inputEl.focus();
         return;
       }
 
-      // تنبيه عند تجاوز أي وعاء منفرد 50 لتر
       if (parsed.oversized.length > 0) {
         const bigStr = parsed.oversized.join('، ');
         if (!confirm(`⚠️ تنبيه هام:\nيوجد وعاء مسجل بحجم أكبر من ${MAX_NORMAL_CONTAINER_LITERS} لتر (${bigStr} لتر).\n\nهل نسيت وضع النقطة الفاصلة بين الأرقام، أم أن حجم الوعاء (${bigStr} لتر) صحيح وتود الاستمرار؟`)) {
@@ -2529,7 +2655,6 @@
         }
       }
 
-      // الخيار (7-أ): تنبيه تأكيدي مرن إذا زادت السحبة عن المتبقي حسابياً في الخزان
       if (parsed.total > remainingInTank) {
         if (!confirm(`⚠️ تنبيه خزان:\nكمية هذه السحبة (${parsed.total} لتر) أكبر من المتبقي حسابياً في الخزان حالياً (${remainingInTank} لتر).\n\nهل تريد تسجيل السحب رغم ذلك؟`)) {
           inputEl.focus();
@@ -2635,17 +2760,78 @@
         return;
       }
 
-      const expectedHash = fam.pinHash || await hashPin(DEFAULT_MEMBER_PIN);
-      const actualHash = await hashPin(pin);
+      const btn = document.getElementById('memberVerifyBtn');
+      if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري التحقق...'; }
 
-      if (actualHash === expectedHash) {
-        loggedInMemberFamId = fam.id;
-        activeMemberLogTab = 'current';
-        try { localStorage.setItem(LAST_MEMBER_FAM_KEY, String(fam.id)); } catch(e) {}
-        closeModal('memberLoginModal', true);
-        showMemberViewModal(fam.id);
-      } else {
-        alert('رمز PIN غير صحيح. إذا نسيته، يرجى مراجعة المسؤول لإعادة ضبطه.');
+      try {
+        const actualHash = await hashPin(pin);
+
+        // إذا كان الجهاز متصلاً، نتحقق من المسار المعزول في camp_v2
+        if (navigator.onLine && isFirebaseConnected && db && !state._hasFullAdminData) {
+          const pinSnap = await db.ref(`${V2_ROOT}/memberPins/${famId}`).once('value').catch(() => null);
+          const serverPinHash = (pinSnap && pinSnap.val()) ? String(pinSnap.val()) : await hashPin(DEFAULT_MEMBER_PIN);
+
+          if (actualHash !== serverPinHash) {
+            alert('رمز PIN غير صحيح. إذا نسيته، يرجى مراجعة المسؤول لإعادة ضبطه.');
+            return;
+          }
+
+          let cardData = null;
+          const cardSnap = await db.ref(`${V2_ROOT}/memberCards/${famId}_${actualHash}`).once('value').catch(() => null);
+          if (cardSnap && cardSnap.val()) {
+            cardData = cardSnap.val();
+          } else {
+            // محاولة قراءة النسخة المحلية إن كان المواطن قد غير رمزه للتو
+            try {
+              const cachedRaw = localStorage.getItem(MEMBER_CARD_CACHE_PREFIX + famId);
+              if (cachedRaw) cardData = JSON.parse(cachedRaw);
+            } catch (e) {}
+          }
+
+          if (cardData) {
+            fam.pinHash = actualHash;
+            fam.publicQuota = wholeNumber(cardData.quota);
+            fam.consumed = Math.max(0, wholeNumber(cardData.consumed));
+            fam.currentLogs = Array.isArray(cardData.currentLogs) ? cardData.currentLogs : [];
+            fam.previousCycle = cardData.previousCycle || null;
+            try {
+              localStorage.setItem(MEMBER_CARD_CACHE_PREFIX + famId, JSON.stringify(cardData));
+            } catch (e) {}
+          }
+
+          loggedInMemberFamId = fam.id;
+          activeMemberLogTab = 'current';
+          try { localStorage.setItem(LAST_MEMBER_FAM_KEY, String(fam.id)); } catch(e) {}
+          closeModal('memberLoginModal', true);
+          showMemberViewModal(fam.id);
+          return;
+        }
+
+        // في حال الأوفلاين أو وجود البيانات الكاملة على جهاز المسؤول
+        let cachedCard = null;
+        try {
+          const rawCard = localStorage.getItem(MEMBER_CARD_CACHE_PREFIX + famId);
+          if (rawCard) cachedCard = JSON.parse(rawCard);
+        } catch (e) {}
+
+        const expectedHash = fam.pinHash || (cachedCard && cachedCard.pinHash) || await hashPin(DEFAULT_MEMBER_PIN);
+        if (actualHash === expectedHash) {
+          if (!state._hasFullAdminData && cachedCard) {
+            fam.publicQuota = wholeNumber(cachedCard.quota);
+            fam.consumed = Math.max(0, wholeNumber(cachedCard.consumed));
+            fam.currentLogs = Array.isArray(cachedCard.currentLogs) ? cachedCard.currentLogs : [];
+            fam.previousCycle = cachedCard.previousCycle || null;
+          }
+          loggedInMemberFamId = fam.id;
+          activeMemberLogTab = 'current';
+          try { localStorage.setItem(LAST_MEMBER_FAM_KEY, String(fam.id)); } catch(e) {}
+          closeModal('memberLoginModal', true);
+          showMemberViewModal(fam.id);
+        } else {
+          alert('رمز PIN غير صحيح. إذا نسيته، يرجى مراجعة المسؤول لإعادة ضبطه.');
+        }
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'عرض بياناتي'; }
       }
     }
 
@@ -2654,7 +2840,9 @@
       if (!fam) return;
 
       const calc = computeAllotments();
-      const quota = wholeNumber(calc.allotments[fam.id]);
+      const quota = (fam.publicQuota !== undefined && !state._hasFullAdminData)
+        ? wholeNumber(fam.publicQuota)
+        : wholeNumber(calc.allotments[fam.id]);
       const consumed = Math.max(0, wholeNumber(fam.consumed));
       const diff = quota - consumed;
 
@@ -2741,18 +2929,46 @@
         const newHash = await hashPin(p);
         fam.pinHash = newHash;
         delete fam.pin;
+
+        const calc = computeAllotments();
+        const quota = (fam.publicQuota !== undefined && !state._hasFullAdminData)
+          ? wholeNumber(fam.publicQuota)
+          : wholeNumber(calc.allotments[fam.id]);
+
+        const cardPayload = {
+          id: fid,
+          name: fam.name,
+          tent: fam.tent,
+          pinHash: newHash,
+          quota: quota,
+          consumed: Math.max(0, wholeNumber(fam.consumed)),
+          currentLogs: deepClone(fam.currentLogs || []),
+          previousCycle: fam.previousCycle ? deepClone(fam.previousCycle) : null
+        };
+
+        try {
+          localStorage.setItem(MEMBER_CARD_CACHE_PREFIX + fid, JSON.stringify(cardPayload));
+        } catch (e) {}
+
         saveLocal();
 
-        // تحديث مسار الرمز السري المخصص للعائلة فقط دون الحاجة لصلاحية مسؤول كاملة
+        const pinUpdate = {};
+        pinUpdate[`${V2_ROOT}/memberPins/${fid}`] = newHash;
+        pinUpdate[`${V2_ROOT}/memberCards/${fid}_${newHash}`] = {
+          id: fid,
+          name: fam.name,
+          tent: fam.tent,
+          quota: quota,
+          consumed: Math.max(0, wholeNumber(fam.consumed)),
+          currentLogs: deepClone(fam.currentLogs || []),
+          previousCycle: fam.previousCycle ? deepClone(fam.previousCycle) : null
+        };
+
         if (db && navigator.onLine && isFirebaseConnected) {
-          const pinUpdate = {};
-          pinUpdate[`${V2_ROOT}/memberPins/${fid}`] = newHash;
           db.ref().update(pinUpdate).catch(() => {
             mergePendingUpdates(pinUpdate);
           });
         } else {
-          const pinUpdate = {};
-          pinUpdate[`${V2_ROOT}/memberPins/${fid}`] = newHash;
           mergePendingUpdates(pinUpdate);
         }
 
@@ -2772,7 +2988,6 @@
       }
     }
 
-    /* ميزة تعديل اسم العائلة للمسؤول */
     function updateFamilyName(id) {
       if (!isAdmin) return;
       const fam = state.families.find(f => safeId(f.id) === safeId(id));
@@ -2789,7 +3004,6 @@
       showToast(`تم تحديث الاسم إلى (${trimmed}) ✓`);
     }
 
-    /* تحديث رقم العائلة مع منع التكرار */
     function updateTentNumber(id, val) {
       if (!isAdmin) return;
       const fam = state.families.find(f => safeId(f.id) === safeId(id));
@@ -2840,7 +3054,10 @@
     }
 
     function renderLogsModal() {
-      const fam = state.families.find(f => safeId(f.id) === safeId(activeLogFamilyId));
+      let fam = state.families.find(f => safeId(f.id) === safeId(activeLogFamilyId));
+      if ((!fam || (!fam.currentLogs || fam.currentLogs.length === 0)) && state.publicView && state.publicView.family1 && safeId(state.publicView.family1.id) === safeId(activeLogFamilyId)) {
+        fam = state.publicView.family1;
+      }
       if (!fam) return;
 
       document.getElementById('logModalFamilyName').textContent = 'سجل سحب: ' + fam.name;
@@ -3051,6 +3268,7 @@
           }
 
           state = deepClone(importedState);
+          state._hasFullAdminData = true;
           await migrateState();
           normalizeStateShape();
 
@@ -3139,9 +3357,13 @@
       document.getElementById('authEmailSection').style.display = (mode === 'email') ? 'block' : 'none';
     }
 
+    function switchToEmailRecovery() {
+      switchAuthTab('email');
+      setTimeout(() => document.getElementById('adminEmailInput').focus(), 100);
+    }
+
     function toggleAdminModal() {
       if (isAdmin) {
-        // قفل ميداني سريع للشاشة دون إبطال شهادة الهاتف السحابية ليعمل أوفلاين
         isAdmin = false;
         sessionStorage.removeItem(ADMIN_SESSION_KEY);
         updateAdminUI();
@@ -3151,9 +3373,17 @@
         document.getElementById('adminPinInput').value = '';
         const savedEmail = localStorage.getItem(ADMIN_EMAIL_CACHE_KEY) || '';
         if (savedEmail) document.getElementById('adminEmailInput').value = savedEmail;
-        switchAuthTab('pin');
-        openModal('loginModal');
-        setTimeout(() => document.getElementById('adminPinInput').focus(), 150);
+
+        // إذا لم يكن قد سجل الدخول السحابي بعد أو لم يضبط رمز PIN سريع، نفتح تبويب البريد مباشرة
+        if (!isCloudAuthenticated && !state.adminPinHash) {
+          switchAuthTab('email');
+          openModal('loginModal');
+          setTimeout(() => document.getElementById('adminEmailInput').focus(), 150);
+        } else {
+          switchAuthTab('pin');
+          openModal('loginModal');
+          setTimeout(() => document.getElementById('adminPinInput').focus(), 150);
+        }
       }
     }
 
@@ -3161,28 +3391,33 @@
       const rawPin = document.getElementById('adminPinInput').value;
       const pin = normalizeArabicDigits(rawPin).trim();
       if (!pin) {
-        alert('يرجى إدخال رمز PIN');
+        alert('يرجى إدخال رمز PIN السريع');
+        return;
+      }
+
+      if (!state.adminPinHash) {
+        alert('لم يتم تعيين رمز PIN سريع بعد. يرجى الدخول من تبويب "الحساب السحابي" أولاً ثم تعيين رمز PIN سريع من لوحة المسؤول.');
+        switchAuthTab('email');
         return;
       }
 
       const actualHash = await hashPin(pin);
-      const currentHash = state.adminPinHash;
-
-      if ((currentHash && actualHash === currentHash) || isMasterRecoveryKey(pin)) {
+      if (actualHash === state.adminPinHash) {
         isAdmin = true;
         sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+        if (isCloudAuthenticated) attachAdminListeners();
         closeModal('loginModal');
         updateAdminUI();
         render();
         showToast('تم الدخول بنجاح كمسؤول ✓');
       } else {
-        alert('رمز PIN غير صحيح');
+        alert('رمز PIN السريع غير صحيح. إذا نسيته، انتقل لتبويب "الحساب السحابي".');
       }
     }
 
     function loginWithFirebaseEmail() {
       if (!auth) {
-        alert('مكتبة Firebase Auth غير محملة. استخدم رمز PIN السريع.');
+        alert('خدمة المصادقة غير متوفرة حالياً.');
         return;
       }
       const email = document.getElementById('adminEmailInput').value.trim();
@@ -3197,6 +3432,7 @@
         isAdmin = true;
         isCloudAuthenticated = true;
         sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+        attachAdminListeners();
         closeModal('loginModal');
         updateAdminUI();
         render();
@@ -3229,25 +3465,6 @@
       showToast('تم تسجيل الخروج النهائي من الجهاز');
     }
 
-    async function recoverAdminPin() {
-      const entered = prompt('أدخل مفتاح الطوارئ الرئيسي (Master Key) لاستعادة الدخول أو اختر تبويب الحساب السحابي للاستعادة عبر البريد:');
-      if (entered !== null && isMasterRecoveryKey(entered)) {
-        const newPin = prompt('تم التحقق بنجاح ✓\nأدخل رمز PIN رقمي جديد (4 إلى 10 أرقام) للدخول السريع:', '123456');
-        if (newPin && /^\d{4,10}$/.test(normalizeArabicDigits(newPin).trim())) {
-          state.adminPinHash = await hashPin(normalizeArabicDigits(newPin).trim());
-        }
-        isAdmin = true;
-        sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
-        pushState();
-        closeModal('loginModal');
-        updateAdminUI();
-        render();
-        showToast('تمت استعادة الدخول وتحديث رمز المسؤول ✓');
-      } else if (entered !== null) {
-        alert('مفتاح الطوارئ غير صحيح. يمكنك أيضاً استخدام تبويب "الحساب السحابي" لإرسال رابط استعادة إلى بريدك الإلكتروني.');
-      }
-    }
-
     function openChangePinModal() {
       if (!isAdmin) return;
       document.getElementById('newPinInput').value = '';
@@ -3270,7 +3487,7 @@
       delete state.pin;
       pushState();
       closeModal('changePinModal');
-      showToast('تم تحديث رمز المسؤول السريع بنجاح ✓');
+      showToast('تم حفظ رمز المسؤول السريع بنجاح ✓');
     }
 
     function toggleAlphaInputVisibility() {
@@ -3362,4 +3579,4 @@
     };
   </script>
 </body>
-  </html>
+</html>
